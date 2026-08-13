@@ -23,6 +23,8 @@ Cloudflare D1 (SQLite) ব্যবহার করা হয়েছে।
 - [x] হোমপেজ ডিজাইন (`index.html`) — offers, sign up ফর্ম, ইত্যাদি
 - [x] Earn পেজ ডিজাইন (`earn.html`)
 - [x] Profile পেজ ডিজাইন (`profile.html`)
+- [x] Leaderboard পেজ ডিজাইন (`leaderboard.html`) — podium + full ranking table,
+      real API থেকে ডেটা লোড করে, API fail করলে placeholder ডেটা দেখায়
 - [x] D1 ডেটাবেসের schema (`schema.sql`) — `users` আর `sessions` টেবিল
 - [x] আসল **backend API** (Cloudflare Pages Functions) — এর আগে এগুলো ছিলই না,
       নতুন বানানো হয়েছে:
@@ -31,13 +33,21 @@ Cloudflare D1 (SQLite) ব্যবহার করা হয়েছে।
   - `functions/api/auth/logout.js` — সাইন আউট করায়
   - `functions/api/auth/me.js` — বর্তমান লগইন করা ইউজারের তথ্য দেয়
   - `functions/api/profile/update.js` — ইউজারনেম/অ্যাভাটার/প্রাইভেসি আপডেট করে
+  - `functions/api/leaderboard.js` — `users.coins` অনুযায়ী রank করে (বেশি কয়েন
+    আগে), top 50 রিটার্ন করে, সাইন-ইন করা ইউজারের নিজের rank বের করে (top 50 এর
+    বাইরে থাকলেও), প্রতিটা rank এর জন্য static prize বসায়
   - `functions/_lib/auth.js` — পাসওয়ার্ড হ্যাশিং, সেশন কুকি — শেয়ার্ড কোড
 - [x] Sign Up / Sign In / Sign Out — আসল D1 ডেটাবেসের সাথে কাজ করছে (টেস্ট করা হয়েছে)
 - [x] লগইন করার পর হোমপেজে "Sign up for free" ফর্মটা লুকিয়ে যায়
 
 **মানে এখন সাইটে রিয়েল অ্যাকাউন্ট সিস্টেম কাজ করছে** — কেউ সাইন আপ করলে সেটা
 সত্যিকারের D1 ডেটাবেসে সেভ হয়, পাসওয়ার্ড হ্যাশ করা থাকে, সেশন কুকি দিয়ে লগইন
-মনে রাখে।
+মনে রাখে। লিডারবোর্ডও এখন লাইভ ডেটার সাথে যুক্ত।
+
+⚠️ **চেক করা বাকি:** `leaderboard.js` এর ভেতরে সেশন কুকির নাম `session` ধরে
+নেওয়া হয়েছিল (assumption)। `functions/_lib/auth.js` এ আসল কুকির নাম যদি ভিন্ন
+হয় (`session_id`, `auth_token` ইত্যাদি), তাহলে সাইন-ইন করা ইউজারের "Your rank"
+সবসময় "Sign in to see your rank" দেখাবে — এটা মিলিয়ে নিতে হবে।
 
 ---
 
@@ -54,11 +64,13 @@ incm website/
 │       │   ├── login.js
 │       │   ├── logout.js
 │       │   └── me.js
-│       └── profile/
-│           └── update.js
+│       ├── profile/
+│       │   └── update.js
+│       └── leaderboard.js
 ├── index.html
 ├── earn.html
 ├── profile.html
+├── leaderboard.html
 ├── schema.sql
 ├── wrangler.toml
 └── README.md
@@ -93,6 +105,9 @@ incm website/
 
 এগুলো এখনো **আসল ডেটার সাথে সংযুক্ত না** — এখনো ডেমো/স্ট্যাটিক ডেটা দেখাচ্ছে:
 
+- [ ] **Leaderboard সেশন কুকি নাম মিলিয়ে নেওয়া** — `functions/api/leaderboard.js`
+      এ `session` কুকির নাম assume করা হয়েছে, `functions/_lib/auth.js` এর সাথে
+      মিলিয়ে দরকার হলে ঠিক করতে হবে।
 - [ ] **Earn পেজ (`earn.html`)** — অফারগুলো (apps/games/surveys) এখনো
       hardcoded। কোনো অফারওয়াল প্রোভাইডার (যেমন OfferToro, AdGate, CPAlead)
       এর API এর সাথে যুক্ত করতে হবে, আর অফার সম্পূর্ণ হলে
@@ -121,6 +136,7 @@ incm website/
 | Console এ `403 Forbidden` `/api/...` | সাইট `file://` দিয়ে খোলা হয়েছে | Deploy করা `https://earnbangla.pages.dev` লিংকে টেস্ট করুন |
 | Sign up কাজ করে কিন্তু ডেটা সেভ থাকে না | D1 binding যোগ করা হয়নি | Cloudflare Dashboard → Settings → Functions → D1 bindings চেক করুন |
 | GitHub এ push করলাম কিন্তু সাইটে পরিবর্তন দেখাচ্ছে না | Deploy এখনো শেষ হয়নি, বা browser cache | ১-২ মিনিট অপেক্ষা করুন, তারপর Ctrl+Shift+R দিয়ে হার্ড রিফ্রেশ করুন |
+| Leaderboard এ "Your rank" সবসময় "Sign in to see your rank" দেখায়, যদিও সাইন-ইন করা আছে | `leaderboard.js` এর কুকির নাম `auth.js` এর সাথে মিলছে না | ব্রাউজার DevTools → Application → Cookies এ আসল কুকির নাম দেখে `leaderboard.js` এ মিলিয়ে দিন |
 
 ---
 
