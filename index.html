@@ -1158,6 +1158,37 @@
       }
     }catch(ex){ /* API not deployed yet in this preview — stays signed out */ }
   })();
+
+  function timeAgo(ts){
+    const diffMin = Math.max(1, Math.round((Date.now() - ts) / 60000));
+    if(diffMin < 60) return diffMin + (diffMin === 1 ? ' minute ago' : ' minutes ago');
+    const diffHr = Math.round(diffMin / 60);
+    return diffHr + (diffHr === 1 ? ' hour ago' : ' hours ago');
+  }
+  function initialsOf(name){
+    return (name || '?').trim().slice(0, 2).toUpperCase();
+  }
+  function tickerItemHTML(entry){
+    const name = entry.username || 'Earner';
+    return '<div class="ticker-item">'
+      + '<span class="ticker-avatar">' + initialsOf(name) + '</span>'
+      + '<div><span class="ticker-name">' + name + '</span>'
+      + '<span class="ticker-time">' + timeAgo(entry.createdAt) + '</span></div>'
+      + '<span class="ticker-coin"><svg class="icon"><use href="#i-coin"></use></svg> ' + entry.coinsEarned + '</span>'
+      + '</div>';
+  }
+
+  (async function loadActivityTicker(){
+    try{
+      const res = await fetch('/api/activity');
+      if(!res.ok) return; // keep the placeholder ticker already in the HTML
+      const { activity } = await res.json();
+      if(!Array.isArray(activity) || activity.length === 0) return; // no real events yet
+      const html = activity.map(tickerItemHTML).join('');
+      // duplicate the list once so the scroll animation (translateX -50%) loops seamlessly
+      document.getElementById('ticker').innerHTML = html + html;
+    }catch(ex){ /* keep placeholder ticker on any error */ }
+  })();
 </script>
 
 <script>
