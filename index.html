@@ -1131,10 +1131,14 @@
     document.getElementById('userCta').style.display = 'flex';
     document.getElementById('userChipAvatar').className = 'user-chip-avatar ' + (user.avatar || 'avc1');
     document.getElementById('userChipName').textContent = user.username;
+    const signupSection = document.getElementById('signup');
+    if(signupSection) signupSection.style.display = 'none';
   }
   function applySignedOutUI(){
     document.getElementById('guestCta').style.display = 'flex';
     document.getElementById('userCta').style.display = 'none';
+    const signupSection = document.getElementById('signup');
+    if(signupSection) signupSection.style.display = '';
   }
 
   (async function checkSession(){
