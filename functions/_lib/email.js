@@ -21,7 +21,7 @@ export async function sendEmail(env, { to, subject, html }) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: env.RESEND_FROM_EMAIL || "earnbangla <support@yourdomain.com>",
+      from: env.RESEND_FROM_EMAIL || "earnbangla <support@earn-bangla.com>",
       to,
       subject,
       html,
