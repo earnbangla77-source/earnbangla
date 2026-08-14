@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>earnbangla — Get paid for testing apps, games & surveys</title>
+<title>Contact Us — earnbangla</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
@@ -595,6 +595,60 @@
   }
   .form-error.show{display:block;}
 </style>
+<style>
+  /* ===== Static content pages (Terms / Privacy / Contact / FAQ) ===== */
+  .page-hero{padding:64px 0 10px;}
+  .page-hero h1{font-family:'Sora',sans-serif;font-size:38px;font-weight:800;margin-bottom:12px;}
+  .page-hero p{color:var(--text-dim);font-size:15.5px;max-width:600px;}
+  .page-updated{color:var(--text-faint);font-size:12.5px;margin-top:10px;}
+
+  .legal-panel{
+    background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+    padding:40px 44px;box-shadow:var(--sh-sm);max-width:820px;margin:0 auto;
+  }
+  .legal-panel h2{
+    font-family:'Sora',sans-serif;font-size:19px;font-weight:700;
+    margin:32px 0 12px;
+  }
+  .legal-panel h2:first-child{margin-top:0;}
+  .legal-panel p{color:var(--text-dim);font-size:14.5px;margin-bottom:12px;}
+  .legal-panel ul{margin:0 0 12px;padding-left:0;}
+  .legal-panel ul li{
+    color:var(--text-dim);font-size:14.5px;margin-bottom:8px;
+    padding-left:22px;position:relative;
+  }
+  .legal-panel ul li::before{
+    content:'';position:absolute;left:0;top:9px;
+    width:6px;height:6px;border-radius:50%;background:var(--orange);
+  }
+  .legal-panel strong{color:var(--text);}
+
+  /* Contact page */
+  .contact-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;max-width:900px;margin:0 auto;}
+  .contact-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+    padding:28px 24px;box-shadow:var(--sh-sm);text-align:center;
+    transition:transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+  .contact-card:hover{transform:translateY(-4px);border-color:rgba(255,122,26,0.35);box-shadow:var(--sh-md);}
+  .contact-icon{
+    width:46px;height:46px;border-radius:12px;margin:0 auto 16px;
+    background:var(--grad-orange);
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:var(--sh-orange);
+  }
+  .contact-icon .icon{width:21px;height:21px;color:#fff;}
+  .contact-card h3{font-family:'Sora',sans-serif;font-size:16px;font-weight:700;margin-bottom:6px;}
+  .contact-card p{color:var(--text-faint);font-size:13.5px;margin-bottom:14px;}
+
+  @media (max-width:860px){
+    .contact-grid{grid-template-columns:1fr;}
+    .legal-panel{padding:30px 24px;}
+  }
+  @media (max-width:760px){
+    .page-hero h1{font-size:28px;}
+  }
+</style>
 </head>
 <body>
 <div class="stars"></div>
@@ -646,16 +700,16 @@
   <div class="sidebar-overlay" id="overlay"></div>
   <aside class="sidebar" id="sidebar">
     <div class="side-top">
-      <a href="#home" class="side-logo">
+      <a href="index.html#home" class="side-logo">
         <span class="mark">৳</span>
         <span class="earn">earn</span><span class="bangla">bangla</span>
       </a>
       <button class="sidebar-close" id="sideClose" aria-label="Close menu"><svg class="icon"><use href="#i-x"></use></svg></button>
     </div>
     <nav class="side-nav">
-      <a href="#home" class="side-link active"><svg class="icon"><use href="#i-home"></use></svg> Home</a>
+      <a href="index.html#home" class="side-link"><svg class="icon"><use href="#i-home"></use></svg> Home</a>
       <a href="earn.html" class="side-link"><svg class="icon"><use href="#i-wallet"></use></svg> Earn</a>
-      <a href="#offers" class="side-link"><svg class="icon"><use href="#i-sparkles"></use></svg> Offers</a>
+      <a href="index.html#offers" class="side-link"><svg class="icon"><use href="#i-sparkles"></use></svg> Offers</a>
       <a href="#" class="side-link"><svg class="icon"><use href="#i-file"></use></svg> Surveys</a>
       <a href="#" class="side-link"><svg class="icon"><use href="#i-bag"></use></svg> Shop</a>
       <a href="leaderboard.html" class="side-link"><svg class="icon"><use href="#i-bars"></use></svg> Leaderboard</a>
@@ -672,7 +726,7 @@
     <!-- TOPBAR -->
     <div class="topbar">
       <button class="menu-btn" id="sideOpen" aria-label="Open menu"><svg class="icon"><use href="#i-menu"></use></svg></button>
-      <a href="#home" class="topbar-brand">
+      <a href="index.html#home" class="topbar-brand">
         <span class="mark">৳</span>earn<span class="bangla">bangla</span>
       </a>
       <div class="ticker-wrap">
@@ -733,221 +787,51 @@
       </div>
     </div>
 
-    <!-- HERO -->
-    <section class="hero" id="home">
+    <!-- PAGE HERO -->
+    <section class="section page-hero">
       <div class="container">
-        <h1><span class="grad">Get paid</span> for testing apps, games &amp; surveys</h1>
-        <div class="hero-sub">
-          Earn up to <span class="amt">$60.00</span> per offer
-          <span class="sep"></span>
-          <span class="live">128 offers available now</span>
-        </div>
+        <span class="eyebrow"><span class="dot"></span> Support</span>
+        <h1>Contact Us</h1>
+        <p>Have a question about your account, an offer, or a withdrawal? Reach out through any of the channels below.</p>
       </div>
     </section>
 
-    <!-- OFFER CARDS -->
-    <section class="offers-strip" id="offers">
-      <div class="container">
-        <div class="offers-grid">
-          <div class="offer-card reveal">
-            <div class="offer-thumb ot1"><svg class="icon"><use href="#i-crown"></use></svg></div>
-            <div class="offer-body">
-              <h4>Coin Rush Kingdom</h4>
-              <p>Complete offers on iOS &amp; Android</p>
-              <div class="offer-price">$46.97</div>
-            </div>
-          </div>
-          <div class="offer-card reveal">
-            <div class="offer-thumb ot2"><svg class="icon"><use href="#i-flame"></use></svg></div>
-            <div class="offer-body">
-              <h4>Smash Party</h4>
-              <p>Complete offers on iOS &amp; Android</p>
-              <div class="offer-price">$8.05</div>
-            </div>
-          </div>
-          <div class="offer-card reveal">
-            <div class="offer-thumb ot3"><svg class="icon"><use href="#i-grid"></use></svg></div>
-            <div class="offer-body">
-              <h4>Merge Blast Number</h4>
-              <p>Complete offers on iOS &amp; Android</p>
-              <div class="offer-price">$14.91</div>
-            </div>
-          </div>
-          <div class="offer-card reveal">
-            <div class="offer-thumb ot4"><svg class="icon"><use href="#i-sparkles"></use></svg></div>
-            <div class="offer-body">
-              <h4>Puzzle Dash</h4>
-              <p>Complete offers on iOS &amp; Android</p>
-              <div class="offer-price">$21.30</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- SIGN UP -->
-    <section class="section signup-section" id="signup">
-      <div class="container">
-        <form class="signup-card reveal" id="homeSignupForm" novalidate>
-          <h2>Sign up for free.</h2>
-          <p>and earn up to daily $50 for free</p>
-          <div class="form-error" id="homeSignupError"></div>
-          <div class="field">
-            <label>Username</label>
-            <input type="text" name="username" placeholder="Choose a username" required minlength="3" maxlength="24">
-          </div>
-          <div class="field">
-            <label>Email</label>
-            <input type="email" name="email" placeholder="Enter your email" required>
-          </div>
-          <div class="field">
-            <div class="field-top">
-              <label style="margin-bottom:0;">Password</label>
-            </div>
-            <div class="field-row">
-              <input type="password" name="password" placeholder="Enter your password" required minlength="6">
-              <button type="button" class="eye-toggle" aria-label="Show password"><svg class="icon"><use href="#i-eye"></use></svg></button>
-            </div>
-          </div>
-          <label class="remember-row">
-            <input type="checkbox"> Remember Me
-          </label>
-          <button type="submit" class="btn btn-primary btn-block">Sign Up</button>
-          <div class="or-divider">or</div>
-          <p style="font-size:13.5px;color:var(--text-dim);">Already have an account? <a href="#" id="homeGoSignIn" style="color:var(--orange);font-weight:700;">Sign in</a></p>
-        </form>
-
-        <div class="mini-stats reveal">
-          <div>
-            <div class="mini-stat-num"><svg class="icon"><use href="#i-clock"></use></svg> 00h 04m</div>
-            <div class="mini-stat-label">Average time until user makes first cashout</div>
-          </div>
-          <div>
-            <div class="mini-stat-num"><svg class="icon"><use href="#i-dollar"></use></svg> 734</div>
-            <div class="mini-stat-label">Average money earned by users per yesterday</div>
-          </div>
-          <div>
-            <div class="mini-stat-num"><svg class="icon"><use href="#i-dollar"></use></svg> 42.14K</div>
-            <div class="mini-stat-label">Total USD earned on earnbangla</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- HOW IT WORKS -->
-    <section class="section">
-      <div class="container">
-        <div class="sec-head center reveal">
-          <span class="eyebrow"><span class="dot"></span> Only 3 steps</span>
-          <h2>How earning on earnbangla works</h2>
-          <p>From sign up to cashout — the whole process is simple and fast.</p>
-        </div>
-        <div class="steps">
-          <div class="step-card reveal">
-            <div class="step-num">01</div>
-            <div class="step-icon"><svg class="icon"><use href="#i-edit"></use></svg></div>
-            <h3>Create your account</h3>
-            <p>Sign up for free in under 30 seconds — no fees, no credit card required.</p>
-          </div>
-          <div class="step-card reveal">
-            <div class="step-num">02</div>
-            <div class="step-icon"><svg class="icon"><use href="#i-check"></use></svg></div>
-            <h3>Complete offers</h3>
-            <p>Install apps, take surveys, or play games to easily earn coins.</p>
-          </div>
-          <div class="step-card reveal">
-            <div class="step-num">03</div>
-            <div class="step-icon"><svg class="icon"><use href="#i-dollar"></use></svg></div>
-            <h3>Cash out instantly</h3>
-            <p>Redeem your coins for PayPal, crypto, gift cards, and more.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- FEATURES -->
-    <section class="section" style="background:var(--bg-elev);border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
-      <div class="container">
-        <div class="sec-head center reveal">
-          <span class="eyebrow"><span class="dot"></span> Why earnbangla</span>
-          <h2>What makes us different</h2>
-          <p>Trust and fast payouts are our top priorities.</p>
-        </div>
-        <div class="features-grid">
-          <div class="feature-card reveal">
-            <div class="feature-icon"><svg class="icon"><use href="#i-zap"></use></svg></div>
-            <h3>Fast Payouts</h3>
-            <p>Get paid within 24 hours of your withdrawal request.</p>
-          </div>
-          <div class="feature-card reveal">
-            <div class="feature-icon"><svg class="icon"><use href="#i-grid"></use></svg></div>
-            <h3>Multiple Offerwalls</h3>
-            <p>Access offers and tasks from many trusted networks.</p>
-          </div>
-          <div class="feature-card reveal">
-            <div class="feature-icon"><svg class="icon"><use href="#i-shield"></use></svg></div>
-            <h3>Secure &amp; Safe</h3>
-            <p>Your data and balance are fully encrypted and protected.</p>
-          </div>
-          <div class="feature-card reveal">
-            <div class="feature-icon"><svg class="icon"><use href="#i-headphones"></use></svg></div>
-            <h3>24/7 Support</h3>
-            <p>Our team is always here to help whenever you need it.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- FAQ -->
-    <section class="section">
-      <div class="container">
-        <div class="sec-head center reveal">
-          <span class="eyebrow"><span class="dot"></span> FAQ</span>
-          <h2>Frequently asked questions</h2>
-          <p>Everything you need to know before you get started.</p>
-        </div>
-        <div class="faq-list">
-          <div class="faq-item open reveal">
-            <div class="faq-q">What is earnbangla all about? <svg class="icon"><use href="#i-chevron"></use></svg></div>
-            <div class="faq-a">earnbangla is an online platform that lets you earn money by using apps and participating in surveys. We partner with top market research firms to power your earning experience. Coins you earn can be redeemed for PayPal credit, cryptocurrency, gift cards, and more.</div>
-          </div>
-          <div class="faq-item reveal">
-            <div class="faq-q">Who manages the offer/survey walls? <svg class="icon"><use href="#i-chevron"></use></svg></div>
-            <div class="faq-a">Our offer and survey walls are powered by trusted third-party partner networks. We carefully vet each partner to make sure every task is safe and worth your time.</div>
-          </div>
-          <div class="faq-item reveal">
-            <div class="faq-q">How do I withdraw my earnings? <svg class="icon"><use href="#i-chevron"></use></svg></div>
-            <div class="faq-a">Head to the Rewards page, choose your preferred payout method, and submit a request. Most withdrawals are processed within 24 hours.</div>
-          </div>
-          <div class="faq-item reveal">
-            <div class="faq-q">Is earnbangla free to use? <svg class="icon"><use href="#i-chevron"></use></svg></div>
-            <div class="faq-a">Yes, signing up and using earnbangla is completely free. There are no hidden fees or subscriptions.</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- CTA -->
+    <!-- CONTACT METHODS -->
     <section class="section" style="padding-top:0;">
       <div class="container">
-        <div class="cta-panel reveal">
-          <div>
-            <h2>Start Making Money Today!</h2>
-            <p>Start earning money today by completing offers, playing games, and taking surveys. It's easy, fun, and rewarding!</p>
-            <a href="#signup" class="btn btn-primary">Get Started</a>
+        <div class="contact-grid reveal">
+          <div class="contact-card">
+            <div class="contact-icon"><svg class="icon"><use href="#i-mail"></use></svg></div>
+            <h3>Email</h3>
+            <p>Best for account &amp; withdrawal issues</p>
+            <a href="mailto:support@earn-bangla.com" class="btn btn-dark btn-sm">support@earn-bangla.com</a>
           </div>
-          <div class="cta-icons">
-            <div class="cta-icon-box ci1"><svg class="icon"><use href="#i-sword"></use></svg></div>
-            <div class="cta-icon-box ci2"><svg class="icon"><use href="#i-flame"></use></svg></div>
-            <div class="cta-icon-box ci3"><svg class="icon"><use href="#i-mask"></use></svg></div>
-            <div class="cta-icon-box ci4"><svg class="icon"><use href="#i-film"></use></svg></div>
-            <div class="cta-icon-box ci5"><svg class="icon"><use href="#i-crown"></use></svg></div>
-            <div class="cta-icon-box ci6"><svg class="icon"><use href="#i-orbit"></use></svg></div>
+          <div class="contact-card">
+            <div class="contact-icon"><svg class="icon"><use href="#i-send"></use></svg></div>
+            <h3>Telegram</h3>
+            <p>Fastest way to reach our team</p>
+            <a href="#" class="btn btn-dark btn-sm">Message us</a>
+          </div>
+          <div class="contact-card">
+            <div class="contact-icon"><svg class="icon"><use href="#i-facebook"></use></svg></div>
+            <h3>Facebook</h3>
+            <p>Follow updates &amp; announcements</p>
+            <a href="#" class="btn btn-dark btn-sm">Visit page</a>
           </div>
         </div>
       </div>
     </section>
 
+    <!-- HELP PANEL -->
+    <section class="section" style="padding-top:0;">
+      <div class="container">
+        <div class="legal-panel reveal" style="text-align:center;">
+          <h2 style="margin-top:0;">Looking for a quick answer?</h2>
+          <p>Most common questions about earning, withdrawals, and your account are already answered on our FAQ page.</p>
+          <a href="faq.html" class="btn btn-primary" style="margin-top:6px;">Visit FAQ</a>
+        </div>
+      </div>
+    </section>
     <!-- FOOTER -->
     <footer>
       <div class="container">
@@ -1073,7 +957,8 @@
 
   document.getElementById('topSignInBtn').addEventListener('click', () => openAuthModal('signin'));
   document.getElementById('topSignUpBtn').addEventListener('click', () => openAuthModal('signup'));
-  document.getElementById('homeGoSignIn').addEventListener('click', e => { e.preventDefault(); openAuthModal('signin'); });
+  const homeGoSignInEl = document.getElementById('homeGoSignIn');
+  if(homeGoSignInEl) homeGoSignInEl.addEventListener('click', e => { e.preventDefault(); openAuthModal('signin'); });
 
   function showFormError(el, msg){ el.textContent = msg; el.classList.add('show'); }
   function hideFormError(el){ el.classList.remove('show'); el.textContent=''; }
@@ -1115,7 +1000,8 @@
     }catch(ex){ showFormError(err, ex.message); }
   });
 
-  document.getElementById('homeSignupForm').addEventListener('submit', async e => {
+  const homeSignupFormEl = document.getElementById('homeSignupForm');
+  if(homeSignupFormEl) homeSignupFormEl.addEventListener('submit', async e => {
     e.preventDefault();
     const err = document.getElementById('homeSignupError');
     hideFormError(err);
