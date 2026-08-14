@@ -49,24 +49,33 @@ Cloudflare D1 (SQLite) ব্যবহার করা হয়েছে।
       coins deduct করে, `withdrawals` টেবিলে `status = 'pending'` সহ একটা
       রেকর্ড বসায়
     - `GET` → সাইন-ইন করা ইউজারের নিজের সব withdrawal history রিটার্ন করে
-      (সর্বশেষ ৫০টা) — এটা এখনো কোথাও frontend থেকে call করা হচ্ছে না (নিচে
-      "পরবর্তী কাজ" দেখুন)
+      (সর্বশেষ ৫০টা) — এখন `profile.html`-এর Activity ট্যাব থেকে সরাসরি call
+      হচ্ছে (নিচে দেখুন)
   - `functions/_lib/auth.js` — পাসওয়ার্ড হ্যাশিং, সেশন কুকি — শেয়ার্ড কোড
 - [x] Sign Up / Sign In / Sign Out — আসল D1 ডেটাবেসের সাথে কাজ করছে (টেস্ট করা হয়েছে)
 - [x] লগইন করার পর হোমপেজে "Sign up for free" ফর্মটা লুকিয়ে যায়
+- [x] **`schema.sql`-এর `withdrawals` টেবিল লাইভ D1 তে বসানো হয়ে গেছে** —
+      D1 Studio তে গিয়ে ভেরিফাই করা হয়েছে (আসল রেকর্ড দেখা গেছে)
+- [x] **Leaderboard সেশন কুকি নাম মিলিয়ে ঠিক করা হয়েছে** — `leaderboard.js`
+      এখন `functions/_lib/auth.js`-এর আসল কুকি `eb_session` ব্যবহার করে, "Your
+      rank" ঠিকমতো দেখায়
+- [x] **Profile পেজের "Activity" ট্যাব — Withdrawals ও Pending এখন লাইভ ডেটা
+      দেখায়** — `functions/api/withdraw/request.js`-এর `GET` কল করে
+      status অনুযায়ী ভাগ করা হয়েছে:
+  - **Pending ট্যাব** → `status = 'pending'` request গুলো (badge count সহ)
+  - **Withdrawals ট্যাব** → resolved request গুলো (`completed`/`rejected`),
+      প্রতিটার সাথে method, address (shortened), তারিখ-সময়, coins + $ amount,
+      আর রঙিন status pill দেখায়
+  - dashboard লোড হওয়ার সাথেই দুই ট্যাবের badge count চুপচাপ preload হয়ে যায়
+  - **Earnings ট্যাব এখনো বাকি** — এটার জন্য আলাদা backend endpoint লাগবে
+    (নিচে "পরবর্তী কাজ" দেখুন)
 
 **মানে এখন সাইটে রিয়েল অ্যাকাউন্ট সিস্টেম কাজ করছে** — কেউ সাইন আপ করলে সেটা
 সত্যিকারের D1 ডেটাবেসে সেভ হয়, পাসওয়ার্ড হ্যাশ করা থাকে, সেশন কুকি দিয়ে লগইন
-মনে রাখে। লিডারবোর্ডও এখন লাইভ ডেটার সাথে যুক্ত। **Withdraw সিস্টেমও এখন
-ফ্রন্টএন্ড + ব্যাকএন্ড দুটোই রেডি — শুধু D1 তে `schema.sql` রি-রান করে
-`withdrawals` টেবিল বসিয়ে ডিপ্লয় করলেই কাজ করবে।**
-
-⚠️ **চেক করা বাকি:** `leaderboard.js` এর ভেতরে সেশন কুকির নাম `session` ধরে
-নেওয়া হয়েছিল (assumption)। `functions/_lib/auth.js` এ আসল কুকির নাম যদি ভিন্ন
-হয় (`session_id`, `auth_token` ইত্যাদি), তাহলে সাইন-ইন করা ইউজারের "Your rank"
-সবসময় "Sign in to see your rank" দেখাবে — এটা মিলিয়ে নিতে হবে।
-(নোট: `functions/_lib/auth.js` অনুযায়ী আসল কুকির নাম `eb_session` — leaderboard.js
-এইটার সাথে মিলছে কিনা যাচাই করুন।)
+মনে রাখে। লিডারবোর্ডও এখন লাইভ ডেটার সাথে যুক্ত, "Your rank" ঠিকমতো দেখায়।
+**Withdraw সিস্টেমও এখন সম্পূর্ণ এন্ড-টু-এন্ড কাজ করছে** — ফ্রন্টএন্ড, ব্যাকএন্ড,
+D1 টেবিল সব লাইভ, আর profile.html-এর Activity ট্যাবেও (Pending/Withdrawals)
+নিজের request history status অনুযায়ী দেখা যাচ্ছে।
 
 ---
 
@@ -138,9 +147,6 @@ incm website/
 
 এগুলো এখনো **আসল ডেটার সাথে সংযুক্ত না** — এখনো ডেমো/স্ট্যাটিক ডেটা দেখাচ্ছে:
 
-- [ ] **Leaderboard সেশন কুকি নাম মিলিয়ে নেওয়া** — `functions/api/leaderboard.js`
-      এ `session` কুকির নাম assume করা হয়েছে, `functions/_lib/auth.js` এর
-      আসল কুকির নাম (`eb_session`) এর সাথে মিলিয়ে দরকার হলে ঠিক করতে হবে।
 - [ ] **Earn পেজ (`earn.html`)** — অফারগুলো (apps/games/surveys) এখনো
       hardcoded। কোনো অফারওয়াল প্রোভাইডার (যেমন OfferToro, AdGate, CPAlead)
       এর API এর সাথে যুক্ত করতে হবে, আর অফার সম্পূর্ণ হলে
@@ -149,14 +155,6 @@ incm website/
 - [ ] **রেফারেল সিস্টেম** — `users_referred` ফিল্ড ডেটাবেসে আছে, কিন্তু কেউ
       রেফার করলে সেটা count হওয়ার কোনো লজিক এখনো নেই।
 - [ ] **Withdraw সিস্টেম — বাকি কাজ:**
-  - `schema.sql` এ যোগ হওয়া `withdrawals` টেবিলটা এখনো লাইভ D1 তে বসানো
-    (`wrangler d1 execute ... --file=./schema.sql`) হয়নি — deploy এর আগে এটা
-    করা লাগবে।
-  - `functions/api/withdraw/request.js` এর `GET` endpoint বানানো আছে কিন্তু
-    কোনো পেজ এটা এখনো call করছে না — profile.html এর "Withdrawals" activity
-    ট্যাব বা `withdraw.html` এর "My withdrawals" লিংককে এই endpoint এর সাথে
-    যুক্ত করতে হবে যাতে ইউজার তার আগের withdraw request গুলোর status
-    (pending/completed/rejected) দেখতে পারে।
   - Litecoin/Binance address ফরম্যাট এখনো সার্ভার সাইডে যাচাই হয় না (শুধু
     ৪ ক্যারেক্টারের বেশি হলেই গ্রহণ করে) — চাইলে প্রতিটা মেথডের জন্য প্রপার
     address regex validation যোগ করা যেতে পারে।
@@ -169,10 +167,11 @@ incm website/
 - [ ] **পাসওয়ার্ড রিসেট ("Forgot password")** — এখনো নেই।
 - [ ] **Level সিস্টেম** — `level` ফিল্ড আছে কিন্তু কখন/কীভাবে বাড়বে তার লজিক
       এখনো নেই।
-- [ ] প্রোফাইল পেজের "Activity" ট্যাব (Earnings / Withdrawals / Pending) —
-      এখনো শুধু "কিছু নেই" মেসেজ দেখায়, আসল ডেটা লোড করে না (Withdrawals ট্যাবের
-      জন্য `functions/api/withdraw/request.js` এর `GET` ব্যবহার করা যাবে, বাকি
-      দুইটার জন্য আলাদা endpoint লাগবে)।
+- [ ] **প্রোফাইল পেজের "Earnings" ট্যাব** — এখনো শুধু "কিছু নেই" মেসেজ দেখায়।
+      Withdrawals ও Pending ট্যাব লাইভ হয়ে গেছে, কিন্তু Earnings ট্যাবের জন্য
+      আলাদা একটা endpoint লাগবে (offer সম্পূর্ণ হওয়া, রেফারেল বোনাস ইত্যাদি
+      কয়েন-আয়ের ঘটনাগুলোর লগ) — এটা Earn পেজের অফারওয়াল ইন্টিগ্রেশনের সাথেই
+      একসাথে করা যেতে পারে।
 
 ---
 

@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — earnbangla</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0A0F;
+    --bg-elev:#0F0F17;
+    --panel:#14141F;
+    --panel-2:#191926;
+    --border:#232333;
+    --orange:#FF7A1A;
+    --orange-2:#FF3D1E;
+    --violet:#8B5CF6;
+    --green:#3AD07A;
+    --red:#FF3D1E;
+    --text:#F4F4F8;
+    --text-dim:#9A9AAD;
+    --text-faint:#67677A;
+    --radius:16px;
+    --grad-orange:linear-gradient(135deg,var(--orange) 0%,var(--orange-2) 100%);
+    --sh-sm:0 4px 14px rgba(0,0,0,0.28);
+    --sh-md:0 12px 28px rgba(0,0,0,0.38);
+    --sh-lg:0 24px 60px rgba(0,0,0,0.5);
+    --sh-orange:0 10px 26px rgba(255,61,30,0.28);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    font-family:'Manrope',sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    line-height:1.6;
+    overflow-x:hidden;
+    position:relative;
+  }
+  .display{font-family:'Sora',sans-serif;}
+  a{text-decoration:none;color:inherit;}
+  ul{list-style:none;}
+  button{font-family:inherit;}
+  .icon{width:18px;height:18px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+
+  /* starfield */
+  .stars{
+    position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:
+      radial-gradient(1.5px 1.5px at 10% 15%, rgba(255,255,255,0.35), transparent),
+      radial-gradient(1.5px 1.5px at 85% 8%, rgba(255,255,255,0.3), transparent),
+      radial-gradient(1px 1px at 30% 40%, rgba(255,255,255,0.25), transparent),
+      radial-gradient(1.5px 1.5px at 70% 60%, rgba(255,255,255,0.3), transparent),
+      radial-gradient(1px 1px at 92% 35%, rgba(255,255,255,0.25), transparent),
+      radial-gradient(1.5px 1.5px at 15% 75%, rgba(255,255,255,0.3), transparent),
+      radial-gradient(1px 1px at 55% 90%, rgba(255,255,255,0.2), transparent),
+      radial-gradient(1.5px 1.5px at 40% 20%, rgba(255,255,255,0.28), transparent),
+      radial-gradient(1px 1px at 65% 12%, rgba(255,255,255,0.22), transparent),
+      radial-gradient(1.5px 1.5px at 95% 80%, rgba(255,255,255,0.3), transparent);
+    background-size:100% 100%;
+  }
+
+  /* ===== Buttons ===== */
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:14px 26px;border-radius:12px;
+    font-weight:700;font-size:15px;
+    border:none;cursor:pointer;
+    transition:transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+    white-space:nowrap;
+  }
+  .btn-primary{
+    background:var(--grad-orange);color:#fff;box-shadow:var(--sh-orange);
+    background-size:150% 150%;background-position:0% 50%;
+  }
+  .btn-primary:hover{transform:scale(1.05);box-shadow:0 16px 38px rgba(255,61,30,0.42);background-position:100% 50%;}
+  .btn-primary:active{transform:scale(0.96);}
+  .btn-primary:disabled{opacity:0.55;cursor:not-allowed;transform:none;}
+  .btn-outline{
+    background:transparent;color:var(--orange);border:1.5px solid rgba(255,122,26,0.4);
+  }
+  .btn-outline:hover{background:rgba(255,122,26,0.1);}
+  .btn-sm{padding:9px 16px;font-size:13.5px;border-radius:10px;}
+  .btn-xs{padding:6px 12px;font-size:12.5px;border-radius:9px;}
+  .btn-green{background:rgba(58,208,122,0.15);color:var(--green);border:1.5px solid rgba(58,208,122,0.35);}
+  .btn-green:hover{background:rgba(58,208,122,0.25);}
+  .btn-red{background:rgba(255,61,30,0.12);color:var(--orange-2);border:1.5px solid rgba(255,61,30,0.3);}
+  .btn-red:hover{background:rgba(255,61,30,0.22);}
+
+  /* ===== Layout shell ===== */
+  .shell{position:relative;z-index:1;min-height:100vh;}
+
+  /* Sidebar (drawer) */
+  .sidebar{
+    width:264px;flex-shrink:0;background:var(--bg-elev);border-right:1px solid var(--border);
+    padding:22px 16px 26px;position:fixed;top:0;bottom:0;left:0;
+    display:flex;flex-direction:column;z-index:300;
+    transform:translateX(-100%);transition:transform 0.32s cubic-bezier(.4,0,.2,1);
+  }
+  .sidebar.open{transform:translateX(0);box-shadow:var(--sh-lg);}
+  .side-top{display:flex;align-items:center;justify-content:space-between;padding:6px 8px 14px;}
+  .side-logo{display:flex;align-items:center;gap:9px;font-family:'Sora',sans-serif;font-weight:800;font-size:20px;}
+  .side-logo .mark{
+    width:32px;height:32px;border-radius:9px;background:var(--grad-orange);
+    display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff;flex-shrink:0;
+    box-shadow:var(--sh-orange);
+  }
+  .side-logo .earn{color:var(--text);}
+  .side-logo .bangla{background:var(--grad-orange);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .sidebar-close{
+    background:var(--panel);border:1px solid var(--border);border-radius:9px;color:var(--text-dim);
+    width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;
+    transition:background 0.2s ease,color 0.2s ease;
+  }
+  .sidebar-close:hover{background:var(--panel-2);color:var(--text);}
+  .sidebar-close .icon{width:15px;height:15px;}
+  .admin-badge{
+    display:inline-flex;align-items:center;gap:6px;background:rgba(139,92,246,0.15);color:var(--violet);
+    font-size:11.5px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;padding:5px 11px;border-radius:100px;
+    margin:0 8px 18px;
+  }
+  .side-nav{display:flex;flex-direction:column;gap:3px;flex:1;overflow-y:auto;}
+  .side-link{
+    display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:11px;
+    font-weight:600;font-size:14.5px;color:var(--text-dim);cursor:pointer;
+    transition:background 0.2s ease, color 0.2s ease;border:none;background:none;width:100%;text-align:left;
+  }
+  .side-link .icon{width:18px;height:18px;}
+  .side-link:hover{background:var(--panel);color:var(--text);}
+  .side-link.active{background:var(--grad-orange);color:#fff;box-shadow:var(--sh-orange);}
+  .side-nav-foot{border-top:1px solid var(--border);padding-top:12px;margin-top:8px;}
+  .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(4,4,8,0.65);backdrop-filter:blur(2px);z-index:250;}
+  .sidebar-overlay.show{display:block;}
+
+  /* Main */
+  .main{min-width:0;}
+  .topbar{
+    background:var(--bg-elev);border-bottom:1px solid var(--border);padding:14px 24px;
+    position:sticky;top:0;z-index:100;display:flex;align-items:center;gap:14px;box-shadow:var(--sh-sm);
+  }
+  .menu-btn{
+    background:var(--panel-2);border:1px solid var(--border);color:var(--text);
+    width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;
+    cursor:pointer;flex-shrink:0;transition:transform 0.25s ease, background 0.25s ease;box-shadow:var(--sh-sm);
+  }
+  .menu-btn:hover{background:var(--panel);transform:scale(1.06);}
+  .menu-btn:active{transform:scale(0.94);}
+  .menu-btn .icon{width:19px;height:19px;}
+  .topbar-brand{
+    display:none;align-items:center;gap:8px;font-family:'Sora',sans-serif;font-weight:800;font-size:17px;flex-shrink:0;
+  }
+  .topbar-brand .mark{
+    width:28px;height:28px;border-radius:8px;background:var(--grad-orange);
+    display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:800;box-shadow:var(--sh-orange);
+  }
+  .topbar-brand .bangla{background:var(--grad-orange);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .topbar-title{font-family:'Sora',sans-serif;font-weight:800;font-size:17px;}
+  .topbar-spacer{flex:1;}
+  .topbar-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+  .icon-btn{
+    position:relative;background:var(--panel-2);border:1px solid var(--border);color:var(--text-dim);
+    width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;
+    cursor:pointer;transition:background 0.2s ease,color 0.2s ease,transform 0.2s ease;box-shadow:var(--sh-sm);
+  }
+  .icon-btn:hover{background:var(--panel);color:var(--text);transform:scale(1.05);}
+
+  /* Page content */
+  .page{padding:26px 24px 70px;position:relative;z-index:1;}
+  .page-inner{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:20px;}
+
+  .panel{
+    background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+    padding:26px 28px;box-shadow:var(--sh-sm);position:relative;overflow:hidden;
+  }
+  .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;gap:14px;flex-wrap:wrap;}
+  .panel-title{display:flex;align-items:center;gap:9px;font-family:'Sora',sans-serif;font-weight:700;font-size:16.5px;}
+  .panel-title .icon{color:var(--text-dim);width:19px;height:19px;}
+  .panel-sub{color:var(--text-faint);font-size:13px;font-weight:600;margin-top:-14px;margin-bottom:18px;}
+
+  /* Stat cards */
+  .stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;}
+  .stat-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+    padding:22px;box-shadow:var(--sh-sm);
+  }
+  .stat-card .stat-ic{
+    width:42px;height:42px;border-radius:12px;background:rgba(255,122,26,0.12);
+    display:flex;align-items:center;justify-content:center;margin-bottom:14px;
+  }
+  .stat-card .stat-ic .icon{width:19px;height:19px;color:var(--orange);}
+  .stat-card .stat-num{font-family:'Sora',sans-serif;font-size:24px;font-weight:800;line-height:1.1;}
+  .stat-card .stat-num.small{font-size:16.5px;}
+  .stat-card .stat-label{font-size:12.5px;color:var(--text-faint);font-weight:700;margin-top:6px;}
+
+  /* Tabs */
+  .tab-panel{padding:0;overflow:hidden;}
+  .tab-row{display:flex;gap:10px;padding:18px;flex-wrap:wrap;align-items:center;}
+  .tab-btn{
+    display:flex;align-items:center;gap:8px;padding:11px 18px;border-radius:11px;
+    background:var(--panel-2);border:1px solid var(--border);color:var(--text-dim);
+    font-weight:700;font-size:14px;cursor:pointer;transition:background 0.25s ease,color 0.25s ease,box-shadow 0.25s ease;
+  }
+  .tab-btn .icon{width:16px;height:16px;}
+  .tab-btn .badge{background:rgba(255,255,255,0.15);padding:2px 8px;border-radius:100px;font-size:12px;}
+  .tab-btn.active{background:var(--grad-orange);color:#fff;box-shadow:var(--sh-orange);border-color:transparent;}
+  .tab-btn.active .badge{background:rgba(0,0,0,0.2);}
+  .tab-spacer{flex:1;}
+
+  /* Search */
+  .search-wrap{position:relative;min-width:240px;flex:1;max-width:320px;}
+  .search-wrap .icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--text-faint);}
+  .search-wrap input{
+    width:100%;padding:11px 14px 11px 38px;border-radius:11px;background:var(--bg);border:1px solid var(--border);
+    color:var(--text);font-size:14px;font-family:inherit;
+  }
+  .search-wrap input:focus{outline:none;border-color:var(--orange);box-shadow:0 0 0 3px rgba(255,122,26,0.15);}
+
+  /* Table */
+  .table-wrap{padding:0 22px 22px;overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;min-width:640px;}
+  thead th{
+    text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);
+    font-weight:700;padding:10px 10px;border-bottom:1px solid var(--border);white-space:nowrap;
+  }
+  tbody td{padding:36px 10px;text-align:center;color:var(--text-faint);font-weight:600;font-size:14.5px;}
+  tbody tr.data-row td{padding:14px 10px;text-align:left;color:var(--text-dim);border-bottom:1px solid var(--border);vertical-align:middle;}
+  tbody tr.data-row:last-child td{border-bottom:none;}
+  tbody tr.data-row{cursor:pointer;transition:background 0.15s ease;}
+  tbody tr.data-row:hover{background:var(--panel-2);}
+  .cell-user{display:flex;align-items:center;gap:10px;}
+  .cell-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;}
+  .cell-avatar .icon{width:15px;height:15px;}
+  .cell-primary{font-weight:700;color:var(--text);font-size:14px;}
+  .cell-secondary{font-size:12px;color:var(--text-faint);font-weight:500;margin-top:1px;}
+  .cell-mono{font-family:monospace;font-size:12.5px;color:var(--text-dim);cursor:pointer;}
+  .cell-mono:hover{color:var(--orange);}
+  .status-pill{display:inline-flex;padding:3px 10px;border-radius:100px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;}
+  .status-pill.st-pending{background:rgba(255,122,26,0.15);color:var(--orange);}
+  .status-pill.st-completed{background:rgba(58,208,122,0.15);color:var(--green);}
+  .status-pill.st-rejected{background:rgba(255,61,30,0.15);color:var(--orange-2);}
+  .row-actions{display:flex;gap:6px;}
+  .icon-check{width:13px;height:13px;color:var(--green);}
+  .icon-cross{width:13px;height:13px;color:var(--orange-2);}
+  .pager{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:16px 22px 0;font-size:13px;color:var(--text-faint);font-weight:600;}
+
+  /* Avatar palette (reused from profile.html) */
+  .avc1{background:linear-gradient(150deg,#2e6b2e,#173a17);}
+  .avc2{background:linear-gradient(150deg,#c96a2e,#7a3e17);}
+  .avc3{background:linear-gradient(150deg,#8b5cf6,#4c2f9e);}
+  .avc4{background:linear-gradient(150deg,#2e8fa3,#155a68);}
+  .avc5{background:linear-gradient(150deg,#c94f7a,#7a2a48);}
+  .avc6{background:linear-gradient(150deg,#c9a02e,#7a5f17);}
+
+  /* Coming soon */
+  .coming-soon{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:70px 20px;gap:14px;}
+  .coming-soon .ic{width:60px;height:60px;border-radius:16px;background:rgba(139,92,246,0.12);display:flex;align-items:center;justify-content:center;}
+  .coming-soon .ic .icon{width:26px;height:26px;color:var(--violet);}
+  .coming-soon h3{font-family:'Sora',sans-serif;font-size:18px;font-weight:800;}
+  .coming-soon p{color:var(--text-faint);font-size:13.5px;max-width:380px;}
+
+  /* Modal (reused pattern from profile.html) */
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(4,4,8,0.75);backdrop-filter:blur(3px);
+    display:none;align-items:center;justify-content:center;z-index:500;padding:20px;
+  }
+  .modal-overlay.show{display:flex;}
+  .modal-box{
+    width:100%;max-width:520px;max-height:88vh;overflow-y:auto;background:var(--bg-elev);
+    border:1px solid var(--border);border-radius:20px;padding:32px;box-shadow:var(--sh-lg);
+  }
+  .modal-box.wide{max-width:640px;}
+  .modal-title{font-family:'Sora',sans-serif;font-size:19px;font-weight:800;margin-bottom:8px;line-height:1.4;}
+  .modal-sub{color:var(--text-dim);font-size:13.5px;margin-bottom:22px;}
+  .modal-actions{display:flex;gap:10px;margin-top:24px;}
+  .modal-actions .btn{flex:1;}
+  .modal-close{
+    position:absolute;top:22px;right:22px;background:var(--panel-2);border:1px solid var(--border);border-radius:9px;
+    color:var(--text-dim);width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;
+  }
+  .modal-close:hover{background:var(--panel);color:var(--text);}
+
+  /* Detail panel content */
+  .detail-head{display:flex;align-items:center;gap:16px;margin-bottom:20px;}
+  .detail-avatar{width:64px;height:64px;font-size:24px;flex-shrink:0;}
+  .detail-avatar .icon{width:26px;height:26px;}
+  .detail-name{font-family:'Sora',sans-serif;font-size:19px;font-weight:800;}
+  .detail-email{color:var(--text-dim);font-size:13.5px;font-weight:600;margin-top:2px;}
+  .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px;}
+  .detail-item{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:13px 15px;}
+  .detail-item .k{font-size:11.5px;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:0.03em;}
+  .detail-item .v{font-family:'Sora',sans-serif;font-size:16px;font-weight:800;margin-top:4px;}
+  .detail-sub-title{font-size:13px;font-weight:700;color:var(--text-dim);margin:20px 0 10px;text-transform:uppercase;letter-spacing:0.03em;}
+  .mini-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:13.5px;}
+  .mini-row:last-child{border-bottom:none;}
+
+  .reveal{opacity:0;transform:translateY(16px);transition:opacity 0.6s ease, transform 0.6s ease;}
+  .reveal.visible{opacity:1;transform:translateY(0);}
+  #loadingGate{display:flex;min-height:60vh;align-items:center;justify-content:center;color:var(--text-faint);font-weight:600;font-size:14px;position:relative;z-index:1;}
+
+  @media (max-width:1080px){
+    .stats-row{grid-template-columns:repeat(3,1fr);}
+  }
+  @media (max-width:768px){
+    .stats-row{grid-template-columns:repeat(2,1fr);}
+    .panel{padding:20px;}
+    .table-wrap{padding:0 14px 18px;}
+    .detail-grid{grid-template-columns:1fr;}
+    .search-wrap{max-width:none;width:100%;}
+  }
+  @media (max-width:480px){
+    .stats-row{grid-template-columns:1fr;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:0.01ms !important;transition-duration:0.01ms !important;}
+  }
+  a:focus-visible,button:focus-visible{outline:2px solid var(--orange);outline-offset:2px;}
+</style>
+</head>
+<body>
+<div class="stars"></div>
+
+<!-- ICON SPRITE -->
+<svg style="display:none">
+  <defs>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+    <symbol id="i-swap" viewBox="0 0 24 24"><path d="M7 3 3 7l4 4"/><path d="M3 7h13a4 4 0 0 1 4 4v1"/><path d="M17 21l4-4-4-4"/><path d="M21 17H8a4 4 0 0 1-4-4v-1"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-bars" viewBox="0 0 24 24"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+    <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v9M15 9.8c0-1.3-1.4-2.3-3-2.3s-3 .9-3 2.1c0 1.3 1.4 1.8 3 2.2 1.6.4 3 .9 3 2.2 0 1.2-1.4 2.1-3 2.1s-3-1-3-2.3"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 6-10 7L2 6"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12.01" y2="16"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></symbol>
+    <symbol id="i-face" viewBox="0 0 24 24"><circle cx="9" cy="10" r="1.1" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1.1" fill="currentColor" stroke="none"/><path d="M8 15c1 1.5 2.5 2 4 2s3-.5 4-2"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M20 12V8a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-4"/><path d="M20 12h-4a2 2 0 1 0 0 4h4v-4Z"/></symbol>
+  </defs>
+</svg>
+
+<div id="loadingGate">Loading admin panel…</div>
+
+<div class="shell" id="adminShell" style="display:none;">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar-overlay" id="overlay"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="side-top">
+      <div class="side-logo">
+        <span class="mark">৳</span>
+        <span class="earn">earn</span><span class="bangla">bangla</span>
+      </div>
+      <button class="sidebar-close" id="sideClose" aria-label="Close menu"><svg class="icon"><use href="#i-x"></use></svg></button>
+    </div>
+    <span class="admin-badge"><svg class="icon" style="width:12px;height:12px;"><use href="#i-shield"></use></svg> Admin</span>
+    <nav class="side-nav">
+      <button class="side-link active" data-view="dashboard"><svg class="icon"><use href="#i-grid"></use></svg> Dashboard</button>
+      <button class="side-link" data-view="payments"><svg class="icon"><use href="#i-swap"></use></svg> Payments</button>
+      <button class="side-link" data-view="users"><svg class="icon"><use href="#i-users"></use></svg> Users</button>
+      <button class="side-link" data-view="activity"><svg class="icon"><use href="#i-bars"></use></svg> Activity Log</button>
+      <button class="side-link" data-view="offers"><svg class="icon"><use href="#i-sparkles"></use></svg> Offers</button>
+      <button class="side-link" data-view="settings"><svg class="icon"><use href="#i-settings"></use></svg> Settings</button>
+      <div class="side-nav-foot">
+        <a href="index.html" class="side-link"><svg class="icon"><use href="#i-home"></use></svg> Back to Site</a>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <button class="menu-btn" id="sideOpen" aria-label="Open menu"><svg class="icon"><use href="#i-menu"></use></svg></button>
+      <a href="index.html" class="topbar-brand"><span class="mark">৳</span>earn<span class="bangla">bangla</span></a>
+      <div class="topbar-title" id="topbarTitle">Dashboard</div>
+      <div class="topbar-spacer"></div>
+      <div class="topbar-right">
+        <button class="icon-btn" id="refreshBtn" title="Refresh"><svg class="icon"><use href="#i-clock"></use></svg></button>
+      </div>
+    </div>
+
+    <!-- PAGE -->
+    <div class="page">
+
+      <!-- ===== DASHBOARD ===== -->
+      <div class="page-inner" id="viewDashboard">
+        <div class="stats-row">
+          <div class="stat-card reveal">
+            <div class="stat-ic"><svg class="icon"><use href="#i-coin"></use></svg></div>
+            <div class="stat-num" id="statPendingPayout">$0.00</div>
+            <div class="stat-label">Total Pending Payout</div>
+          </div>
+          <div class="stat-card reveal">
+            <div class="stat-ic"><svg class="icon"><use href="#i-clock"></use></svg></div>
+            <div class="stat-num" id="statPendingCount">0</div>
+            <div class="stat-label">Pending Requests</div>
+          </div>
+          <div class="stat-card reveal">
+            <div class="stat-ic"><svg class="icon"><use href="#i-users"></use></svg></div>
+            <div class="stat-num" id="statTotalUsers">0</div>
+            <div class="stat-label">Total Users</div>
+          </div>
+          <div class="stat-card reveal">
+            <div class="stat-ic"><svg class="icon"><use href="#i-check"></use></svg></div>
+            <div class="stat-num" id="statTotalPaid">$0.00</div>
+            <div class="stat-label">Total Paid Out</div>
+          </div>
+          <div class="stat-card reveal">
+            <div class="stat-ic"><svg class="icon"><use href="#i-sparkles"></use></svg></div>
+            <div class="stat-num small" id="statTopEarner">—</div>
+            <div class="stat-label">Top Earner (All-time)</div>
+          </div>
+        </div>
+
+        <section class="panel reveal">
+          <div class="panel-head">
+            <div class="panel-title"><svg class="icon"><use href="#i-bars"></use></svg> Recent Activity</div>
+            <button class="btn btn-outline btn-sm" data-goto="payments">View all Payments</button>
+          </div>
+          <div class="table-wrap" style="padding:0;">
+            <table>
+              <thead><tr><th>User</th><th>Method</th><th>Amount</th><th>Status</th><th>Requested</th><th style="text-align:right;">Action</th></tr></thead>
+              <tbody id="recentActivityBody"><tr><td colspan="6">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- ===== PAYMENTS ===== -->
+      <div class="page-inner" id="viewPayments" style="display:none;">
+        <section class="panel tab-panel reveal">
+          <div class="tab-row">
+            <button class="tab-btn active" data-status="all">All</button>
+            <button class="tab-btn" data-status="pending">Pending</button>
+            <button class="tab-btn" data-status="completed">Approved</button>
+            <button class="tab-btn" data-status="rejected">Rejected</button>
+            <div class="tab-spacer"></div>
+            <div class="search-wrap">
+              <svg class="icon"><use href="#i-search"></use></svg>
+              <input type="text" id="paymentsSearch" placeholder="Search by email or username…">
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>User</th><th>Method</th><th>Address</th><th>Coins</th><th>Amount ($)</th>
+                  <th>Status</th><th>Requested</th><th>Last Updated</th><th style="text-align:right;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="paymentsBody"><tr><td colspan="9">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- ===== USERS ===== -->
+      <div class="page-inner" id="viewUsers" style="display:none;">
+        <section class="panel tab-panel reveal">
+          <div class="tab-row">
+            <div class="panel-title" style="margin-right:auto;"><svg class="icon"><use href="#i-users"></use></svg> All Users</div>
+            <div class="search-wrap">
+              <svg class="icon"><use href="#i-search"></use></svg>
+              <input type="text" id="usersSearch" placeholder="Search by username or email…">
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>User</th><th>Coins</th><th>Level</th><th>Offers</th><th>Referred</th>
+                  <th>Total Earning</th><th>Joined</th><th>Verified</th><th>Private</th>
+                </tr>
+              </thead>
+              <tbody id="usersBody"><tr><td colspan="9">Loading…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="pager">
+            <span id="usersPagerLabel">—</span>
+            <button class="btn btn-outline btn-xs" id="usersPrevBtn">Prev</button>
+            <button class="btn btn-outline btn-xs" id="usersNextBtn">Next</button>
+          </div>
+        </section>
+      </div>
+
+      <!-- ===== ACTIVITY LOG (placeholder) ===== -->
+      <div class="page-inner" id="viewActivity" style="display:none;">
+        <section class="panel reveal">
+          <div class="coming-soon">
+            <div class="ic"><svg class="icon"><use href="#i-bars"></use></svg></div>
+            <h3>Coming soon</h3>
+            <p>Activity Log will show coin-earning events (offers completed, referral bonuses) once the Earn page's offerwall integration writes to <code>activity_log</code> — see PROJECT-STATUS.md "পরবর্তী কাজ".</p>
+          </div>
+        </section>
+      </div>
+
+      <!-- ===== OFFERS (placeholder) ===== -->
+      <div class="page-inner" id="viewOffers" style="display:none;">
+        <section class="panel reveal">
+          <div class="coming-soon">
+            <div class="ic"><svg class="icon"><use href="#i-sparkles"></use></svg></div>
+            <h3>Coming soon</h3>
+            <p>Offer management will live here once an offerwall provider (OfferToro, AdGate, CPAlead, etc.) is connected to the Earn page.</p>
+          </div>
+        </section>
+      </div>
+
+      <!-- ===== SETTINGS (placeholder) ===== -->
+      <div class="page-inner" id="viewSettings" style="display:none;">
+        <section class="panel reveal">
+          <div class="coming-soon">
+            <div class="ic"><svg class="icon"><use href="#i-settings"></use></svg></div>
+            <h3>Coming soon</h3>
+            <p>Site config (minimum withdrawal, coin-to-dollar rate, etc.) will be editable here. For now these live as constants in the backend functions.</p>
+          </div>
+        </section>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- USER / PAYMENT DETAIL PANEL -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal-box wide">
+    <button class="modal-close" id="detailCloseBtn"><svg class="icon" style="width:15px;height:15px;"><use href="#i-x"></use></svg></button>
+    <div id="detailContent">Loading…</div>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL (approve / reject) -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal-box">
+    <div class="modal-title" id="confirmTitle">আপনি নিশ্চিত?</div>
+    <div class="modal-sub" id="confirmSub"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="confirmCancelBtn" style="flex:1;">Cancel</button>
+      <button class="btn btn-primary" id="confirmOkBtn" style="flex:1;">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---------- helpers ----------
+  async function getJSON(url){
+    const res = await fetch(url);
+    const body = await res.json().catch(() => ({}));
+    if(!res.ok) throw new Error(body.error || 'Something went wrong. Please try again.');
+    return body;
+  }
+  async function postJSON(url, data){
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const body = await res.json().catch(() => ({}));
+    if(!res.ok) throw new Error(body.error || 'Something went wrong. Please try again.');
+    return body;
+  }
+  function fmtMoney(n){ return '$' + Number(n || 0).toFixed(2); }
+  function fmtWhen(ts){
+    if(!ts) return '—';
+    const d = new Date(ts);
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) +
+      ' · ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  function shortAddress(addr){
+    if(!addr) return '';
+    return addr.length > 12 ? addr.slice(0, 6) + '…' + addr.slice(-4) : addr;
+  }
+  function statusPillHTML(status){
+    const map = {
+      pending: { label: 'Pending', cls: 'st-pending' },
+      completed: { label: 'Approved', cls: 'st-completed' },
+      rejected: { label: 'Rejected', cls: 'st-rejected' }
+    };
+    const s = map[status] || { label: status, cls: 'st-pending' };
+    return '<span class="status-pill ' + s.cls + '">' + s.label + '</span>';
+  }
+  function avatarHTML(cls, size){
+    size = size || 34;
+    return '<span class="cell-avatar ' + (cls || 'avc1') + '" style="width:' + size + 'px;height:' + size + 'px;">' +
+      '<svg class="icon"><use href="#i-face"></use></svg></span>';
+  }
+  function escapeHTML(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ---------- sidebar / view switching ----------
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('overlay');
+  document.getElementById('sideOpen').addEventListener('click', () => { sidebar.classList.add('open'); overlay.classList.add('show'); });
+  document.getElementById('sideClose').addEventListener('click', () => { sidebar.classList.remove('open'); overlay.classList.remove('show'); });
+  overlay.addEventListener('click', () => { sidebar.classList.remove('open'); overlay.classList.remove('show'); });
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape'){
+      sidebar.classList.remove('open'); overlay.classList.remove('show');
+      closeDetail(); closeConfirm();
+    }
+  });
+
+  const viewTitles = {
+    dashboard: 'Dashboard', payments: 'Payments', users: 'Users',
+    activity: 'Activity Log', offers: 'Offers', settings: 'Settings'
+  };
+  const viewLoaders = {
+    dashboard: loadDashboard,
+    payments: () => loadPayments(),
+    users: () => loadUsers()
+  };
+  let currentView = null;
+  function switchView(view){
+    if(view === currentView){ sidebar.classList.remove('open'); overlay.classList.remove('show'); return; }
+    currentView = view;
+    document.querySelectorAll('.side-link[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+    ['dashboard','payments','users','activity','offers','settings'].forEach(v => {
+      document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1)).style.display = (v === view) ? 'block' : 'none';
+    });
+    document.getElementById('topbarTitle').textContent = viewTitles[view] || '';
+    sidebar.classList.remove('open'); overlay.classList.remove('show');
+    if(viewLoaders[view]) viewLoaders[view]();
+  }
+  document.querySelectorAll('.side-link[data-view]').forEach(btn => {
+    btn.addEventListener('click', () => switchView(btn.dataset.view));
+  });
+  document.querySelectorAll('[data-goto]').forEach(btn => {
+    btn.addEventListener('click', () => switchView(btn.dataset.goto));
+  });
+  document.getElementById('refreshBtn').addEventListener('click', () => {
+    if(viewLoaders[currentView]) viewLoaders[currentView]();
+  });
+
+  // ---------- dashboard ----------
+  async function loadDashboard(){
+    const body = document.getElementById('recentActivityBody');
+    try{
+      const stats = await getJSON('/api/admin/dashboard-stats');
+      document.getElementById('statPendingPayout').textContent = fmtMoney(stats.pendingPayoutUsd);
+      document.getElementById('statPendingCount').textContent = stats.pendingCount;
+      document.getElementById('statTotalUsers').textContent = stats.totalUsers;
+      document.getElementById('statTotalPaid').textContent = fmtMoney(stats.totalPaidOutUsd);
+      document.getElementById('statTopEarner').textContent = stats.topEarner
+        ? stats.topEarner.username + ' (' + Number(stats.topEarner.totalEarning || 0).toLocaleString() + ')'
+        : 'No activity yet today';
+
+      if(!stats.recentWithdrawals || !stats.recentWithdrawals.length){
+        body.innerHTML = '<tr><td colspan="6">No withdrawal requests yet</td></tr>';
+        return;
+      }
+      body.innerHTML = stats.recentWithdrawals.map(w => (
+        '<tr class="data-row" data-id="' + w.id + '">' +
+          '<td><div class="cell-primary">' + escapeHTML(w.username) + '</div><div class="cell-secondary">' + escapeHTML(w.email) + '</div></td>' +
+          '<td style="text-transform:capitalize;">' + escapeHTML(w.method) + '</td>' +
+          '<td>' + w.coinsUsed + ' coins<div class="cell-secondary">' + fmtMoney(w.amountUsd) + '</div></td>' +
+          '<td>' + statusPillHTML(w.status) + '</td>' +
+          '<td>' + fmtWhen(w.createdAt) + '</td>' +
+          '<td style="text-align:right;">' + (w.status === 'pending' ? actionButtonsHTML(w.id) : '—') + '</td>' +
+        '</tr>'
+      )).join('');
+      wireRowClicks(body, stats.recentWithdrawals, openPaymentDetailById);
+      wireActionButtons(body, () => loadDashboard());
+    }catch(ex){
+      body.innerHTML = '<tr><td colspan="6">Could not load dashboard. Please try again.</td></tr>';
+    }
+  }
+
+  function actionButtonsHTML(id){
+    return '<div class="row-actions" onclick="event.stopPropagation();">' +
+      '<button class="btn btn-green btn-xs" data-approve="' + id + '"><svg class="icon icon-check"><use href="#i-check"></use></svg> Approve</button>' +
+      '<button class="btn btn-red btn-xs" data-reject="' + id + '"><svg class="icon icon-cross"><use href="#i-x"></use></svg> Reject</button>' +
+    '</div>';
+  }
+  function wireActionButtons(container, onDone){
+    container.querySelectorAll('[data-approve]').forEach(btn => {
+      btn.addEventListener('click', () => confirmStatusChange(btn.dataset.approve, 'completed', onDone));
+    });
+    container.querySelectorAll('[data-reject]').forEach(btn => {
+      btn.addEventListener('click', () => confirmStatusChange(btn.dataset.reject, 'rejected', onDone));
+    });
+  }
+  function wireRowClicks(container, dataList, opener){
+    container.querySelectorAll('tr.data-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const item = dataList.find(x => x.id === row.dataset.id);
+        if(item) opener(item);
+      });
+    });
+  }
+
+  // ---------- confirm modal ----------
+  const confirmModal = document.getElementById('confirmModal');
+  let pendingConfirmAction = null;
+  function confirmStatusChange(id, status, onDone){
+    document.getElementById('confirmTitle').textContent = 'আপনি নিশ্চিত?';
+    document.getElementById('confirmSub').textContent = status === 'completed'
+      ? 'এই withdrawal request Approved মার্ক করা হবে। এটা টাকা পাঠানোর কনফার্মেশন — নিশ্চিত হয়ে তারপর কনফার্ম করুন।'
+      : 'এই withdrawal request Reject করা হবে এবং ইউজারের coins ফেরত দেওয়া হবে।';
+    pendingConfirmAction = async () => {
+      const okBtn = document.getElementById('confirmOkBtn');
+      okBtn.disabled = true; okBtn.textContent = 'Working…';
+      try{
+        await postJSON('/api/admin/withdrawals-update', { id, status });
+        closeConfirm();
+        if(onDone) onDone();
+      }catch(ex){
+        alert(ex.message);
+      }finally{
+        okBtn.disabled = false; okBtn.textContent = 'Confirm';
+      }
+    };
+    confirmModal.classList.add('show');
+  }
+  function closeConfirm(){ confirmModal.classList.remove('show'); pendingConfirmAction = null; }
+  document.getElementById('confirmCancelBtn').addEventListener('click', closeConfirm);
+  document.getElementById('confirmOkBtn').addEventListener('click', () => { if(pendingConfirmAction) pendingConfirmAction(); });
+  confirmModal.addEventListener('click', e => { if(e.target === confirmModal) closeConfirm(); });
+
+  // ---------- payments ----------
+  let paymentsStatus = 'all';
+  let paymentsSearchTimer = null;
+  let paymentsData = [];
+  document.querySelectorAll('#viewPayments .tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#viewPayments .tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      paymentsStatus = btn.dataset.status;
+      loadPayments();
+    });
+  });
+  document.getElementById('paymentsSearch').addEventListener('input', () => {
+    clearTimeout(paymentsSearchTimer);
+    paymentsSearchTimer = setTimeout(loadPayments, 350);
+  });
+
+  async function loadPayments(){
+    const body = document.getElementById('paymentsBody');
+    body.innerHTML = '<tr><td colspan="9">Loading…</td></tr>';
+    try{
+      const search = document.getElementById('paymentsSearch').value.trim();
+      const params = new URLSearchParams({ status: paymentsStatus });
+      if(search) params.set('search', search);
+      const res = await getJSON('/api/admin/withdrawals?' + params.toString());
+      paymentsData = res.withdrawals || [];
+      if(!paymentsData.length){
+        body.innerHTML = '<tr><td colspan="9">No withdrawal requests found</td></tr>';
+        return;
+      }
+      body.innerHTML = paymentsData.map(w => (
+        '<tr class="data-row" data-id="' + w.id + '">' +
+          '<td><div class="cell-primary">' + escapeHTML(w.username) + '</div><div class="cell-secondary">' + escapeHTML(w.email) + '</div></td>' +
+          '<td style="text-transform:capitalize;">' + escapeHTML(w.method) + '</td>' +
+          '<td class="cell-mono" data-copy="' + escapeHTML(w.address) + '" onclick="event.stopPropagation();copyAddress(this)">' + escapeHTML(shortAddress(w.address)) + '</td>' +
+          '<td>' + w.coinsUsed + '</td>' +
+          '<td>' + fmtMoney(w.amountUsd) + '</td>' +
+          '<td>' + statusPillHTML(w.status) + '</td>' +
+          '<td>' + fmtWhen(w.createdAt) + '</td>' +
+          '<td>' + (w.updatedAt ? fmtWhen(w.updatedAt) : '—') + '</td>' +
+          '<td style="text-align:right;">' + (w.status === 'pending' ? actionButtonsHTML(w.id) : '—') + '</td>' +
+        '</tr>'
+      )).join('');
+      wireRowClicks(body, paymentsData, openPaymentDetail);
+      wireActionButtons(body, () => loadPayments());
+    }catch(ex){
+      body.innerHTML = '<tr><td colspan="9">Could not load payments. Please try again.</td></tr>';
+    }
+  }
+  function copyAddress(el){
+    const val = el.dataset.copy;
+    if(navigator.clipboard) navigator.clipboard.writeText(val).catch(() => {});
+    const original = el.textContent;
+    el.textContent = 'Copied!';
+    setTimeout(() => { el.textContent = original; }, 1000);
+  }
+
+  async function openPaymentDetailById(w){ openPaymentDetail(w); }
+
+  // Payments rows only carry username/email from the JOIN — reuse the Users
+  // endpoint (search by exact email) to pull the full profile, same
+  // detail-panel component as the Users section.
+  async function openPaymentDetail(w){
+    openDetailModal('Loading…');
+    try{
+      const res = await getJSON('/api/admin/users?search=' + encodeURIComponent(w.email) + '&limit=1');
+      const user = (res.users || []).find(u => u.email === w.email) || (res.users || [])[0];
+      if(!user) throw new Error('User not found.');
+      await renderUserDetail(user);
+    }catch(ex){
+      document.getElementById('detailContent').innerHTML = '<div class="modal-title">Could not load details</div><div class="modal-sub">' + escapeHTML(ex.message) + '</div>';
+    }
+  }
+
+  // ---------- users ----------
+  let usersSearchTimer = null;
+  let usersOffset = 0;
+  const USERS_LIMIT = 25;
+  let usersTotal = 0;
+  let usersCurrentList = [];
+  document.getElementById('usersSearch').addEventListener('input', () => {
+    clearTimeout(usersSearchTimer);
+    usersSearchTimer = setTimeout(() => { usersOffset = 0; loadUsers(); }, 350);
+  });
+  document.getElementById('usersPrevBtn').addEventListener('click', () => {
+    usersOffset = Math.max(0, usersOffset - USERS_LIMIT);
+    loadUsers();
+  });
+  document.getElementById('usersNextBtn').addEventListener('click', () => {
+    if(usersOffset + USERS_LIMIT < usersTotal) usersOffset += USERS_LIMIT;
+    loadUsers();
+  });
+
+  async function loadUsers(){
+    const body = document.getElementById('usersBody');
+    body.innerHTML = '<tr><td colspan="9">Loading…</td></tr>';
+    try{
+      const search = document.getElementById('usersSearch').value.trim();
+      const params = new URLSearchParams({ limit: USERS_LIMIT, offset: usersOffset });
+      if(search) params.set('search', search);
+      const res = await getJSON('/api/admin/users?' + params.toString());
+      usersCurrentList = res.users || [];
+      usersTotal = res.total || 0;
+      const from = usersTotal ? usersOffset + 1 : 0;
+      const to = Math.min(usersOffset + USERS_LIMIT, usersTotal);
+      document.getElementById('usersPagerLabel').textContent = from + '–' + to + ' of ' + usersTotal;
+      document.getElementById('usersPrevBtn').disabled = usersOffset === 0;
+      document.getElementById('usersNextBtn').disabled = usersOffset + USERS_LIMIT >= usersTotal;
+
+      if(!usersCurrentList.length){
+        body.innerHTML = '<tr><td colspan="9">No users found</td></tr>';
+        return;
+      }
+      body.innerHTML = usersCurrentList.map(u => (
+        '<tr class="data-row" data-id="' + u.id + '">' +
+          '<td><div class="cell-user">' + avatarHTML(u.avatar) +
+            '<div><div class="cell-primary">' + escapeHTML(u.username) + '</div><div class="cell-secondary">' + escapeHTML(u.email) + '</div></div></div></td>' +
+          '<td>' + u.coins + '</td>' +
+          '<td>' + u.level + '</td>' +
+          '<td>' + u.completedOffers + '</td>' +
+          '<td>' + u.usersReferred + '</td>' +
+          '<td>' + Number(u.totalEarning || 0).toLocaleString() + '</td>' +
+          '<td>' + fmtWhen(u.createdAt) + '</td>' +
+          '<td>' + (u.emailVerified ? '<svg class="icon icon-check"><use href="#i-check"></use></svg>' : '<svg class="icon icon-cross"><use href="#i-x"></use></svg>') + '</td>' +
+          '<td>' + (u.isPrivate ? '<svg class="icon icon-check"><use href="#i-check"></use></svg>' : '<svg class="icon icon-cross"><use href="#i-x"></use></svg>') + '</td>' +
+        '</tr>'
+      )).join('');
+      document.querySelectorAll('#usersBody tr.data-row').forEach(row => {
+        row.addEventListener('click', () => {
+          const user = usersCurrentList.find(u => u.id === row.dataset.id);
+          if(user) renderUserDetail(user);
+        });
+      });
+    }catch(ex){
+      body.innerHTML = '<tr><td colspan="9">Could not load users. Please try again.</td></tr>';
+    }
+  }
+
+  // ---------- shared user detail panel ----------
+  const detailModal = document.getElementById('detailModal');
+  function openDetailModal(html){
+    document.getElementById('detailContent').innerHTML = html;
+    detailModal.classList.add('show');
+  }
+  function closeDetail(){ detailModal.classList.remove('show'); }
+  document.getElementById('detailCloseBtn').addEventListener('click', closeDetail);
+  detailModal.addEventListener('click', e => { if(e.target === detailModal) closeDetail(); });
+
+  async function renderUserDetail(user){
+    const c = document.getElementById('detailContent');
+    c.innerHTML =
+      '<div class="detail-head">' + avatarHTML(user.avatar, 64).replace('cell-avatar', 'cell-avatar detail-avatar') +
+        '<div><div class="detail-name">' + escapeHTML(user.username) + '</div><div class="detail-email">' + escapeHTML(user.email) +
+        (user.emailVerified ? '' : ' <svg class="icon" style="width:13px;height:13px;color:var(--orange-2);vertical-align:-2px;"><use href="#i-alert"></use></svg>') +
+        '</div></div></div>' +
+      '<div class="detail-grid">' +
+        '<div class="detail-item"><div class="k">Coins Balance</div><div class="v">' + user.coins + '</div></div>' +
+        '<div class="detail-item"><div class="k">Level</div><div class="v">' + user.level + '</div></div>' +
+        '<div class="detail-item"><div class="k">Completed Offers</div><div class="v">' + user.completedOffers + '</div></div>' +
+        '<div class="detail-item"><div class="k">Users Referred</div><div class="v">' + user.usersReferred + '</div></div>' +
+        '<div class="detail-item"><div class="k">Total Earning</div><div class="v">' + Number(user.totalEarning || 0).toLocaleString() + '</div></div>' +
+        '<div class="detail-item"><div class="k">Joined</div><div class="v" style="font-size:13px;">' + fmtWhen(user.createdAt) + '</div></div>' +
+      '</div>' +
+      '<div class="mini-row"><span>Private profile</span><span>' + (user.isPrivate ? 'Yes' : 'No') + '</span></div>' +
+      '<div class="mini-row"><span>Email verified</span><span>' + (user.emailVerified ? 'Yes' : 'No') + '</span></div>' +
+      '<div class="detail-sub-title">Withdrawal History</div>' +
+      '<div id="detailWithdrawals">Loading…</div>';
+
+    try{
+      const res = await getJSON('/api/admin/withdrawals?status=all&search=' + encodeURIComponent(user.email) + '&limit=50');
+      const list = res.withdrawals || [];
+      const wrap = document.getElementById('detailWithdrawals');
+      if(!list.length){
+        wrap.textContent = 'No withdrawal requests yet.';
+        return;
+      }
+      wrap.innerHTML = list.map(w => (
+        '<div class="mini-row">' +
+          '<span style="text-transform:capitalize;">' + escapeHTML(w.method) + ' · ' + w.coinsUsed + ' coins (' + fmtMoney(w.amountUsd) + ')</span>' +
+          '<span>' + statusPillHTML(w.status) + '</span>' +
+        '</div>'
+      )).join('');
+    }catch(ex){
+      const wrap = document.getElementById('detailWithdrawals');
+      if(wrap) wrap.textContent = 'Could not load withdrawal history.';
+    }
+  }
+
+  // ---------- scroll reveal ----------
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(en => { if(en.isIntersecting) en.target.classList.add('visible'); });
+  }, {threshold:0.1});
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  // ---------- boot ----------
+  // TODO: admin auth check here — verify an admin session (like profile.html's
+  // checkSession() calling /api/auth/me) before showing anything below.
+  // See TASK-admin-panel.md section 8 — this panel is NOT protected yet.
+  document.getElementById('loadingGate').style.display = 'none';
+  document.getElementById('adminShell').style.display = 'block';
+  switchView('dashboard');
+</script>
+
+</body>
+</html>

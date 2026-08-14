@@ -58,3 +58,18 @@ CREATE TABLE IF NOT EXISTS withdrawals (
 
 CREATE INDEX IF NOT EXISTS idx_withdrawals_user_id ON withdrawals(user_id);
 CREATE INDEX IF NOT EXISTS idx_withdrawals_created_at ON withdrawals(created_at);
+CREATE INDEX IF NOT EXISTS idx_withdrawals_status ON withdrawals(status);
+
+-- ============================================================
+-- Admin panel (TASK-admin-panel.md) — added later, run separately
+-- ============================================================
+-- Tracks when a withdrawal's status last changed (needed for the Payments
+-- "Last Updated" column). Unlike the CREATE TABLE statements above, SQLite's
+-- ALTER TABLE ADD COLUMN has no "IF NOT EXISTS" — running this a second time
+-- on a database that already has the column will error with
+-- "duplicate column name". Run it ONCE against earnbangla-db, not as part
+-- of routinely re-running the whole schema.sql file.
+--
+-- wrangler d1 execute earnbangla-db --remote --command="ALTER TABLE withdrawals ADD COLUMN updated_at INTEGER;"
+--
+-- ALTER TABLE withdrawals ADD COLUMN updated_at INTEGER;
