@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>My Profile — earnbangla</title>
+<title>Withdraw — earnbangla</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
@@ -27,6 +27,7 @@
     --sh-md:0 12px 28px rgba(0,0,0,0.38);
     --sh-lg:0 24px 60px rgba(0,0,0,0.5);
     --sh-orange:0 10px 26px rgba(255,61,30,0.28);
+    --sh-green:0 10px 26px rgba(58,208,122,0.22);
   }
   *{margin:0;padding:0;box-sizing:border-box;}
   html{scroll-behavior:smooth;}
@@ -68,7 +69,7 @@
     padding:14px 26px;border-radius:12px;
     font-weight:700;font-size:15px;
     border:none;cursor:pointer;
-    transition:transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+    transition:transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease, opacity 0.2s ease;
     white-space:nowrap;
   }
   .btn-primary{
@@ -82,6 +83,11 @@
   }
   .btn-outline:hover{background:rgba(255,122,26,0.1);}
   .btn-sm{padding:9px 16px;font-size:13.5px;border-radius:10px;}
+  .btn-green{
+    background:linear-gradient(135deg,#3AD07A 0%,#1F9D57 100%);color:#08130c;box-shadow:var(--sh-green);
+  }
+  .btn-green:hover{transform:scale(1.02);box-shadow:0 16px 34px rgba(58,208,122,0.32);}
+  .btn:disabled{opacity:0.45;cursor:not-allowed;transform:none !important;box-shadow:none !important;}
 
   /* ===== Layout shell ===== */
   .shell{position:relative;z-index:1;min-height:100vh;}
@@ -145,6 +151,12 @@
   }
   .topbar-brand .bangla{background:var(--grad-orange);-webkit-background-clip:text;background-clip:text;color:transparent;}
   .topbar-spacer{flex:1;}
+  .topbar-back{
+    display:flex;align-items:center;gap:8px;color:var(--text-dim);font-weight:700;font-size:14px;flex-shrink:0;
+    padding:9px 6px;border-radius:10px;transition:color 0.2s ease,background 0.2s ease;
+  }
+  .topbar-back:hover{color:var(--text);background:var(--panel-2);}
+  .topbar-back .icon{width:18px;height:18px;}
 
   .topbar-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
   .icon-btn{
@@ -162,13 +174,11 @@
     padding:8px 14px;border-radius:11px;font-weight:700;font-size:14px;box-shadow:var(--sh-sm);
   }
   .coin-chip .icon{color:var(--orange);width:17px;height:17px;}
-  .coin-chip .card-ic{width:16px;height:16px;color:var(--text-faint);}
   .avatar-btn{
     display:flex;align-items:center;gap:8px;background:var(--panel-2);border:1px solid var(--border);
     padding:5px 10px 5px 5px;border-radius:100px;cursor:pointer;transition:background 0.2s ease;box-shadow:var(--sh-sm);
   }
   .avatar-btn:hover{background:var(--panel);}
-  .avatar-btn .icon{width:15px;height:15px;color:var(--text-dim);}
   .av-face{
     position:relative;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;
   }
@@ -177,8 +187,6 @@
     position:absolute;bottom:-1px;right:-1px;width:9px;height:9px;border-radius:50%;
     background:var(--green);border:2px solid var(--panel-2);
   }
-
-  /* Avatar palette */
   .avc1{background:linear-gradient(150deg,#2e6b2e,#173a17);}
   .avc2{background:linear-gradient(150deg,#c96a2e,#7a3e17);}
   .avc3{background:linear-gradient(150deg,#8b5cf6,#4c2f9e);}
@@ -194,73 +202,128 @@
     background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
     padding:26px 28px;box-shadow:var(--sh-sm);position:relative;overflow:hidden;
   }
-  .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;}
-  .panel-title{display:flex;align-items:center;gap:9px;font-family:'Sora',sans-serif;font-weight:700;font-size:16.5px;}
-  .panel-title .icon{color:var(--text-dim);width:19px;height:19px;}
 
-  /* Account info */
-  .acct-body{display:flex;align-items:center;gap:22px;flex-wrap:wrap;}
-  .acct-avatar{width:96px;height:96px;font-size:34px;box-shadow:0 0 0 3px var(--bg), 0 0 0 5px var(--green);}
-  .acct-avatar .icon{width:40px;height:40px;}
-  .acct-joined{font-size:13px;color:var(--text-dim);font-weight:600;margin-bottom:4px;}
-  .acct-name{font-family:'Sora',sans-serif;font-size:30px;font-weight:800;line-height:1.15;}
-  .acct-email{display:flex;align-items:center;gap:7px;color:var(--text-dim);font-size:14px;font-weight:600;margin-top:4px;}
-  .acct-email .icon{width:15px;height:15px;color:var(--orange-2);}
-  .level-badge{
-    display:inline-flex;align-items:center;gap:6px;background:rgba(139,92,246,0.15);color:var(--violet);
-    font-size:12.5px;font-weight:700;padding:5px 13px;border-radius:100px;margin-top:12px;
+  /* ===== Cashout hero ===== */
+  .cashout-hero{
+    display:flex;align-items:flex-start;justify-content:space-between;gap:24px;flex-wrap:wrap;
+    background:linear-gradient(160deg,rgba(58,208,122,0.10),rgba(20,20,31,0) 60%);
   }
-  .private-row{
-    display:flex;align-items:center;gap:8px;margin-top:16px;font-size:14px;font-weight:600;color:var(--text-dim);
+  .cashout-tag{
+    display:inline-flex;align-items:center;gap:7px;background:rgba(58,208,122,0.14);color:var(--green);
+    font-size:12px;font-weight:700;padding:6px 13px;border-radius:100px;margin-bottom:14px;letter-spacing:0.03em;
   }
-  .private-row .icon{width:16px;height:16px;}
-  .help-dot{
-    width:16px;height:16px;border-radius:50%;background:var(--panel-2);border:1px solid var(--border);
-    display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-faint);font-weight:700;cursor:help;
+  .cashout-tag .icon{width:13px;height:13px;}
+  .cashout-hero h1{font-family:'Sora',sans-serif;font-size:26px;font-weight:800;margin-bottom:8px;}
+  .cashout-hero p{color:var(--text-dim);font-size:14.5px;max-width:440px;}
+  .cashout-hero .mywithdraw{
+    display:inline-flex;align-items:center;gap:6px;color:var(--green);font-weight:700;font-size:13.5px;margin-top:14px;
   }
-  .toggle{
-    position:relative;width:42px;height:24px;border-radius:100px;background:var(--panel-2);border:1px solid var(--border);
-    cursor:pointer;flex-shrink:0;transition:background 0.25s ease;
+  .cashout-hero .mywithdraw .icon{width:15px;height:15px;}
+  .cashout-hero .mywithdraw:hover{text-decoration:underline;}
+  .cashout-chip-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px;}
+  .cashout-chip{
+    display:inline-flex;align-items:center;gap:7px;background:var(--panel-2);border:1px solid var(--border);
+    padding:7px 13px;border-radius:100px;font-size:12.5px;font-weight:600;color:var(--text-dim);
   }
-  .toggle::after{
-    content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--text-faint);
-    transition:transform 0.25s ease, background 0.25s ease;
+  .cashout-chip .icon{width:13px;height:13px;color:var(--green);}
+  .balance-card{
+    background:linear-gradient(160deg,rgba(58,208,122,0.16),var(--panel-2) 70%);
+    border:1px solid rgba(58,208,122,0.28);border-radius:14px;padding:16px 22px;min-width:190px;text-align:right;
   }
-  .toggle.on{background:var(--grad-orange);border-color:transparent;}
-  .toggle.on::after{transform:translateX(18px);background:#fff;}
+  .balance-card .lbl{font-size:11.5px;font-weight:700;color:var(--text-faint);letter-spacing:0.05em;text-transform:uppercase;}
+  .balance-card .amt{display:flex;align-items:center;justify-content:flex-end;gap:7px;font-family:'Sora',sans-serif;font-size:26px;font-weight:800;margin-top:6px;}
+  .balance-card .amt .icon{width:19px;height:19px;color:var(--orange);}
+  .balance-card .usd{font-size:12.5px;color:var(--text-dim);font-weight:600;margin-top:2px;}
 
-  /* Stats */
-  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;}
-  .stat{text-align:center;padding:6px 10px;}
-  .stat-ic{
-    width:46px;height:46px;border-radius:50%;background:rgba(255,122,26,0.12);
-    display:flex;align-items:center;justify-content:center;margin:0 auto 12px;
+  /* ===== Method tiles ===== */
+  .method-group{margin-top:6px;}
+  .method-group + .method-group{margin-top:28px;}
+  .method-group-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .method-group-title{display:flex;align-items:center;gap:10px;font-family:'Sora',sans-serif;font-weight:700;font-size:15.5px;}
+  .method-group-title .badge-ic{
+    width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
   }
-  .stat-ic .icon{width:20px;height:20px;color:var(--orange);}
-  .stat-num{font-family:'Sora',sans-serif;font-size:24px;font-weight:800;}
-  .stat-label{font-size:13px;color:var(--text-faint);font-weight:600;margin-top:4px;}
+  .method-group-count{font-size:12.5px;color:var(--text-faint);font-weight:600;background:var(--panel-2);border:1px solid var(--border);padding:4px 11px;border-radius:100px;}
+  .method-row{display:flex;gap:16px;flex-wrap:wrap;}
+  .method-tile{
+    width:150px;background:var(--panel-2);border:1px solid var(--border);border-radius:14px;
+    padding:20px 14px;display:flex;flex-direction:column;align-items:center;gap:12px;cursor:pointer;
+    transition:transform 0.22s ease,border-color 0.22s ease,box-shadow 0.22s ease;text-align:center;
+  }
+  .method-tile:hover{transform:translateY(-4px);border-color:rgba(255,122,26,0.4);box-shadow:var(--sh-md);}
+  .method-tile .mark{
+    width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+    font-family:'Sora',sans-serif;font-weight:800;font-size:22px;color:#fff;
+  }
+  .method-tile .mark.ltc{background:linear-gradient(150deg,#8a8fa3,#4b4f61);}
+  .method-tile .mark.bnb{background:linear-gradient(150deg,#F0B90B,#c99400);color:#1a1400;}
+  .method-tile .name{font-weight:700;font-size:14px;}
+  .method-empty{
+    display:flex;flex-direction:column;align-items:center;gap:10px;padding:34px 20px;color:var(--text-faint);
+    background:var(--panel-2);border:1px dashed var(--border);border-radius:14px;font-size:13.5px;font-weight:600;
+  }
+  .method-empty .icon{width:24px;height:24px;}
 
-  /* Tabs */
-  .tab-panel{padding:0;overflow:hidden;}
-  .tab-row{display:flex;gap:10px;padding:18px;flex-wrap:wrap;}
-  .tab-btn{
-    display:flex;align-items:center;gap:8px;padding:11px 18px;border-radius:11px;
-    background:var(--panel-2);border:1px solid var(--border);color:var(--text-dim);
-    font-weight:700;font-size:14px;cursor:pointer;transition:background 0.25s ease,color 0.25s ease,box-shadow 0.25s ease;
+  /* ===== Withdraw form view ===== */
+  #formView{display:none;}
+  .form-back{
+    display:inline-flex;align-items:center;gap:7px;color:var(--text-dim);font-weight:700;font-size:13.5px;
+    margin-bottom:16px;cursor:pointer;transition:color 0.2s ease;
   }
-  .tab-btn .icon{width:16px;height:16px;}
-  .tab-btn .badge{
-    background:rgba(255,255,255,0.15);padding:2px 8px;border-radius:100px;font-size:12px;
+  .form-back:hover{color:var(--text);}
+  .form-back .icon{width:16px;height:16px;}
+  .form-hero{
+    background:linear-gradient(160deg,rgba(58,208,122,0.14),var(--panel-2) 75%);
+    border:1px solid var(--border);border-radius:16px;padding:32px 24px;text-align:center;margin-bottom:20px;
   }
-  .tab-btn.active{background:var(--grad-orange);color:#fff;box-shadow:var(--sh-orange);border-color:transparent;}
-  .tab-btn.active .badge{background:rgba(0,0,0,0.2);}
-  .table-wrap{padding:0 22px 22px;}
-  table{width:100%;border-collapse:collapse;}
-  thead th{
-    text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);
-    font-weight:700;padding:10px 6px;border-bottom:1px solid var(--border);
+  .form-hero .mark{
+    width:56px;height:56px;border-radius:16px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;
+    font-family:'Sora',sans-serif;font-weight:800;font-size:24px;color:#fff;
   }
-  tbody td{padding:36px 6px;text-align:center;color:var(--text-faint);font-weight:600;font-size:14.5px;}
+  .form-hero .mark.ltc{background:linear-gradient(150deg,#8a8fa3,#4b4f61);}
+  .form-hero .mark.bnb{background:linear-gradient(150deg,#F0B90B,#c99400);color:#1a1400;}
+  .form-hero h2{font-family:'Sora',sans-serif;font-size:19px;font-weight:800;margin-bottom:6px;}
+  .form-hero p{color:var(--text-dim);font-size:13.5px;}
+  .form-hero .min-chip{
+    display:inline-flex;align-items:center;gap:7px;background:var(--panel-2);border:1px solid var(--border);
+    padding:7px 14px;border-radius:100px;font-size:12.5px;font-weight:700;color:var(--text-dim);margin-top:14px;
+  }
+  .form-hero .min-chip .icon{width:13px;height:13px;color:var(--violet);}
+  .warn-banner{
+    display:flex;align-items:center;gap:10px;background:rgba(255,180,26,0.12);color:#ffcf7a;
+    border:1px solid rgba(255,180,26,0.3);border-radius:12px;padding:13px 16px;font-size:13.5px;font-weight:600;
+    margin-bottom:20px;
+  }
+  .warn-banner .icon{width:17px;height:17px;flex-shrink:0;}
+  .field{margin-bottom:20px;}
+  .field label{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;margin-bottom:9px;color:var(--text-dim);}
+  .field label .icon{width:14px;height:14px;color:var(--green);}
+  .field input{
+    width:100%;padding:14px 16px;border-radius:12px;background:var(--bg);border:1px solid var(--border);
+    color:var(--text);font-size:14.5px;font-family:inherit;transition:border-color 0.2s ease,box-shadow 0.2s ease;
+  }
+  .field input:focus{outline:none;border-color:var(--orange);box-shadow:0 0 0 3px rgba(255,122,26,0.15);}
+  .amount-row{display:flex;gap:10px;}
+  .amount-row input{flex:1;}
+  .amount-hint{font-size:12px;color:var(--text-faint);font-weight:600;margin-top:8px;}
+  .summary-row{
+    display:flex;background:var(--panel-2);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;
+  }
+  .summary-cell{flex:1;padding:16px;text-align:center;}
+  .summary-cell + .summary-cell{border-left:1px solid var(--border);}
+  .summary-cell .lbl{font-size:11px;font-weight:700;color:var(--text-faint);letter-spacing:0.05em;text-transform:uppercase;}
+  .summary-cell .val{display:flex;align-items:center;justify-content:center;gap:6px;font-family:'Sora',sans-serif;font-size:19px;font-weight:800;margin-top:6px;}
+  .summary-cell .val .icon{width:15px;height:15px;color:var(--orange);}
+  .form-error{
+    display:none;background:rgba(255,61,30,0.12);color:#ff8a6a;border:1px solid rgba(255,61,30,0.3);
+    border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;margin-bottom:16px;
+  }
+  .form-error.show{display:block;}
+  .form-success{
+    display:none;background:rgba(58,208,122,0.12);color:#7fe8ab;border:1px solid rgba(58,208,122,0.3);
+    border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;margin-bottom:16px;
+  }
+  .form-success.show{display:block;}
 
   /* Footer */
   footer{background:var(--bg-elev);border-top:1px solid var(--border);padding:48px 0 24px;position:relative;z-index:1;}
@@ -275,65 +338,13 @@
   .footer-col a .icon{width:15px;height:15px;flex-shrink:0;}
   .footer-bottom{border-top:1px solid var(--border);padding-top:20px;font-size:13px;color:var(--text-faint);}
 
-  /* Modal */
-  .modal-overlay{
-    position:fixed;inset:0;background:rgba(4,4,8,0.75);backdrop-filter:blur(3px);
-    display:none;align-items:center;justify-content:center;z-index:500;padding:20px;
-  }
-  .modal-overlay.show{display:flex;}
-  .modal-box{
-    width:100%;max-width:520px;max-height:88vh;overflow-y:auto;background:var(--bg-elev);
-    border:1px solid var(--border);border-radius:20px;padding:32px;box-shadow:var(--sh-lg);
-  }
-  .modal-title{font-family:'Sora',sans-serif;font-size:19px;font-weight:800;margin-bottom:24px;line-height:1.4;}
-  .field{margin-bottom:22px;}
-  .field label{display:block;font-size:13px;font-weight:700;margin-bottom:8px;color:var(--text-dim);}
-  .username-row{display:flex;gap:10px;}
-  .username-row input{
-    flex:1;padding:13px 16px;border-radius:11px;background:var(--bg);border:1px solid var(--border);
-    color:var(--text);font-size:14.5px;font-family:inherit;
-  }
-  .username-row input:focus{outline:none;border-color:var(--orange);box-shadow:0 0 0 3px rgba(255,122,26,0.15);}
-  .avatar-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:26px;}
-  .avatar-option{
-    width:100%;aspect-ratio:1;border-radius:50%;border:none;cursor:pointer;color:#fff;
-    display:flex;align-items:center;justify-content:center;transition:transform 0.2s ease, box-shadow 0.2s ease;
-  }
-  .avatar-option .icon{width:44%;height:44%;}
-  .avatar-option:hover{transform:scale(1.08);}
-  .avatar-option.selected{box-shadow:0 0 0 3px var(--bg-elev), 0 0 0 5px var(--orange);}
-
-  .reveal{opacity:0;transform:translateY(16px);transition:opacity 0.6s ease, transform 0.6s ease;}
-  .reveal.visible{opacity:1;transform:translateY(0);}
-
-  @media (max-width:768px){
-    .acct-body{flex-direction:column;align-items:flex-start;}
-    .stats-grid{grid-template-columns:repeat(2,1fr);row-gap:22px;}
-    .footer-grid{grid-template-columns:1fr 1fr;gap:26px;}
-    .footer-brand{grid-column:1 / -1;}
-    .avatar-grid{grid-template-columns:repeat(5,1fr);}
-    .panel{padding:20px;}
-    .acct-name{font-size:24px;}
-    .table-wrap{padding:0 14px 18px;}
-  }
-  @media (max-width:480px){
-    .avatar-grid{grid-template-columns:repeat(4,1fr);}
-    .stats-grid{grid-template-columns:1fr 1fr;}
-  }
-  @media (prefers-reduced-motion:reduce){
-    *{animation-duration:0.01ms !important;transition-duration:0.01ms !important;}
-  }
-  a:focus-visible,button:focus-visible{outline:2px solid var(--orange);outline-offset:2px;}
-
-  /* ===== Auth gate ===== */
-  #authGate{display:none;min-height:calc(100vh - 70px);align-items:center;justify-content:center;padding:40px 20px;position:relative;z-index:1;}
-  .gate-box{
-    width:100%;max-width:440px;background:var(--panel);border:1px solid var(--border);border-radius:20px;
-    padding:34px 32px;box-shadow:var(--sh-lg);
-  }
+  /* Auth gate (reused) */
+  #loadingGate{display:flex;min-height:60vh;align-items:center;justify-content:center;color:var(--text-faint);font-weight:600;font-size:14px;position:relative;z-index:1;}
+  #authGate{display:none;min-height:100vh;align-items:center;justify-content:center;padding:24px;position:relative;z-index:1;}
+  .gate-box{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:32px;box-shadow:var(--sh-lg);text-align:center;}
   .gate-lock{
-    width:52px;height:52px;border-radius:14px;background:rgba(255,122,26,0.12);
-    display:flex;align-items:center;justify-content:center;margin-bottom:18px;
+    width:48px;height:48px;border-radius:14px;background:rgba(255,122,26,0.14);margin:0 auto 18px;
+    display:flex;align-items:center;justify-content:center;
   }
   .gate-lock .icon{width:24px;height:24px;color:var(--orange);}
   .auth-tabs{display:flex;gap:8px;background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:5px;margin-bottom:24px;}
@@ -342,7 +353,7 @@
     color:var(--text-dim);font-weight:700;font-size:14px;cursor:pointer;transition:background 0.2s ease,color 0.2s ease;
   }
   .auth-tab.active{background:var(--grad-orange);color:#fff;box-shadow:var(--sh-orange);}
-  .auth-form{display:none;}
+  .auth-form{display:none;text-align:left;}
   .auth-form.active{display:block;}
   .auth-form h2{font-family:'Sora',sans-serif;font-size:21px;font-weight:800;margin-bottom:6px;}
   .auth-form > p.sub{color:var(--text-dim);font-size:13.5px;margin-bottom:20px;}
@@ -358,12 +369,17 @@
     position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;
     color:var(--text-faint);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:4px;
   }
-  .form-error{
-    display:none;background:rgba(255,61,30,0.12);color:#ff8a6a;border:1px solid rgba(255,61,30,0.3);
-    border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;margin-bottom:16px;
+
+  /* reveal */
+  .reveal{opacity:0;transform:translateY(16px);transition:opacity 0.6s ease,transform 0.6s ease;}
+  .reveal.visible{opacity:1;transform:translateY(0);}
+
+  @media (max-width:640px){
+    .cashout-hero{flex-direction:column;}
+    .balance-card{text-align:left;width:100%;}
+    .balance-card .amt{justify-content:flex-start;}
+    .method-tile{width:calc(50% - 8px);}
   }
-  .form-error.show{display:block;}
-  #loadingGate{display:flex;min-height:60vh;align-items:center;justify-content:center;color:var(--text-faint);font-weight:600;font-size:14px;position:relative;z-index:1;}
 </style>
 </head>
 <body>
@@ -387,8 +403,8 @@
     <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v9M15 9.8c0-1.3-1.4-2.3-3-2.3s-3 .9-3 2.1c0 1.3 1.4 1.8 3 2.2 1.6.4 3 .9 3 2.2 0 1.2-1.4 2.1-3 2.1s-3-1-3-2.3"/></symbol>
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
-    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
     <symbol id="i-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></symbol>
+    <symbol id="i-chevron-left" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></symbol>
     <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 6-10 7L2 6"/></symbol>
     <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
     <symbol id="i-facebook" viewBox="0 0 24 24"><path d="M15 4h-2a4 4 0 0 0-4 4v3H7v4h2v7h4v-7h2.5l.5-4H13V8a1 1 0 0 1 1-1h2Z"/></symbol>
@@ -397,20 +413,20 @@
     <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></symbol>
     <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></symbol>
     <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12.01" y2="16"/></symbol>
-    <symbol id="i-shuffle" viewBox="0 0 24 24"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></symbol>
-    <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/></symbol>
     <symbol id="i-swap" viewBox="0 0 24 24"><path d="M7 3 3 7l4 4"/><path d="M3 7h13a4 4 0 0 1 4 4v1"/><path d="M17 21l4-4-4-4"/><path d="M21 17H8a4 4 0 0 1-4-4v-1"/></symbol>
     <symbol id="i-face" viewBox="0 0 24 24"><circle cx="9" cy="10" r="1.1" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1.1" fill="currentColor" stroke="none"/><path d="M8 15c1 1.5 2.5 2 4 2s3-.5 4-2"/></symbol>
-    <symbol id="i-card" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></symbol>
     <symbol id="i-eye" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></symbol>
     <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.8 21.8 0 0 1 5.06-5.94"/><path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a21.8 21.8 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></symbol>
     <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+    <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/></symbol>
   </defs>
 </svg>
 
-<div id="loadingGate">Loading your profile…</div>
+<div id="loadingGate">Loading your balance…</div>
 
-<!-- AUTH GATE (shown when the visitor is not signed in) -->
+<!-- AUTH GATE -->
 <div id="authGate">
   <div class="gate-box">
     <div class="gate-lock"><svg class="icon"><use href="#i-shield"></use></svg></div>
@@ -420,8 +436,8 @@
     </div>
 
     <form class="auth-form" id="gateSignInForm" novalidate>
-      <h2>Sign in to view your profile</h2>
-      <p class="sub">Your stats, coins and settings live here.</p>
+      <h2>Sign in to withdraw</h2>
+      <p class="sub">You need an account to cash out your coins.</p>
       <div class="form-error" id="gateSignInError"></div>
       <div class="gate-field">
         <label>Email</label>
@@ -482,8 +498,8 @@
       <a href="#" class="side-link"><svg class="icon"><use href="#i-bars"></use></svg> Leaderboard</a>
       <a href="#" class="side-link"><svg class="icon"><use href="#i-users"></use></svg> Referrals</a>
       <a href="#" class="side-link"><svg class="icon"><use href="#i-gift"></use></svg> Rewards</a>
-      <a href="withdraw.html" class="side-link"><svg class="icon"><use href="#i-swap"></use></svg> Withdraw</a>
-      <a href="profile.html" class="side-link active"><svg class="icon"><use href="#i-user"></use></svg> Profile</a>
+      <a href="withdraw.html" class="side-link active"><svg class="icon"><use href="#i-swap"></use></svg> Withdraw</a>
+      <a href="profile.html" class="side-link"><svg class="icon"><use href="#i-user"></use></svg> Profile</a>
       <a href="#" class="side-link"><svg class="icon"><use href="#i-chat"></use></svg> Support</a>
     </nav>
   </aside>
@@ -494,17 +510,14 @@
     <!-- TOPBAR -->
     <div class="topbar">
       <button class="menu-btn" id="sideOpen" aria-label="Open menu"><svg class="icon"><use href="#i-menu"></use></svg></button>
-      <a href="index.html" class="topbar-brand"><span class="mark">৳</span>earn<span class="bangla">bangla</span></a>
+      <a href="profile.html" class="topbar-back"><svg class="icon"><use href="#i-chevron-left"></use></svg> <span class="topbar-back-label">Back</span></a>
       <div class="topbar-spacer"></div>
       <div class="topbar-right">
-        <a href="withdraw.html" class="btn btn-primary btn-sm"><svg class="icon"><use href="#i-swap"></use></svg> Withdraw</a>
-        <button class="btn btn-outline btn-sm"><svg class="icon"><use href="#i-inbox"></use></svg> Redeem Bonus</button>
         <button class="icon-btn" aria-label="Notifications"><svg class="icon"><use href="#i-bell"></use></svg><span class="dot"></span></button>
-        <div class="coin-chip"><svg class="icon"><use href="#i-coin"></use></svg> <span id="coinBalance">0</span> <svg class="icon card-ic"><use href="#i-card"></use></svg></div>
-        <button class="avatar-btn" id="avatarMenuBtn">
+        <div class="coin-chip"><svg class="icon"><use href="#i-coin"></use></svg> <span id="coinBalance">0</span></div>
+        <a href="profile.html" class="avatar-btn">
           <span class="av-face avc1" style="width:32px;height:32px;" id="topbarAvatar"><svg class="icon" style="width:16px;height:16px;"><use href="#i-face"></use></svg><span class="status"></span></span>
-          <svg class="icon"><use href="#i-chevron"></use></svg>
-        </button>
+        </a>
         <button class="icon-btn" id="signOutBtn" aria-label="Sign out" title="Sign out"><svg class="icon"><use href="#i-logout"></use></svg></button>
       </div>
     </div>
@@ -513,56 +526,115 @@
     <div class="page">
       <div class="page-inner">
 
-        <!-- ACCOUNT INFORMATION -->
-        <section class="panel reveal">
-          <div class="panel-head">
-            <div class="panel-title"><svg class="icon"><use href="#i-user"></use></svg> Account Information</div>
-            <div style="display:flex;gap:10px;">
-              <a href="withdraw.html" class="btn btn-primary btn-sm"><svg class="icon" style="width:14px;height:14px;"><use href="#i-swap"></use></svg> Withdraw</a>
-              <button class="btn btn-outline btn-sm" id="editBtn"><svg class="icon" style="width:14px;height:14px;"><use href="#i-edit"></use></svg> Edit</button>
-            </div>
-          </div>
-          <div class="acct-body">
-            <span class="av-face acct-avatar avc1" id="acctAvatar"><svg class="icon"><use href="#i-face"></use></svg></span>
+        <!-- ===== METHODS VIEW ===== -->
+        <div id="methodsView">
+
+          <section class="panel cashout-hero reveal">
             <div>
-              <div class="acct-joined" id="acctJoined">Joined just now</div>
-              <div class="acct-name" id="acctName">—</div>
-              <div class="acct-email"><span id="acctEmail">—</span> <svg class="icon" id="acctEmailAlert" style="display:none;"><use href="#i-alert"></use></svg></div>
-              <span class="level-badge"><svg class="icon" style="width:12px;height:12px;"><use href="#i-sparkles"></use></svg> Level <span id="acctLevel">1</span></span>
-              <div class="private-row">
-                <svg class="icon"><use href="#i-shield"></use></svg> Private
-                <span class="help-dot" title="Hide your profile from public leaderboards">?</span>
-                <div class="toggle on" id="privateToggle" role="switch" aria-checked="true" tabindex="0"></div>
+              <div class="cashout-tag"><svg class="icon"><use href="#i-bolt"></use></svg> CASH OUT</div>
+              <h1>Turn your coins into real payouts</h1>
+              <p>Fast withdrawals, a low minimum cashout, and secure payouts straight to your Litecoin wallet or Binance account.</p>
+              <a href="profile.html" class="mywithdraw"><svg class="icon"><use href="#i-swap"></use></svg> My withdrawals →</a>
+              <div class="cashout-chip-row">
+                <span class="cashout-chip"><svg class="icon"><use href="#i-bolt"></use></svg> Instant processing</span>
+                <span class="cashout-chip"><svg class="icon"><use href="#i-lock"></use></svg> Secure payouts</span>
+                <span class="cashout-chip"><svg class="icon"><use href="#i-check"></use></svg> 2 methods</span>
               </div>
             </div>
-          </div>
-        </section>
+            <div class="balance-card">
+              <div class="lbl">Available Balance</div>
+              <div class="amt"><svg class="icon"><use href="#i-coin"></use></svg><span id="balCoins">0</span></div>
+              <div class="usd">= $<span id="balUsd">0.00</span></div>
+            </div>
+          </section>
 
-        <!-- STATS -->
-        <section class="panel reveal">
-          <div class="panel-head"><div class="panel-title"><svg class="icon"><use href="#i-bars"></use></svg> Stats</div></div>
-          <div class="stats-grid">
-            <div class="stat"><div class="stat-ic"><svg class="icon"><use href="#i-check"></use></svg></div><div class="stat-num" id="statCompleted">0</div><div class="stat-label">Completed Offers</div></div>
-            <div class="stat"><div class="stat-ic"><svg class="icon"><use href="#i-users"></use></svg></div><div class="stat-num" id="statReferred">0</div><div class="stat-label">Users Referred</div></div>
-            <div class="stat"><div class="stat-ic"><svg class="icon"><use href="#i-wallet"></use></svg></div><div class="stat-num" id="statEarning">0</div><div class="stat-label">Total Earning</div></div>
-            <div class="stat"><div class="stat-ic"><svg class="icon"><use href="#i-clock"></use></svg></div><div class="stat-num" id="statEarning30">0</div><div class="stat-label">Earnings last 30 days</div></div>
-          </div>
-        </section>
+          <section class="panel reveal">
+            <div class="method-group">
+              <div class="method-group-head">
+                <div class="method-group-title">
+                  <span class="badge-ic" style="background:rgba(139,92,246,0.16);"><svg class="icon" style="width:15px;height:15px;color:var(--violet);"><use href="#i-wallet"></use></svg></span>
+                  Crypto
+                </div>
+                <span class="method-group-count">2 options</span>
+              </div>
+              <div class="method-row">
+                <div class="method-tile" data-method="litecoin">
+                  <span class="mark ltc">Ł</span>
+                  <span class="name">Litecoin</span>
+                </div>
+                <div class="method-tile" data-method="binance">
+                  <span class="mark bnb">B</span>
+                  <span class="name">Binance Pay</span>
+                </div>
+              </div>
+            </div>
 
-        <!-- ACTIVITY TABS -->
-        <section class="panel tab-panel reveal">
-          <div class="tab-row">
-            <button class="tab-btn active" data-tab="earnings"><svg class="icon"><use href="#i-wallet"></use></svg> Earnings <span class="badge">0</span></button>
-            <button class="tab-btn" data-tab="withdrawals"><svg class="icon"><use href="#i-swap"></use></svg> Withdrawals</button>
-            <button class="tab-btn" data-tab="pending"><svg class="icon"><use href="#i-clock"></use></svg> Pending</button>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Name</th><th>Time</th><th style="text-align:right;">Points</th></tr></thead>
-              <tbody><tr><td colspan="3" id="tabEmptyText">No activity found</td></tr></tbody>
-            </table>
-          </div>
-        </section>
+            <div class="method-group">
+              <div class="method-group-head">
+                <div class="method-group-title">
+                  <span class="badge-ic" style="background:rgba(255,122,26,0.16);"><svg class="icon" style="width:15px;height:15px;color:var(--orange);"><use href="#i-gift"></use></svg></span>
+                  Gift Cards
+                </div>
+                <span class="method-group-count">0 options</span>
+              </div>
+              <div class="method-empty">
+                <svg class="icon"><use href="#i-inbox"></use></svg>
+                No gift cards available right now — check back soon.
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- ===== FORM VIEW ===== -->
+        <div id="formView">
+          <div class="form-back" id="formBack"><svg class="icon"><use href="#i-chevron-left"></use></svg> Back to cashout methods</div>
+
+          <section class="panel reveal">
+            <div class="form-hero">
+              <span class="mark" id="formMark">Ł</span>
+              <h2 id="formTitle">Withdraw via Litecoin</h2>
+              <p id="formSub">Fast &amp; secure — sent straight to your wallet.</p>
+              <div class="min-chip"><svg class="icon"><use href="#i-help"></use></svg> Minimum withdrawal: $0.20 · 200 coins</div>
+            </div>
+
+            <div class="form-error" id="withdrawError"></div>
+            <div class="form-success" id="withdrawSuccess"></div>
+            <div class="warn-banner" id="lowBalanceWarn" style="display:none;">
+              <svg class="icon"><use href="#i-alert"></use></svg>
+              <span>Your balance is below the $0.20 minimum. Earn more coins to unlock this withdrawal method.</span>
+            </div>
+
+            <form id="withdrawForm">
+              <div class="field" id="addressField">
+                <label><svg class="icon"><use href="#i-wallet"></use></svg> <span id="addressLabel">Litecoin address</span></label>
+                <input type="text" id="addressInput" placeholder="Enter your litecoin address" required autocomplete="off">
+              </div>
+
+              <div class="field">
+                <label><svg class="icon"><use href="#i-coin"></use></svg> Amount to withdraw (USD)</label>
+                <div class="amount-row">
+                  <input type="number" id="amountInput" placeholder="$ 0.00" min="0.20" step="0.01" required>
+                  <button type="button" class="btn btn-outline btn-sm" id="maxBtn">MAX</button>
+                </div>
+                <div class="amount-hint">Min $0.20 (200 coins)</div>
+              </div>
+
+              <div class="summary-row">
+                <div class="summary-cell">
+                  <div class="lbl">You'll withdraw</div>
+                  <div class="val">$<span id="sumUsd">0.00</span></div>
+                </div>
+                <div class="summary-cell">
+                  <div class="lbl">Coins used</div>
+                  <div class="val"><span id="sumCoins">0</span> <svg class="icon"><use href="#i-coin"></use></svg></div>
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-green" style="width:100%;" id="submitWithdrawBtn"><svg class="icon"><use href="#i-send"></use></svg> Withdraw Now</button>
+            </form>
+          </section>
+        </div>
 
       </div>
     </div>
@@ -605,29 +677,19 @@
   </div>
 </div>
 
-<!-- EDIT USERNAME / AVATAR MODAL -->
-<div class="modal-overlay" id="editModal">
-  <div class="modal-box">
-    <div class="modal-title">Choose your username and avatar, and start the adventure! 🚀</div>
-    <div class="field">
-      <label>Username</label>
-      <div class="username-row">
-        <input type="text" id="usernameInput" value="VenomousFang" placeholder="Choose your username">
-        <button class="btn btn-outline btn-sm" id="randomizeBtn"><svg class="icon" style="width:14px;height:14px;"><use href="#i-shuffle"></use></svg> Randomize</button>
-      </div>
-    </div>
-    <div class="field">
-      <label>Avatar</label>
-      <div class="avatar-grid" id="avatarGrid"></div>
-    </div>
-    <button class="btn btn-primary btn-block" style="width:100%;" id="saveBtn">Save</button>
-  </div>
-</div>
-
 <script>
   const colors = ['avc1','avc2','avc3','avc4','avc5','avc6'];
+  const COINS_PER_DOLLAR = 1000;   // 200 coins = $0.20  →  1000 coins per $1
+  const MIN_COINS = 200;
+  const MIN_USD = MIN_COINS / COINS_PER_DOLLAR;
+
+  const METHODS = {
+    litecoin: { mark:'Ł', markClass:'ltc', title:'Withdraw via Litecoin', sub:'Fast & secure — sent straight to your wallet.', addressLabel:'Litecoin address', addressPlaceholder:'Enter your litecoin address' },
+    binance:  { mark:'B', markClass:'bnb', title:'Withdraw via Binance Pay', sub:'Fast & secure — sent to your Binance account.', addressLabel:'Binance Pay ID or email', addressPlaceholder:'Enter your Binance Pay ID or email' }
+  };
+
   let currentUser = null;
-  let selectedAvatarClass = 'avc1';
+  let activeMethod = null;
 
   // ---------- helpers ----------
   function showFormError(el, msg){ el.textContent = msg; el.classList.add('show'); }
@@ -644,51 +706,22 @@
     return body;
   }
 
-  function timeAgo(ts){
-    const diff = Math.max(0, Date.now() - ts);
-    const mins = Math.floor(diff / 60000);
-    if(mins < 1) return 'Joined just now';
-    if(mins < 60) return 'Joined ' + mins + ' minute' + (mins === 1 ? '' : 's') + ' ago';
-    const hrs = Math.floor(mins / 60);
-    if(hrs < 24) return 'Joined ' + hrs + ' hour' + (hrs === 1 ? '' : 's') + ' ago';
-    const days = Math.floor(hrs / 24);
-    return 'Joined ' + days + ' day' + (days === 1 ? '' : 's') + ' ago';
-  }
-
-  function renderUser(user){
-    currentUser = user;
-    selectedAvatarClass = user.avatar || 'avc1';
-
-    document.getElementById('acctAvatar').classList.remove(...colors);
-    document.getElementById('acctAvatar').classList.add(selectedAvatarClass);
+  function renderBalance(user){
+    const coins = user.coins || 0;
+    const usd = (coins / COINS_PER_DOLLAR).toFixed(2);
+    document.getElementById('coinBalance').textContent = coins;
+    document.getElementById('balCoins').textContent = coins;
+    document.getElementById('balUsd').textContent = usd;
     document.getElementById('topbarAvatar').classList.remove(...colors);
-    document.getElementById('topbarAvatar').classList.add(selectedAvatarClass);
-
-    document.getElementById('acctJoined').textContent = timeAgo(user.createdAt);
-    document.getElementById('acctName').textContent = user.username;
-    document.getElementById('acctEmail').textContent = user.email;
-    document.getElementById('acctEmailAlert').style.display = user.emailVerified ? 'none' : '';
-    document.getElementById('acctLevel').textContent = user.level;
-
-    const toggle = document.getElementById('privateToggle');
-    toggle.classList.toggle('on', !!user.isPrivate);
-    toggle.setAttribute('aria-checked', !!user.isPrivate);
-
-    document.getElementById('statCompleted').textContent = user.completedOffers;
-    document.getElementById('statReferred').textContent = user.usersReferred;
-    document.getElementById('statEarning').textContent = user.totalEarning;
-    document.getElementById('statEarning30').textContent = user.earnings30d;
-    document.getElementById('coinBalance').textContent = user.coins;
-
-    document.getElementById('usernameInput').value = user.username;
-    document.querySelectorAll('.avatar-option').forEach(o => o.classList.toggle('selected', o.dataset.color === selectedAvatarClass));
+    document.getElementById('topbarAvatar').classList.add(user.avatar || 'avc1');
   }
 
   function showDashboard(user){
+    currentUser = user;
     document.getElementById('loadingGate').style.display = 'none';
     document.getElementById('authGate').style.display = 'none';
     document.getElementById('dashboardView').style.display = 'block';
-    renderUser(user);
+    renderBalance(user);
   }
 
   function showAuthGate(){
@@ -759,93 +792,115 @@
   document.getElementById('sideOpen').addEventListener('click', () => { sidebar.classList.add('open'); overlay.classList.add('show'); });
   document.getElementById('sideClose').addEventListener('click', () => { sidebar.classList.remove('open'); overlay.classList.remove('show'); });
   overlay.addEventListener('click', () => { sidebar.classList.remove('open'); overlay.classList.remove('show'); });
-  document.addEventListener('keydown', e => { if(e.key === 'Escape'){ sidebar.classList.remove('open'); overlay.classList.remove('show'); closeModal(); } });
-
-  // ---------- private toggle (persists) ----------
-  const toggle = document.getElementById('privateToggle');
-  async function flipToggle(){
-    const nextState = !toggle.classList.contains('on');
-    toggle.classList.toggle('on', nextState);
-    toggle.setAttribute('aria-checked', nextState);
-    try{
-      const { user } = await postJSON('/api/profile/update', { isPrivate: nextState });
-      currentUser = user;
-    }catch(ex){
-      toggle.classList.toggle('on', !nextState);
-      toggle.setAttribute('aria-checked', !nextState);
-    }
-  }
-  toggle.addEventListener('click', flipToggle);
-  toggle.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); flipToggle(); } });
-
-  // ---------- activity tabs ----------
-  const tabMessages = {
-    earnings: 'No activity found',
-    withdrawals: 'No withdrawals yet',
-    pending: 'Nothing pending right now'
-  };
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById('tabEmptyText').textContent = tabMessages[btn.dataset.tab];
-    });
-  });
-
-  // ---------- avatar grid ----------
-  const grid = document.getElementById('avatarGrid');
-  for(let i = 0; i < 36; i++){
-    const c = colors[i % colors.length];
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'avatar-option av-face ' + c;
-    b.dataset.color = c;
-    b.innerHTML = '<svg class="icon"><use href="#i-face"></use></svg>';
-    b.addEventListener('click', () => {
-      document.querySelectorAll('.avatar-option').forEach(o => o.classList.remove('selected'));
-      b.classList.add('selected');
-      selectedAvatarClass = c;
-    });
-    grid.appendChild(b);
-  }
-
-  // ---------- randomize username (edit modal) ----------
-  const adjectives = ['Sneaky','Mystic','Shadow','Vile','Venomous','Silent','Crimson','Golden','Frost','Wild'];
-  const nouns = ['Sniperr','Magerr','Shaman','Villain','Fang','Falcon','Wolf','Raven','Nomad','Blaze'];
-  document.getElementById('randomizeBtn').addEventListener('click', () => {
-    const name = adjectives[Math.floor(Math.random()*adjectives.length)] + nouns[Math.floor(Math.random()*nouns.length)] + Math.floor(Math.random()*100);
-    document.getElementById('usernameInput').value = name;
-  });
-
-  // ---------- edit modal (persists via API) ----------
-  const editModal = document.getElementById('editModal');
-  function openModal(){ editModal.classList.add('show'); }
-  function closeModal(){ editModal.classList.remove('show'); }
-  document.getElementById('editBtn').addEventListener('click', openModal);
-  editModal.addEventListener('click', e => { if(e.target === editModal) closeModal(); });
-
-  document.getElementById('saveBtn').addEventListener('click', async () => {
-    const newName = document.getElementById('usernameInput').value.trim();
-    const saveBtn = document.getElementById('saveBtn');
-    saveBtn.disabled = true;
-    saveBtn.textContent = 'Saving…';
-    try{
-      const { user } = await postJSON('/api/profile/update', { username: newName, avatar: selectedAvatarClass });
-      renderUser(user);
-      closeModal();
-    }catch(ex){
-      alert(ex.message);
-    }finally{
-      saveBtn.disabled = false;
-      saveBtn.textContent = 'Save';
-    }
-  });
+  document.addEventListener('keydown', e => { if(e.key === 'Escape'){ sidebar.classList.remove('open'); overlay.classList.remove('show'); } });
 
   // ---------- scroll reveal ----------
   const io = new IntersectionObserver(entries => {
     entries.forEach(en => { if(en.isIntersecting) en.target.classList.add('visible'); });
   }, {threshold:0.1});
   document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  // ---------- methods <-> form view ----------
+  const methodsView = document.getElementById('methodsView');
+  const formView = document.getElementById('formView');
+  const withdrawForm = document.getElementById('withdrawForm');
+  const amountInput = document.getElementById('amountInput');
+  const addressInput = document.getElementById('addressInput');
+  const withdrawError = document.getElementById('withdrawError');
+  const withdrawSuccess = document.getElementById('withdrawSuccess');
+  const lowBalanceWarn = document.getElementById('lowBalanceWarn');
+  const submitWithdrawBtn = document.getElementById('submitWithdrawBtn');
+
+  function openMethod(methodKey){
+    const m = METHODS[methodKey];
+    if(!m) return;
+    activeMethod = methodKey;
+
+    document.getElementById('formMark').textContent = m.mark;
+    document.getElementById('formMark').className = 'mark ' + m.markClass;
+    document.getElementById('formTitle').textContent = m.title;
+    document.getElementById('formSub').textContent = m.sub;
+    document.getElementById('addressLabel').textContent = m.addressLabel;
+    addressInput.placeholder = m.addressPlaceholder;
+
+    hideFormError(withdrawError);
+    withdrawSuccess.classList.remove('show');
+    withdrawForm.reset();
+    updateSummary();
+
+    const coins = (currentUser && currentUser.coins) || 0;
+    const belowMin = coins < MIN_COINS;
+    lowBalanceWarn.style.display = belowMin ? 'flex' : 'none';
+    submitWithdrawBtn.disabled = belowMin;
+    amountInput.disabled = belowMin;
+    addressInput.disabled = belowMin;
+
+    methodsView.style.display = 'none';
+    formView.style.display = 'block';
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  function closeMethod(){
+    activeMethod = null;
+    formView.style.display = 'none';
+    methodsView.style.display = 'block';
+  }
+
+  document.querySelectorAll('.method-tile').forEach(tile => {
+    tile.addEventListener('click', () => openMethod(tile.dataset.method));
+  });
+  document.getElementById('formBack').addEventListener('click', closeMethod);
+
+  function updateSummary(){
+    const usd = Math.max(0, parseFloat(amountInput.value) || 0);
+    const coins = Math.round(usd * COINS_PER_DOLLAR);
+    document.getElementById('sumUsd').textContent = usd.toFixed(2);
+    document.getElementById('sumCoins').textContent = coins;
+  }
+  amountInput.addEventListener('input', updateSummary);
+
+  document.getElementById('maxBtn').addEventListener('click', () => {
+    const coins = (currentUser && currentUser.coins) || 0;
+    const usd = (coins / COINS_PER_DOLLAR).toFixed(2);
+    amountInput.value = usd;
+    updateSummary();
+  });
+
+  withdrawForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    hideFormError(withdrawError);
+    withdrawSuccess.classList.remove('show');
+
+    const usd = parseFloat(amountInput.value) || 0;
+    const coinsUsed = Math.round(usd * COINS_PER_DOLLAR);
+    const address = addressInput.value.trim();
+
+    if(usd < MIN_USD){ showFormError(withdrawError, 'Minimum withdrawal is $' + MIN_USD.toFixed(2) + ' (' + MIN_COINS + ' coins).'); return; }
+    if(!address){ showFormError(withdrawError, 'Please enter your ' + METHODS[activeMethod].addressLabel.toLowerCase() + '.'); return; }
+    if(!currentUser || coinsUsed > currentUser.coins){ showFormError(withdrawError, 'You don\'t have enough coins for this withdrawal.'); return; }
+
+    submitWithdrawBtn.disabled = true;
+    submitWithdrawBtn.textContent = 'Processing…';
+    try{
+      const { user } = await postJSON('/api/withdraw/request', {
+        method: activeMethod,
+        address: address,
+        amountUsd: usd,
+        coinsUsed: coinsUsed
+      });
+      currentUser = user;
+      renderBalance(user);
+      withdrawSuccess.textContent = 'Withdrawal request received! Track it under My withdrawals.';
+      withdrawSuccess.classList.add('show');
+      withdrawForm.reset();
+      updateSummary();
+    }catch(ex){
+      showFormError(withdrawError, ex.message);
+    }finally{
+      submitWithdrawBtn.disabled = false;
+      submitWithdrawBtn.innerHTML = '<svg class="icon"><use href="#i-send"></use></svg> Withdraw Now';
+    }
+  });
 
   // ---------- boot: check session ----------
   (async function checkSession(){
@@ -858,7 +913,6 @@
         showAuthGate();
       }
     }catch(ex){
-      // API not deployed yet — fall back to the sign-in gate
       showAuthGate();
     }
   })();
