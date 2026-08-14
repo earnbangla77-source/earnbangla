@@ -261,6 +261,14 @@
     font-weight:700;padding:10px 6px;border-bottom:1px solid var(--border);
   }
   tbody td{padding:36px 6px;text-align:center;color:var(--text-faint);font-weight:600;font-size:14.5px;}
+  tbody tr.act-row td{padding:14px 6px;text-align:left;color:var(--text-dim);border-bottom:1px solid var(--border);vertical-align:top;}
+  tbody tr.act-row:last-child td{border-bottom:none;}
+  .act-primary{font-weight:700;color:var(--text);text-transform:capitalize;font-size:14.5px;}
+  .act-secondary{font-size:12px;color:var(--text-faint);font-weight:500;margin-top:2px;}
+  .status-pill{display:inline-flex;padding:3px 10px;border-radius:100px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;margin-top:6px;}
+  .status-pill.st-pending{background:rgba(255,122,26,0.15);color:var(--orange);}
+  .status-pill.st-completed{background:rgba(58,208,122,0.15);color:var(--green);}
+  .status-pill.st-rejected{background:rgba(255,61,30,0.15);color:var(--orange-2);}
 
   /* Footer */
   footer{background:var(--bg-elev);border-top:1px solid var(--border);padding:48px 0 24px;position:relative;z-index:1;}
@@ -553,13 +561,13 @@
         <section class="panel tab-panel reveal">
           <div class="tab-row">
             <button class="tab-btn active" data-tab="earnings"><svg class="icon"><use href="#i-wallet"></use></svg> Earnings <span class="badge">0</span></button>
-            <button class="tab-btn" data-tab="withdrawals"><svg class="icon"><use href="#i-swap"></use></svg> Withdrawals</button>
+            <button class="tab-btn" data-tab="withdrawals"><svg class="icon"><use href="#i-swap"></use></svg> Withdrawals <span class="badge" id="withdrawalsBadge">0</span></button>
             <button class="tab-btn" data-tab="pending"><svg class="icon"><use href="#i-clock"></use></svg> Pending</button>
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Name</th><th>Time</th><th style="text-align:right;">Points</th></tr></thead>
-              <tbody><tr><td colspan="3" id="tabEmptyText">No activity found</td></tr></tbody>
+              <thead><tr><th id="colName">Name</th><th id="colTime">Time</th><th style="text-align:right;" id="colValue">Points</th></tr></thead>
+              <tbody id="activityBody"><tr><td colspan="3" id="tabEmptyText">No activity found</td></tr></tbody>
             </table>
           </div>
         </section>
@@ -689,6 +697,7 @@
     document.getElementById('authGate').style.display = 'none';
     document.getElementById('dashboardView').style.display = 'block';
     renderUser(user);
+    loadWithdrawals(false); // quietly fetch so the tab badge shows a real count right away
   }
 
   function showAuthGate(){
@@ -784,11 +793,84 @@
     withdrawals: 'No withdrawals yet',
     pending: 'Nothing pending right now'
   };
+  const tabHeaders = {
+    earnings: { name: 'Name', value: 'Points' },
+    withdrawals: { name: 'Method', value: 'Amount' },
+    pending: { name: 'Name', value: 'Points' }
+  };
+  const activityBody = document.getElementById('activityBody');
+  const colName = document.getElementById('colName');
+  const colValue = document.getElementById('colValue');
+  const withdrawalsBadge = document.getElementById('withdrawalsBadge');
+  let withdrawalsData = [];
+  let withdrawalsLoaded = false;
+
+  function renderEmptyRow(msg){
+    activityBody.innerHTML = '<tr><td colspan="3" id="tabEmptyText">' + msg + '</td></tr>';
+  }
+
+  function statusPillHTML(status){
+    const map = {
+      pending: { label: 'Pending', cls: 'st-pending' },
+      completed: { label: 'Completed', cls: 'st-completed' },
+      rejected: { label: 'Rejected', cls: 'st-rejected' }
+    };
+    const s = map[status] || { label: status, cls: 'st-pending' };
+    return '<span class="status-pill ' + s.cls + '">' + s.label + '</span>';
+  }
+
+  function formatWhen(ts){
+    const d = new Date(ts);
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) +
+      ' · ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function shortAddress(addr){
+    if(!addr) return '';
+    return addr.length > 12 ? addr.slice(0, 6) + '…' + addr.slice(-4) : addr;
+  }
+
+  function renderWithdrawals(list){
+    if(!list.length){ renderEmptyRow(tabMessages.withdrawals); return; }
+    activityBody.innerHTML = list.map(w => (
+      '<tr class="act-row">' +
+        '<td><div class="act-primary">' + w.method + '</div><div class="act-secondary">' + shortAddress(w.address) + '</div></td>' +
+        '<td>' + formatWhen(w.createdAt) + '</td>' +
+        '<td style="text-align:right;"><div class="act-primary">' + w.coinsUsed + ' coins</div>' +
+          '<div class="act-secondary">$' + Number(w.amountUsd).toFixed(2) + '</div>' +
+          statusPillHTML(w.status) + '</td>' +
+      '</tr>'
+    )).join('');
+  }
+
+  async function loadWithdrawals(renderNow){
+    if(renderNow) renderEmptyRow('Loading…');
+    try{
+      const res = await fetch('/api/withdraw/request');
+      const body = await res.json().catch(() => ({}));
+      if(!res.ok) throw new Error(body.error || 'Could not load withdrawals.');
+      withdrawalsData = body.withdrawals || [];
+      withdrawalsLoaded = true;
+      withdrawalsBadge.textContent = withdrawalsData.length;
+      if(renderNow) renderWithdrawals(withdrawalsData);
+    }catch(ex){
+      if(renderNow) renderEmptyRow('Could not load withdrawals. Please try again.');
+    }
+  }
+
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      document.getElementById('tabEmptyText').textContent = tabMessages[btn.dataset.tab];
+      const tab = btn.dataset.tab;
+      colName.textContent = tabHeaders[tab].name;
+      colValue.textContent = tabHeaders[tab].value;
+      if(tab === 'withdrawals'){
+        if(withdrawalsLoaded) renderWithdrawals(withdrawalsData);
+        else loadWithdrawals(true);
+      } else {
+        renderEmptyRow(tabMessages[tab]);
+      }
     });
   });
 
