@@ -562,7 +562,7 @@
           <div class="tab-row">
             <button class="tab-btn active" data-tab="earnings"><svg class="icon"><use href="#i-wallet"></use></svg> Earnings <span class="badge">0</span></button>
             <button class="tab-btn" data-tab="withdrawals"><svg class="icon"><use href="#i-swap"></use></svg> Withdrawals <span class="badge" id="withdrawalsBadge">0</span></button>
-            <button class="tab-btn" data-tab="pending"><svg class="icon"><use href="#i-clock"></use></svg> Pending</button>
+            <button class="tab-btn" data-tab="pending"><svg class="icon"><use href="#i-clock"></use></svg> Pending <span class="badge" id="pendingBadge">0</span></button>
           </div>
           <div class="table-wrap">
             <table>
@@ -697,7 +697,7 @@
     document.getElementById('authGate').style.display = 'none';
     document.getElementById('dashboardView').style.display = 'block';
     renderUser(user);
-    loadWithdrawals(false); // quietly fetch so the tab badge shows a real count right away
+    loadWithdrawals(null); // quietly fetch so both tab badges show real counts right away
   }
 
   function showAuthGate(){
@@ -790,20 +790,24 @@
   // ---------- activity tabs ----------
   const tabMessages = {
     earnings: 'No activity found',
-    withdrawals: 'No withdrawals yet',
-    pending: 'Nothing pending right now'
+    withdrawals: 'No completed withdrawals yet',
+    pending: 'No pending withdrawals'
   };
   const tabHeaders = {
     earnings: { name: 'Name', value: 'Points' },
     withdrawals: { name: 'Method', value: 'Amount' },
-    pending: { name: 'Name', value: 'Points' }
+    pending: { name: 'Method', value: 'Amount' }
   };
   const activityBody = document.getElementById('activityBody');
   const colName = document.getElementById('colName');
   const colValue = document.getElementById('colValue');
   const withdrawalsBadge = document.getElementById('withdrawalsBadge');
+  const pendingBadge = document.getElementById('pendingBadge');
   let withdrawalsData = [];
   let withdrawalsLoaded = false;
+
+  const pendingWithdrawals = () => withdrawalsData.filter(w => w.status === 'pending');
+  const resolvedWithdrawals = () => withdrawalsData.filter(w => w.status !== 'pending');
 
   function renderEmptyRow(msg){
     activityBody.innerHTML = '<tr><td colspan="3" id="tabEmptyText">' + msg + '</td></tr>';
@@ -830,8 +834,8 @@
     return addr.length > 12 ? addr.slice(0, 6) + '…' + addr.slice(-4) : addr;
   }
 
-  function renderWithdrawals(list){
-    if(!list.length){ renderEmptyRow(tabMessages.withdrawals); return; }
+  function renderWithdrawals(list, emptyMsg){
+    if(!list.length){ renderEmptyRow(emptyMsg); return; }
     activityBody.innerHTML = list.map(w => (
       '<tr class="act-row">' +
         '<td><div class="act-primary">' + w.method + '</div><div class="act-secondary">' + shortAddress(w.address) + '</div></td>' +
@@ -843,18 +847,22 @@
     )).join('');
   }
 
-  async function loadWithdrawals(renderNow){
-    if(renderNow) renderEmptyRow('Loading…');
+  // renderTab: 'withdrawals' | 'pending' to render that tab after loading, or null/false to just
+  // refresh the badge counts quietly without touching whatever's on screen.
+  async function loadWithdrawals(renderTab){
+    if(renderTab) renderEmptyRow('Loading…');
     try{
       const res = await fetch('/api/withdraw/request');
       const body = await res.json().catch(() => ({}));
       if(!res.ok) throw new Error(body.error || 'Could not load withdrawals.');
       withdrawalsData = body.withdrawals || [];
       withdrawalsLoaded = true;
-      withdrawalsBadge.textContent = withdrawalsData.length;
-      if(renderNow) renderWithdrawals(withdrawalsData);
+      withdrawalsBadge.textContent = resolvedWithdrawals().length;
+      pendingBadge.textContent = pendingWithdrawals().length;
+      if(renderTab === 'withdrawals') renderWithdrawals(resolvedWithdrawals(), tabMessages.withdrawals);
+      else if(renderTab === 'pending') renderWithdrawals(pendingWithdrawals(), tabMessages.pending);
     }catch(ex){
-      if(renderNow) renderEmptyRow('Could not load withdrawals. Please try again.');
+      if(renderTab) renderEmptyRow('Could not load withdrawals. Please try again.');
     }
   }
 
@@ -865,9 +873,13 @@
       const tab = btn.dataset.tab;
       colName.textContent = tabHeaders[tab].name;
       colValue.textContent = tabHeaders[tab].value;
-      if(tab === 'withdrawals'){
-        if(withdrawalsLoaded) renderWithdrawals(withdrawalsData);
-        else loadWithdrawals(true);
+      if(tab === 'withdrawals' || tab === 'pending'){
+        if(withdrawalsLoaded){
+          const list = tab === 'withdrawals' ? resolvedWithdrawals() : pendingWithdrawals();
+          renderWithdrawals(list, tabMessages[tab]);
+        } else {
+          loadWithdrawals(tab);
+        }
       } else {
         renderEmptyRow(tabMessages[tab]);
       }
