@@ -41,3 +41,20 @@ CREATE TABLE IF NOT EXISTS activity_log (
 );
 
 CREATE INDEX IF NOT EXISTS idx_activity_log_created_at ON activity_log(created_at);
+
+-- Withdrawal requests placed from withdraw.html. One row per request.
+-- method: 'litecoin' | 'binance'
+-- status: 'pending' | 'completed' | 'rejected'  (starts 'pending', updated manually / by a future payout job)
+CREATE TABLE IF NOT EXISTS withdrawals (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  method TEXT NOT NULL,
+  address TEXT NOT NULL,
+  amount_usd REAL NOT NULL,
+  coins_used INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_withdrawals_user_id ON withdrawals(user_id);
+CREATE INDEX IF NOT EXISTS idx_withdrawals_created_at ON withdrawals(created_at);
