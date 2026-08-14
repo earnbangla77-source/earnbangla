@@ -22,12 +22,19 @@ Cloudflare D1 (SQLite) ব্যবহার করা হয়েছে।
 
 - [x] হোমপেজ ডিজাইন (`index.html`) — offers, sign up ফর্ম, ইত্যাদি
 - [x] Earn পেজ ডিজাইন (`earn.html`)
-- [x] Profile পেজ ডিজাইন (`profile.html`)
+- [x] Profile পেজ ডিজাইন (`profile.html`) — এখন Withdraw বাটনসহ (topbar + Account
+      Information প্যানেল + sidebar), `withdraw.html` এ নিয়ে যায়
 - [x] Leaderboard পেজ ডিজাইন (`leaderboard.html`) — podium + full ranking table,
       real API থেকে ডেটা লোড করে, API fail করলে placeholder ডেটা দেখায়
-- [x] D1 ডেটাবেসের schema (`schema.sql`) — `users` আর `sessions` টেবিল
-- [x] আসল **backend API** (Cloudflare Pages Functions) — এর আগে এগুলো ছিলই না,
-      নতুন বানানো হয়েছে:
+- [x] **Withdraw / Cash out পেজ ডিজাইন (`withdraw.html`)** — profile.html এর
+      সাথে ডিজাইন/animation/sidebar মিলিয়ে বানানো নতুন পেজ। Cashout method
+      হিসেবে **Litecoin** আর **Binance Pay** — tile আকারে দেখায়, ক্লিক করলে
+      সেই মেথডের withdraw ফর্ম খোলে (address + amount + MAX বাটন + summary)।
+      Minimum withdrawal: **200 coins = $0.20** — এর নিচে balance থাকলে warning
+      দেখিয়ে ফর্ম disable করে দেয়।
+- [x] D1 ডেটাবেসের schema (`schema.sql`) — `users`, `sessions`, `activity_log`,
+      আর নতুন **`withdrawals`** টেবিল
+- [x] আসল **backend API** (Cloudflare Pages Functions):
   - `functions/api/auth/register.js` — নতুন অ্যাকাউন্ট বানায়
   - `functions/api/auth/login.js` — সাইন ইন করায়
   - `functions/api/auth/logout.js` — সাইন আউট করায়
@@ -36,18 +43,30 @@ Cloudflare D1 (SQLite) ব্যবহার করা হয়েছে।
   - `functions/api/leaderboard.js` — `users.coins` অনুযায়ী রank করে (বেশি কয়েন
     আগে), top 50 রিটার্ন করে, সাইন-ইন করা ইউজারের নিজের rank বের করে (top 50 এর
     বাইরে থাকলেও), প্রতিটা rank এর জন্য static prize বসায়
+  - **`functions/api/withdraw/request.js`** (নতুন) —
+    - `POST` → withdraw রিকোয়েস্ট নেয় (method, address, coinsUsed), balance
+      যথেষ্ট আছে কিনা guard করে চেক করে (`UPDATE ... WHERE coins >= ?`),
+      coins deduct করে, `withdrawals` টেবিলে `status = 'pending'` সহ একটা
+      রেকর্ড বসায়
+    - `GET` → সাইন-ইন করা ইউজারের নিজের সব withdrawal history রিটার্ন করে
+      (সর্বশেষ ৫০টা) — এটা এখনো কোথাও frontend থেকে call করা হচ্ছে না (নিচে
+      "পরবর্তী কাজ" দেখুন)
   - `functions/_lib/auth.js` — পাসওয়ার্ড হ্যাশিং, সেশন কুকি — শেয়ার্ড কোড
 - [x] Sign Up / Sign In / Sign Out — আসল D1 ডেটাবেসের সাথে কাজ করছে (টেস্ট করা হয়েছে)
 - [x] লগইন করার পর হোমপেজে "Sign up for free" ফর্মটা লুকিয়ে যায়
 
 **মানে এখন সাইটে রিয়েল অ্যাকাউন্ট সিস্টেম কাজ করছে** — কেউ সাইন আপ করলে সেটা
 সত্যিকারের D1 ডেটাবেসে সেভ হয়, পাসওয়ার্ড হ্যাশ করা থাকে, সেশন কুকি দিয়ে লগইন
-মনে রাখে। লিডারবোর্ডও এখন লাইভ ডেটার সাথে যুক্ত।
+মনে রাখে। লিডারবোর্ডও এখন লাইভ ডেটার সাথে যুক্ত। **Withdraw সিস্টেমও এখন
+ফ্রন্টএন্ড + ব্যাকএন্ড দুটোই রেডি — শুধু D1 তে `schema.sql` রি-রান করে
+`withdrawals` টেবিল বসিয়ে ডিপ্লয় করলেই কাজ করবে।**
 
 ⚠️ **চেক করা বাকি:** `leaderboard.js` এর ভেতরে সেশন কুকির নাম `session` ধরে
 নেওয়া হয়েছিল (assumption)। `functions/_lib/auth.js` এ আসল কুকির নাম যদি ভিন্ন
 হয় (`session_id`, `auth_token` ইত্যাদি), তাহলে সাইন-ইন করা ইউজারের "Your rank"
 সবসময় "Sign in to see your rank" দেখাবে — এটা মিলিয়ে নিতে হবে।
+(নোট: `functions/_lib/auth.js` অনুযায়ী আসল কুকির নাম `eb_session` — leaderboard.js
+এইটার সাথে মিলছে কিনা যাচাই করুন।)
 
 ---
 
@@ -66,10 +85,14 @@ incm website/
 │       │   └── me.js
 │       ├── profile/
 │       │   └── update.js
+│       ├── withdraw/
+│       │   └── request.js
+│       ├── activity.js
 │       └── leaderboard.js
 ├── index.html
 ├── earn.html
 ├── profile.html
+├── withdraw.html
 ├── leaderboard.html
 ├── schema.sql
 ├── wrangler.toml
@@ -77,8 +100,11 @@ incm website/
 ```
 
 ⚠️ **ভুল করলে যা হবে:** `functions/` এর ভেতরের ফাইলগুলো যদি ভুল জায়গায় (যেমন
-রুটে সরাসরি) থাকে, তাহলে Cloudflare সেগুলোকে API হিসেবে চিনবে না, সাইন-ইন কাজ
-করবে না।
+রুটে সরাসরি, বা `withdraw/` ভুলে `profile/`কিংবা `auth/`এর ভেতরে ঢুকে গেলে)
+থাকে, তাহলে Cloudflare সেগুলোকে সঠিক API রুট হিসেবে চিনবে না এবং সেই ফিচার কাজ
+করবে না। `withdraw` ফোল্ডার অবশ্যই `api/`-এর সরাসরি ভেতরে, `auth`/`profile`-এর
+**পাশাপাশি** (ভেতরে না) থাকতে হবে — কারণ `request.js`-এর ভেতরের
+`import ... from "../../_lib/auth.js"` ঠিক এই depth ধরেই লেখা।
 
 ---
 
@@ -87,7 +113,14 @@ incm website/
 1. Cloudflare Dashboard → Workers & Pages → `earnbangla` প্রজেক্ট → **Settings →
    Functions → D1 database bindings** এ `DB` নামে `earnbangla-db` bind করা আছে
    কিনা (Production আর Preview দুই জায়গাতেই)। এটা ছাড়া API কাজ করবে না।
-2. কোনো পরিবর্তন করার পর সবসময়:
+2. `schema.sql` এ পরিবর্তন হলে (যেমন নতুন `withdrawals` টেবিল) সেটা D1 তে বসাতে
+   ভুলবেন না:
+   ```
+   wrangler d1 execute earnbangla-db --remote --file=./schema.sql
+   ```
+   (সব statement এ `IF NOT EXISTS` আছে, তাই পুরো ফাইল বারবার রান করলেও আগের
+   ডেটার ক্ষতি হয় না।)
+3. কোনো পরিবর্তন করার পর সবসময়:
    ```
    git add .
    git commit -m "যা পরিবর্তন করলেন তার সংক্ষিপ্ত বর্ণনা"
@@ -95,7 +128,7 @@ incm website/
    ```
    পুশ করলেই Cloudflare Pages নিজে থেকে নতুন করে deploy করে দেয় (১-২ মিনিট
    সময় লাগে)।
-3. সবসময় **deploy করা লিংকে** (`https://earnbangla.pages.dev`) টেস্ট করুন,
+4. সবসময় **deploy করা লিংকে** (`https://earnbangla.pages.dev`) টেস্ট করুন,
    কম্পিউটারে সরাসরি ফাইল ডাবল-ক্লিক করে (`file://...`) না — কারণ `file://`
    থেকে API কল করলে কাজ করবে না।
 
@@ -106,8 +139,8 @@ incm website/
 এগুলো এখনো **আসল ডেটার সাথে সংযুক্ত না** — এখনো ডেমো/স্ট্যাটিক ডেটা দেখাচ্ছে:
 
 - [ ] **Leaderboard সেশন কুকি নাম মিলিয়ে নেওয়া** — `functions/api/leaderboard.js`
-      এ `session` কুকির নাম assume করা হয়েছে, `functions/_lib/auth.js` এর সাথে
-      মিলিয়ে দরকার হলে ঠিক করতে হবে।
+      এ `session` কুকির নাম assume করা হয়েছে, `functions/_lib/auth.js` এর
+      আসল কুকির নাম (`eb_session`) এর সাথে মিলিয়ে দরকার হলে ঠিক করতে হবে।
 - [ ] **Earn পেজ (`earn.html`)** — অফারগুলো (apps/games/surveys) এখনো
       hardcoded। কোনো অফারওয়াল প্রোভাইডার (যেমন OfferToro, AdGate, CPAlead)
       এর API এর সাথে যুক্ত করতে হবে, আর অফার সম্পূর্ণ হলে
@@ -115,8 +148,21 @@ incm website/
       `functions/api/offers/complete.js` (বা postback endpoint) বানাতে হবে।
 - [ ] **রেফারেল সিস্টেম** — `users_referred` ফিল্ড ডেটাবেসে আছে, কিন্তু কেউ
       রেফার করলে সেটা count হওয়ার কোনো লজিক এখনো নেই।
-- [ ] **Withdraw / Cash out** — ইউজার কীভাবে টাকা তুলবে (bKash/Nagad/PayPal
-      ইত্যাদি) — এখনো কোনো ফিচার নেই। এর জন্য নতুন টেবিল আর ফাংশন লাগবে।
+- [ ] **Withdraw সিস্টেম — বাকি কাজ:**
+  - `schema.sql` এ যোগ হওয়া `withdrawals` টেবিলটা এখনো লাইভ D1 তে বসানো
+    (`wrangler d1 execute ... --file=./schema.sql`) হয়নি — deploy এর আগে এটা
+    করা লাগবে।
+  - `functions/api/withdraw/request.js` এর `GET` endpoint বানানো আছে কিন্তু
+    কোনো পেজ এটা এখনো call করছে না — profile.html এর "Withdrawals" activity
+    ট্যাব বা `withdraw.html` এর "My withdrawals" লিংককে এই endpoint এর সাথে
+    যুক্ত করতে হবে যাতে ইউজার তার আগের withdraw request গুলোর status
+    (pending/completed/rejected) দেখতে পারে।
+  - Litecoin/Binance address ফরম্যাট এখনো সার্ভার সাইডে যাচাই হয় না (শুধু
+    ৪ ক্যারেক্টারের বেশি হলেই গ্রহণ করে) — চাইলে প্রতিটা মেথডের জন্য প্রপার
+    address regex validation যোগ করা যেতে পারে।
+  - Withdrawal `status` (`pending` → `completed`/`rejected`) এখন হাতে
+    আপডেট করা লাগবে (সরাসরি D1 কমান্ড দিয়ে) — কোনো admin প্যানেল বা payout
+    automation এখনো নেই।
 - [ ] **Email verification** — সাইন আপ করলে এখন `email_verified = 0` থাকে,
       কখনো `1` হয় না। ইমেইল পাঠানোর সার্ভিস (যেমন Resend/SendGrid) যুক্ত করে
       `functions/api/auth/verify-email.js` বানাতে হবে।
@@ -124,7 +170,9 @@ incm website/
 - [ ] **Level সিস্টেম** — `level` ফিল্ড আছে কিন্তু কখন/কীভাবে বাড়বে তার লজিক
       এখনো নেই।
 - [ ] প্রোফাইল পেজের "Activity" ট্যাব (Earnings / Withdrawals / Pending) —
-      এখনো শুধু "কিছু নেই" মেসেজ দেখায়, আসল ডেটা লোড করে না।
+      এখনো শুধু "কিছু নেই" মেসেজ দেখায়, আসল ডেটা লোড করে না (Withdrawals ট্যাবের
+      জন্য `functions/api/withdraw/request.js` এর `GET` ব্যবহার করা যাবে, বাকি
+      দুইটার জন্য আলাদা endpoint লাগবে)।
 
 ---
 
@@ -137,6 +185,8 @@ incm website/
 | Sign up কাজ করে কিন্তু ডেটা সেভ থাকে না | D1 binding যোগ করা হয়নি | Cloudflare Dashboard → Settings → Functions → D1 bindings চেক করুন |
 | GitHub এ push করলাম কিন্তু সাইটে পরিবর্তন দেখাচ্ছে না | Deploy এখনো শেষ হয়নি, বা browser cache | ১-২ মিনিট অপেক্ষা করুন, তারপর Ctrl+Shift+R দিয়ে হার্ড রিফ্রেশ করুন |
 | Leaderboard এ "Your rank" সবসময় "Sign in to see your rank" দেখায়, যদিও সাইন-ইন করা আছে | `leaderboard.js` এর কুকির নাম `auth.js` এর সাথে মিলছে না | ব্রাউজার DevTools → Application → Cookies এ আসল কুকির নাম দেখে `leaderboard.js` এ মিলিয়ে দিন |
+| Withdraw ফর্ম সাবমিট করলে "Not signed in" বা "Something went wrong" | `functions/api/withdraw/request.js` ভুল জায়গায় বসানো (যেমন `profile/` বা `auth/` এর ভেতরে ঢুকে গেছে), অথবা `withdrawals` টেবিল D1 তে বসানো হয়নি | `withdraw` ফোল্ডার সরাসরি `api/` এর ভেতরে (auth/profile এর পাশে) আছে কিনা চেক করুন, আর `schema.sql` D1 তে রান করা হয়েছে কিনা যাচাই করুন |
+| Withdraw এ balance ঠিকমতো কমছে না বা negative হয়ে যাচ্ছে | `withdrawals` টেবিল ছাড়াই পুরনো `schema.sql` চলছে, বা `request.js` আপডেটেড ভার্শন না | নতুন `schema.sql` + `request.js` ঠিকমতো বসানো হয়েছে কিনা আর D1 তে টেবিল আছে কিনা `SELECT name FROM sqlite_master ...` দিয়ে চেক করুন |
 
 ---
 
@@ -148,6 +198,12 @@ wrangler d1 execute earnbangla-db --remote --command="SELECT name FROM sqlite_ma
 
 # সব ইউজার দেখা (টেস্টের জন্য)
 wrangler d1 execute earnbangla-db --remote --command="SELECT id, username, email, created_at FROM users;"
+
+# schema.sql এর নতুন পরিবর্তন (যেমন withdrawals টেবিল) D1 তে বসানো
+wrangler d1 execute earnbangla-db --remote --file=./schema.sql
+
+# সব withdraw রিকোয়েস্ট দেখা (টেস্টের জন্য)
+wrangler d1 execute earnbangla-db --remote --command="SELECT * FROM withdrawals ORDER BY created_at DESC;"
 
 # পরিবর্তন পুশ করা
 git add .
