@@ -174,4 +174,12 @@ export function isValidEmail(email) {
   return typeof email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+// Shared email normalization — trims whitespace and lowercases, so the same
+// address always matches regardless of case. Used by register/login already
+// (inline), and by the forgot-password / reset-password endpoints so any
+// new auth code stays consistent.
+export function normalizeEmail(email) {
+  return typeof email === "string" ? email.trim().toLowerCase() : "";
+}
+
 export { SESSION_COOKIE };

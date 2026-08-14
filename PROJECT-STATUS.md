@@ -51,7 +51,19 @@ Cloudflare D1 (SQLite) ব্যবহার করা হয়েছে।
     - `GET` → সাইন-ইন করা ইউজারের নিজের সব withdrawal history রিটার্ন করে
       (সর্বশেষ ৫০টা) — এখন `profile.html`-এর Activity ট্যাব থেকে সরাসরি call
       হচ্ছে (নিচে দেখুন)
-  - `functions/_lib/auth.js` — পাসওয়ার্ড হ্যাশিং, সেশন কুকি — শেয়ার্ড কোড
+  - **`functions/api/auth/forgot-password.js`** (নতুন) — ইমেইল নিয়ে ৬-ডিজিট
+    OTP জেনারেট করে (PBKDF2 দিয়ে হ্যাশ করে `password_resets` টেবিলে সেভ),
+    Resend দিয়ে ইমেইল পাঠায়। প্রতি ইমেইলে ২৪ ঘণ্টায় সর্বোচ্চ ২টা OTP —
+    রেট লিমিট আছে। ইমেইল না পেলেও same generic success দেখায় (email
+    enumeration প্রোটেকশন)।
+  - **`functions/api/auth/reset-password.js`** (নতুন) — email + OTP + নতুন
+    পাসওয়ার্ড একসাথে নিয়ে ভেরিফাই করে পাসওয়ার্ড আপডেট করে, আর সিকিউরিটি
+    বোনাস হিসেবে ওই ইউজারের সব পুরনো session ডিলিট করে দেয় (সব ডিভাইস থেকে
+    লগ-আউট)।
+  - `functions/_lib/auth.js` — পাসওয়ার্ড হ্যাশিং, সেশন কুকি, `normalizeEmail()`
+    হেল্পার — শেয়ার্ড কোড
+  - `functions/_lib/email.js` (নতুন) — Resend API দিয়ে ইমেইল পাঠানোর শেয়ার্ড
+    হেল্পার (`sendEmail`) + OTP ইমেইলের HTML টেমপ্লেট
 - [x] Sign Up / Sign In / Sign Out — আসল D1 ডেটাবেসের সাথে কাজ করছে (টেস্ট করা হয়েছে)
 - [x] লগইন করার পর হোমপেজে "Sign up for free" ফর্মটা লুকিয়ে যায়
 - [x] **`schema.sql`-এর `withdrawals` টেবিল লাইভ D1 তে বসানো হয়ে গেছে** —
@@ -69,6 +81,18 @@ Cloudflare D1 (SQLite) ব্যবহার করা হয়েছে।
   - dashboard লোড হওয়ার সাথেই দুই ট্যাবের badge count চুপচাপ preload হয়ে যায়
   - **Earnings ট্যাব এখনো বাকি** — এটার জন্য আলাদা backend endpoint লাগবে
     (নিচে "পরবর্তী কাজ" দেখুন)
+- [x] **Forgot Password (Email OTP) — সম্পূর্ণ কাজ করছে** — Sign In ফর্মে
+      "Forgot password?" লিংক, ২-স্টেপ মোডাল (email → OTP + নতুন পাসওয়ার্ড),
+      `forgot-password.js`/`reset-password.js` ব্যাকএন্ড, `password_resets`
+      টেবিল, Resend দিয়ে ইমেইল পাঠানো। ⚠️ কাজ করতে হলে Cloudflare env var-এ
+      `RESEND_API_KEY` সেট করা থাকতে হবে (নিচে "৪. নতুন কাজ শুরু করার আগে
+      চেক করে নিন" দেখুন) — না থাকলে code পাঠানো fail করবে।
+- [x] **ডুপ্লিকেট-অ্যাকাউন্ট বাগ তদন্ত করা হয়েছে — বাগ নেই** — `register.js`/
+      `login.js` দুটোতেই email `.trim().toLowerCase()` করে normalize করা
+      আছে, আর `schema.sql`-এ `users.email UNIQUE`। D1-এ কোয়েরি চালিয়ে কনফার্ম
+      করা হয়েছে — কোনো case-mismatch বা exact ডুপ্লিকেট ইমেইল অ্যাকাউন্ট
+      নেই। (`normalizeEmail()` হেল্পারটা এখন `auth.js`-এ আছে, ভবিষ্যতে নতুন
+      auth এন্ডপয়েন্টে রিইউজ করার জন্য।)
 
 **মানে এখন সাইটে রিয়েল অ্যাকাউন্ট সিস্টেম কাজ করছে** — কেউ সাইন আপ করলে সেটা
 সত্যিকারের D1 ডেটাবেসে সেভ হয়, পাসওয়ার্ড হ্যাশ করা থাকে, সেশন কুকি দিয়ে লগইন
@@ -85,13 +109,16 @@ D1 টেবিল সব লাইভ, আর profile.html-এর Activity ট�
 incm website/
 ├── functions/
 │   ├── _lib/
-│   │   └── auth.js
+│   │   ├── auth.js
+│   │   └── email.js
 │   └── api/
 │       ├── auth/
 │       │   ├── register.js
 │       │   ├── login.js
 │       │   ├── logout.js
-│       │   └── me.js
+│       │   ├── me.js
+│       │   ├── forgot-password.js
+│       │   └── reset-password.js
 │       ├── profile/
 │       │   └── update.js
 │       ├── withdraw/
@@ -122,6 +149,11 @@ incm website/
 1. Cloudflare Dashboard → Workers & Pages → `earnbangla` প্রজেক্ট → **Settings →
    Functions → D1 database bindings** এ `DB` নামে `earnbangla-db` bind করা আছে
    কিনা (Production আর Preview দুই জায়গাতেই)। এটা ছাড়া API কাজ করবে না।
+2. **`RESEND_API_KEY` env var সেট করা আছে কিনা** — Settings → Environment
+   variables এ secret হিসেবে (Production আর Preview দুই জায়গাতেই)। এটা ছাড়া
+   Forgot Password-এর OTP ইমেইল পাঠানো যাবে না। Resend-এ ডোমেইন verify করা
+   না থাকলে ডিফল্ট sender (`onboarding@resend.dev`) ব্যবহার হবে — নিজের
+   ডোমেইন verify করা হলে `RESEND_FROM_EMAIL` env var সেট করে বদলে নেওয়া যায়।
 2. `schema.sql` এ পরিবর্তন হলে (যেমন নতুন `withdrawals` টেবিল) সেটা D1 তে বসাতে
    ভুলবেন না:
    ```
@@ -163,8 +195,9 @@ incm website/
     automation এখনো নেই।
 - [ ] **Email verification** — সাইন আপ করলে এখন `email_verified = 0` থাকে,
       কখনো `1` হয় না। ইমেইল পাঠানোর সার্ভিস (যেমন Resend/SendGrid) যুক্ত করে
-      `functions/api/auth/verify-email.js` বানাতে হবে।
-- [ ] **পাসওয়ার্ড রিসেট ("Forgot password")** — এখনো নেই।
+      `functions/api/auth/verify-email.js` বানাতে হবে। (এখন `_lib/email.js`
+      দিয়ে Resend ইতিমধ্যে যুক্ত আছে Forgot Password-এর জন্য, তাই এই ফিচারে
+      একই হেল্পার রিইউজ করা যাবে — নতুন করে Resend সেটাপ লাগবে না।)
 - [ ] **Level সিস্টেম** — `level` ফিল্ড আছে কিন্তু কখন/কীভাবে বাড়বে তার লজিক
       এখনো নেই।
 - [ ] **প্রোফাইল পেজের "Earnings" ট্যাব** — এখনো শুধু "কিছু নেই" মেসেজ দেখায়।
@@ -186,6 +219,7 @@ incm website/
 | Leaderboard এ "Your rank" সবসময় "Sign in to see your rank" দেখায়, যদিও সাইন-ইন করা আছে | `leaderboard.js` এর কুকির নাম `auth.js` এর সাথে মিলছে না | ব্রাউজার DevTools → Application → Cookies এ আসল কুকির নাম দেখে `leaderboard.js` এ মিলিয়ে দিন |
 | Withdraw ফর্ম সাবমিট করলে "Not signed in" বা "Something went wrong" | `functions/api/withdraw/request.js` ভুল জায়গায় বসানো (যেমন `profile/` বা `auth/` এর ভেতরে ঢুকে গেছে), অথবা `withdrawals` টেবিল D1 তে বসানো হয়নি | `withdraw` ফোল্ডার সরাসরি `api/` এর ভেতরে (auth/profile এর পাশে) আছে কিনা চেক করুন, আর `schema.sql` D1 তে রান করা হয়েছে কিনা যাচাই করুন |
 | Withdraw এ balance ঠিকমতো কমছে না বা negative হয়ে যাচ্ছে | `withdrawals` টেবিল ছাড়াই পুরনো `schema.sql` চলছে, বা `request.js` আপডেটেড ভার্শন না | নতুন `schema.sql` + `request.js` ঠিকমতো বসানো হয়েছে কিনা আর D1 তে টেবিল আছে কিনা `SELECT name FROM sqlite_master ...` দিয়ে চেক করুন |
+| Forgot Password এ "Could not send the code right now" | `RESEND_API_KEY` env var সেট করা নেই, বা ভুল | Cloudflare Dashboard → Settings → Environment variables এ `RESEND_API_KEY` (Production আর Preview দুই জায়গাতেই) চেক করুন |
 
 ---
 
@@ -203,6 +237,9 @@ wrangler d1 execute earnbangla-db --remote --file=./schema.sql
 
 # সব withdraw রিকোয়েস্ট দেখা (টেস্টের জন্য)
 wrangler d1 execute earnbangla-db --remote --command="SELECT * FROM withdrawals ORDER BY created_at DESC;"
+
+# অ্যাকটিভ (unused, non-expired) password reset OTP দেখা (টেস্টের জন্য)
+wrangler d1 execute earnbangla-db --remote --command="SELECT * FROM password_resets WHERE used = 0 ORDER BY created_at DESC;"
 
 # পরিবর্তন পুশ করা
 git add .

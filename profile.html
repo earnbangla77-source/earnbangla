@@ -442,6 +442,9 @@
           <button type="button" class="gate-eye" aria-label="Show password"><svg class="icon"><use href="#i-eye"></use></svg></button>
         </div>
       </div>
+      <p style="text-align:right;margin:-8px 0 18px;">
+        <a href="#" id="forgotPasswordLink" style="color:var(--orange);font-size:13px;font-weight:700;">Forgot password?</a>
+      </p>
       <button type="submit" class="btn btn-primary" style="width:100%;">Sign In</button>
     </form>
 
@@ -632,6 +635,44 @@
   </div>
 </div>
 
+<!-- FORGOT PASSWORD MODAL -->
+<div class="modal-overlay" id="forgotModal">
+  <div class="modal-box">
+    <div class="modal-title" id="forgotTitle">Reset your password</div>
+
+    <!-- Step 1: email -->
+    <div id="forgotStep1">
+      <div class="form-error" id="forgotStep1Error"></div>
+      <div class="gate-field">
+        <label>Email</label>
+        <input type="email" id="forgotEmailInput" placeholder="Enter your account email">
+      </div>
+      <button class="btn btn-primary" style="width:100%;" id="forgotSendBtn">Send Code</button>
+    </div>
+
+    <!-- Step 2: OTP + new password -->
+    <div id="forgotStep2" style="display:none;">
+      <p class="sub" style="color:var(--text-dim);font-size:13.5px;margin-bottom:20px;" id="forgotSentTo"></p>
+      <div class="form-error" id="forgotStep2Error"></div>
+      <div class="gate-field">
+        <label>6-digit code</label>
+        <input type="text" id="forgotOtpInput" inputmode="numeric" maxlength="6" placeholder="Enter the code we emailed you">
+      </div>
+      <div class="gate-field">
+        <label>New password</label>
+        <div class="gate-field-row">
+          <input type="password" id="forgotNewPasswordInput" placeholder="Create a new password" minlength="6">
+          <button type="button" class="gate-eye" id="forgotEye" aria-label="Show password"><svg class="icon"><use href="#i-eye"></use></svg></button>
+        </div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;" id="forgotResetBtn">Reset Password</button>
+      <p style="text-align:center;margin-top:14px;font-size:13px;">
+        <a href="#" id="forgotResendLink" style="color:var(--orange);font-weight:700;">Resend code</a>
+      </p>
+    </div>
+  </div>
+</div>
+
 <script>
   const colors = ['avc1','avc2','avc3','avc4','avc5','avc6'];
   let currentUser = null;
@@ -756,6 +797,126 @@
     }catch(ex){ showFormError(err, ex.message); }
   });
 
+  // ---------- forgot password modal ----------
+  const forgotModal = document.getElementById('forgotModal');
+  const forgotStep1 = document.getElementById('forgotStep1');
+  const forgotStep2 = document.getElementById('forgotStep2');
+  const forgotTitle = document.getElementById('forgotTitle');
+  const forgotEmailInput = document.getElementById('forgotEmailInput');
+  const forgotOtpInput = document.getElementById('forgotOtpInput');
+  const forgotNewPasswordInput = document.getElementById('forgotNewPasswordInput');
+  const forgotSendBtn = document.getElementById('forgotSendBtn');
+  const forgotResetBtn = document.getElementById('forgotResetBtn');
+  const forgotResendLink = document.getElementById('forgotResendLink');
+  const forgotStep1Error = document.getElementById('forgotStep1Error');
+  const forgotStep2Error = document.getElementById('forgotStep2Error');
+  const forgotSentTo = document.getElementById('forgotSentTo');
+  const forgotEye = document.getElementById('forgotEye');
+
+  function showFormNotice(el, msg){
+    // Same box as showFormError but green — used for "code resent" etc.
+    el.textContent = msg;
+    el.classList.add('show');
+    el.style.background = 'rgba(58,208,122,0.12)';
+    el.style.color = '#7be3a8';
+    el.style.borderColor = 'rgba(58,208,122,0.3)';
+  }
+  function resetErrorStyle(el){
+    el.style.background = '';
+    el.style.color = '';
+    el.style.borderColor = '';
+  }
+
+  function openForgotModal(){
+    forgotStep1.style.display = '';
+    forgotStep2.style.display = 'none';
+    forgotTitle.textContent = 'Reset your password';
+    hideFormError(forgotStep1Error);
+    hideFormError(forgotStep2Error);
+    resetErrorStyle(forgotStep1Error);
+    resetErrorStyle(forgotStep2Error);
+    forgotEmailInput.value = '';
+    forgotOtpInput.value = '';
+    forgotNewPasswordInput.value = '';
+    forgotModal.classList.add('show');
+  }
+  function closeForgotModal(){ forgotModal.classList.remove('show'); }
+
+  document.getElementById('forgotPasswordLink').addEventListener('click', e => {
+    e.preventDefault();
+    openForgotModal();
+  });
+  forgotModal.addEventListener('click', e => { if(e.target === forgotModal) closeForgotModal(); });
+
+  async function requestOtp(){
+    const email = forgotEmailInput.value.trim();
+    if(!email){ showFormError(forgotStep1Error, 'Please enter your email address.'); return false; }
+    try{
+      await postJSON('/api/auth/forgot-password', { email });
+      return true;
+    }catch(ex){
+      showFormError(forgotStep1Error, ex.message);
+      return false;
+    }
+  }
+
+  forgotSendBtn.addEventListener('click', async () => {
+    hideFormError(forgotStep1Error);
+    resetErrorStyle(forgotStep1Error);
+    forgotSendBtn.disabled = true;
+    forgotSendBtn.textContent = 'Sending…';
+    const ok = await requestOtp();
+    forgotSendBtn.disabled = false;
+    forgotSendBtn.textContent = 'Send Code';
+    if(ok){
+      forgotSentTo.textContent = 'We sent a 6-digit code to ' + forgotEmailInput.value.trim() + '. It expires in 10 minutes.';
+      forgotTitle.textContent = 'Enter the code';
+      forgotStep1.style.display = 'none';
+      forgotStep2.style.display = '';
+    }
+  });
+
+  forgotResendLink.addEventListener('click', async e => {
+    e.preventDefault();
+    hideFormError(forgotStep2Error);
+    resetErrorStyle(forgotStep2Error);
+    try{
+      await postJSON('/api/auth/forgot-password', { email: forgotEmailInput.value.trim() });
+      showFormNotice(forgotStep2Error, 'A new code has been sent.');
+    }catch(ex){
+      showFormError(forgotStep2Error, ex.message);
+    }
+  });
+
+  forgotEye.addEventListener('click', () => {
+    const isHidden = forgotNewPasswordInput.type === 'password';
+    forgotNewPasswordInput.type = isHidden ? 'text' : 'password';
+    forgotEye.innerHTML = isHidden ? '<svg class="icon"><use href="#i-eye-off"></use></svg>' : '<svg class="icon"><use href="#i-eye"></use></svg>';
+  });
+
+  forgotResetBtn.addEventListener('click', async () => {
+    hideFormError(forgotStep2Error);
+    resetErrorStyle(forgotStep2Error);
+    const otp = forgotOtpInput.value.trim();
+    const newPassword = forgotNewPasswordInput.value;
+    if(!/^\d{6}$/.test(otp)){ showFormError(forgotStep2Error, 'Please enter the 6-digit code.'); return; }
+    if(!newPassword || newPassword.length < 6){ showFormError(forgotStep2Error, 'Password must be at least 6 characters.'); return; }
+    forgotResetBtn.disabled = true;
+    forgotResetBtn.textContent = 'Resetting…';
+    try{
+      await postJSON('/api/auth/reset-password', { email: forgotEmailInput.value.trim(), otp, newPassword });
+      closeForgotModal();
+      setGateTab('signin');
+      const err = document.getElementById('gateSignInError');
+      showFormNotice(err, 'Password reset! Please sign in with your new password.');
+    }catch(ex){
+      showFormError(forgotStep2Error, ex.message);
+    }finally{
+      forgotResetBtn.disabled = false;
+      forgotResetBtn.textContent = 'Reset Password';
+    }
+  });
+
   document.getElementById('signOutBtn').addEventListener('click', async () => {
     try{ await fetch('/api/auth/logout', { method: 'POST' }); }catch(ex){}
     currentUser = null;
@@ -768,7 +929,7 @@
   document.getElementById('sideOpen').addEventListener('click', () => { sidebar.classList.add('open'); overlay.classList.add('show'); });
   document.getElementById('sideClose').addEventListener('click', () => { sidebar.classList.remove('open'); overlay.classList.remove('show'); });
   overlay.addEventListener('click', () => { sidebar.classList.remove('open'); overlay.classList.remove('show'); });
-  document.addEventListener('keydown', e => { if(e.key === 'Escape'){ sidebar.classList.remove('open'); overlay.classList.remove('show'); closeModal(); } });
+  document.addEventListener('keydown', e => { if(e.key === 'Escape'){ sidebar.classList.remove('open'); overlay.classList.remove('show'); closeModal(); closeForgotModal(); } });
 
   // ---------- private toggle (persists) ----------
   const toggle = document.getElementById('privateToggle');

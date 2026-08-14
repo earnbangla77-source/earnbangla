@@ -73,3 +73,22 @@ CREATE INDEX IF NOT EXISTS idx_withdrawals_status ON withdrawals(status);
 -- wrangler d1 execute earnbangla-db --remote --command="ALTER TABLE withdrawals ADD COLUMN updated_at INTEGER;"
 --
 -- ALTER TABLE withdrawals ADD COLUMN updated_at INTEGER;
+
+-- ============================================================
+-- Forgot Password — Email OTP (TASK-auth-fixes.md) — added later
+-- ============================================================
+-- Password reset OTPs. One row per OTP request.
+-- Uses CREATE TABLE IF NOT EXISTS, so re-running the whole schema.sql file
+-- is still safe and does not need a separate one-off command.
+CREATE TABLE IF NOT EXISTS password_resets (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  otp_hash TEXT NOT NULL,
+  otp_salt TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  used INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_password_resets_user_id ON password_resets(user_id);
+CREATE INDEX IF NOT EXISTS idx_password_resets_created_at ON password_resets(created_at);
