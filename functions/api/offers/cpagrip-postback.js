@@ -67,10 +67,9 @@ export async function onRequestPost(context) {
       return errorJson("Missing or invalid parameters.", 400);
     }
 
-    const userId = parseInt(trackingId, 10);
-    if (!Number.isFinite(userId)) {
-      return errorJson("Invalid tracking_id.", 400);
-    }
+    // earnbangla user ids are UUID-style strings (not numbers), so we use
+    // tracking_id as-is — no parseInt here.
+    const userId = trackingId;
 
     const coinsEarned = Math.round(payout * COINS_PER_DOLLAR);
 

@@ -87,6 +87,32 @@ Cloudflare D1 (SQLite) ব্যবহার করা হয়েছে।
       টেবিল, Resend দিয়ে ইমেইল পাঠানো। ⚠️ কাজ করতে হলে Cloudflare env var-এ
       `RESEND_API_KEY` সেট করা থাকতে হবে (নিচে "৪. নতুন কাজ শুরু করার আগে
       চেক করে নিন" দেখুন) — না থাকলে code পাঠানো fail করবে।
+- [x] **Earn পেজে UpWall অফারওয়াল ইন্টিগ্রেশন** — `earn.html`-এর "UpWall"
+      টাইলে আসল `offerwall.upwall.io` iframe বসানো হয়েছে (সাইন-ইন করা
+      ইউজারের id সহ), আর `functions/api/offers/postback.js` বানানো হয়েছে
+      যেটা password ভেরিফাই করে, `transaction_id` দিয়ে ডুপ্লিকেট ক্রেডিট
+      আটকায়, `users.coins` আপডেট করে, আর `offer_completions` টেবিলে লগ
+      রাখে।
+- [ ] **CPAGrip অফারওয়াল ইন্টিগ্রেশন — চলছে** (দ্বিতীয় প্রোভাইডার):
+  - CPAGrip JSON Offer Feed URL পাওয়া গেছে: `user_id=2549531`,
+    `pubkey=ea0cba2918d5147f28df6c3b2c342e55`, ভিজিটর/ইউজার ট্র্যাক করার
+    জন্য `&tracking_id=` প্যারামিটার ব্যবহার হবে
+  - `functions/api/offers/cpagrip-postback.js` লেখা হয়ে গেছে (এখনো রিপোতে
+    বসানো/push করা বাকি) — এটা CPAGrip-এর Global Postback (POST: password,
+    payout, offer_id, tracking_id) রিসিভ করে; যেহেতু CPAGrip কোনো ইউনিক
+    transaction id দেয় না, ডুপ্লিকেট-গার্ড করা হয়েছে
+    `(provider, user_id, offer_id)` কম্বিনেশন দিয়ে
+  - `schema-addition-cpagrip.sql` দেওয়া হয়েছে — `offer_completions`
+    টেবিলে `provider` কলাম আছে কিনা চেক করে দরকার হলে যোগ করার জন্য
+  - CPAGrip ড্যাশবোর্ডে **Global Postback** ফর্মে Postback URL
+    (`https://earnbangla.pages.dev/api/offers/cpagrip-postback`) আর
+    Password বসানো হয়ে গেছে, কিন্তু **এখনো Enabled টগল করা হয়নি**
+  - বাকি কাজ: (১) `cpagrip-postback.js` ফাইল রিপোতে বসিয়ে push করা,
+    (২) `OFFERWALL_POSTBACK_PASSWORD` env var Cloudflare-এ (Production +
+    Preview) সেট করা — CPAGrip-এ যে password দেওয়া হয়েছে ঠিক সেটাই,
+    (৩) `schema-addition-cpagrip.sql` লাইভ D1-তে রান করা, (৪) CPAGrip-এ
+    Enabled টগল অন করা, (৫) `earn.html`-এ CPAGrip টাইল যোগ করা, (৬)
+    Postback Simulator দিয়ে টেস্ট করা
 - [x] **ডুপ্লিকেট-অ্যাকাউন্ট বাগ তদন্ত করা হয়েছে — বাগ নেই** — `register.js`/
       `login.js` দুটোতেই email `.trim().toLowerCase()` করে normalize করা
       আছে, আর `schema.sql`-এ `users.email UNIQUE`। D1-এ কোয়েরি চালিয়ে কনফার্ম
@@ -179,11 +205,11 @@ incm website/
 
 এগুলো এখনো **আসল ডেটার সাথে সংযুক্ত না** — এখনো ডেমো/স্ট্যাটিক ডেটা দেখাচ্ছে:
 
-- [ ] **Earn পেজ (`earn.html`)** — অফারগুলো (apps/games/surveys) এখনো
-      hardcoded। কোনো অফারওয়াল প্রোভাইডার (যেমন OfferToro, AdGate, CPAlead)
-      এর API এর সাথে যুক্ত করতে হবে, আর অফার সম্পূর্ণ হলে
-      `completed_offers`, `coins`, `total_earning` আপডেট করার একটা নতুন
-      `functions/api/offers/complete.js` (বা postback endpoint) বানাতে হবে।
+- [x] **UpWall** — সম্পূর্ণ, লাইভ কাজ করছে (উপরে ২নং সেকশন দেখুন)।
+- [ ] **CPAGrip** — কোড লেখা হয়ে গেছে, শুধু deploy + enable + টেস্ট বাকি
+      (উপরে ২নং সেকশনে বিস্তারিত ধাপ দেখুন)।
+- [ ] অন্য আরও অফারওয়াল প্রোভাইডার (যেমন OfferToro, AdGate) যোগ করার
+      দরকার হলে একই প্যাটার্নে (postback.js এর মতো) নতুন ফাইল বানানো যাবে।
 - [ ] **রেফারেল সিস্টেম** — `users_referred` ফিল্ড ডেটাবেসে আছে, কিন্তু কেউ
       রেফার করলে সেটা count হওয়ার কোনো লজিক এখনো নেই।
 - [ ] **Withdraw সিস্টেম — বাকি কাজ:**
