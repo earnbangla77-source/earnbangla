@@ -334,11 +334,29 @@
   a:focus-visible,button:focus-visible{outline:2px solid var(--orange);outline-offset:2px;}
 
   /* ===== Auth gate ===== */
-  #authGate{display:none;min-height:calc(100vh - 70px);align-items:center;justify-content:center;padding:40px 20px;position:relative;z-index:1;}
+  #authGate{
+    display:none;min-height:100vh;flex-direction:column;align-items:center;justify-content:center;
+    gap:26px;padding:104px 20px 48px;position:relative;z-index:1;overflow:hidden;
+  }
+  .gate-brand{
+    position:absolute;top:30px;left:50%;transform:translateX(-50%);
+    display:flex;align-items:center;gap:9px;font-family:'Sora',sans-serif;font-weight:800;font-size:19px;
+  }
+  .gate-brand .mark{
+    width:30px;height:30px;border-radius:8px;background:var(--grad-orange);
+    display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;font-weight:800;
+    box-shadow:var(--sh-orange);flex-shrink:0;
+  }
+  .gate-brand .earn{color:var(--text);}
+  .gate-brand .bangla{background:var(--grad-orange);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .gate-glow{position:absolute;border-radius:50%;filter:blur(90px);pointer-events:none;z-index:-1;}
+  .gate-glow-1{width:380px;height:380px;background:var(--orange);opacity:0.16;top:-140px;left:-120px;}
+  .gate-glow-2{width:340px;height:340px;background:var(--violet);opacity:0.14;bottom:-140px;right:-110px;}
   .gate-box{
     width:100%;max-width:440px;background:var(--panel);border:1px solid var(--border);border-radius:20px;
     padding:34px 32px;box-shadow:var(--sh-lg);
   }
+  .gate-footer{font-size:12.5px;color:var(--text-faint);text-align:center;}
   .gate-lock{
     width:52px;height:52px;border-radius:14px;background:rgba(255,122,26,0.12);
     display:flex;align-items:center;justify-content:center;margin-bottom:18px;
@@ -420,6 +438,9 @@
 
 <!-- AUTH GATE (shown when the visitor is not signed in) -->
 <div id="authGate">
+  <div class="gate-glow gate-glow-1"></div>
+  <div class="gate-glow gate-glow-2"></div>
+  <a href="index.html" class="gate-brand"><span class="mark">৳</span><span class="earn">earn</span><span class="bangla">bangla</span></a>
   <div class="gate-box">
     <div class="gate-lock"><svg class="icon"><use href="#i-shield"></use></svg></div>
     <div class="auth-tabs">
@@ -470,6 +491,7 @@
       <button type="submit" class="btn btn-primary" style="width:100%;">Sign Up</button>
     </form>
   </div>
+  <p class="gate-footer">© 2026 earnbangla. All rights reserved.</p>
 </div>
 
 <div class="shell" id="dashboardView" style="display:none;">
