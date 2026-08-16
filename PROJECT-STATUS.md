@@ -93,26 +93,33 @@ Cloudflare D1 (SQLite) ব্যবহার করা হয়েছে।
       যেটা password ভেরিফাই করে, `transaction_id` দিয়ে ডুপ্লিকেট ক্রেডিট
       আটকায়, `users.coins` আপডেট করে, আর `offer_completions` টেবিলে লগ
       রাখে।
-- [ ] **CPAGrip অফারওয়াল ইন্টিগ্রেশন — চলছে** (দ্বিতীয় প্রোভাইডার):
-  - CPAGrip JSON Offer Feed URL পাওয়া গেছে: `user_id=2549531`,
-    `pubkey=ea0cba2918d5147f28df6c3b2c342e55`, ভিজিটর/ইউজার ট্র্যাক করার
-    জন্য `&tracking_id=` প্যারামিটার ব্যবহার হবে
-  - `functions/api/offers/cpagrip-postback.js` লেখা হয়ে গেছে (এখনো রিপোতে
-    বসানো/push করা বাকি) — এটা CPAGrip-এর Global Postback (POST: password,
-    payout, offer_id, tracking_id) রিসিভ করে; যেহেতু CPAGrip কোনো ইউনিক
+- [x] **CPAGrip অফারওয়াল ইন্টিগ্রেশন — সম্পূর্ণ, লাইভ কাজ করছে** (দ্বিতীয়
+      প্রোভাইডার, CPAGrip AffID #2549531):
+  - `functions/api/offers/cpagrip-postback.js` — CPAGrip-এর Global
+    Postback (POST: password, payout, offer_id, tracking_id) রিসিভ করে,
+    password ভেরিফাই করে, `users.coins` আপডেট করে ($1.00 = 1000 coins),
+    `offer_completions` টেবিলে লগ রাখে। যেহেতু CPAGrip কোনো ইউনিক
     transaction id দেয় না, ডুপ্লিকেট-গার্ড করা হয়েছে
-    `(provider, user_id, offer_id)` কম্বিনেশন দিয়ে
-  - `schema-addition-cpagrip.sql` দেওয়া হয়েছে — `offer_completions`
-    টেবিলে `provider` কলাম আছে কিনা চেক করে দরকার হলে যোগ করার জন্য
-  - CPAGrip ড্যাশবোর্ডে **Global Postback** ফর্মে Postback URL
-    (`https://earnbangla.pages.dev/api/offers/cpagrip-postback`) আর
-    Password বসানো হয়ে গেছে, কিন্তু **এখনো Enabled টগল করা হয়নি**
-  - বাকি কাজ: (১) `cpagrip-postback.js` ফাইল রিপোতে বসিয়ে push করা,
-    (২) `OFFERWALL_POSTBACK_PASSWORD` env var Cloudflare-এ (Production +
-    Preview) সেট করা — CPAGrip-এ যে password দেওয়া হয়েছে ঠিক সেটাই,
-    (৩) `schema-addition-cpagrip.sql` লাইভ D1-তে রান করা, (৪) CPAGrip-এ
-    Enabled টগল অন করা, (৫) `earn.html`-এ CPAGrip টাইল যোগ করা, (৬)
-    Postback Simulator দিয়ে টেস্ট করা
+    `(provider, user_id, offer_id)` কম্বিনেশন দিয়ে — **লাইভ টেস্ট করে
+    কনফার্ম করা হয়েছে**: একই offer_id দুইবার পাঠালে দ্বিতীয়বার
+    `{"status":"duplicate_ignored"}` রিটার্ন করে, coins আর বাড়ে না।
+  - `functions/api/offers/cpagrip-feed.js` — earn.html থেকে সরাসরি
+    cpagrip.com-এ কল না করে নিজের ব্যাকএন্ড দিয়ে CPAGrip-এর JSON Offer
+    Feed proxy করে (CORS সমস্যা এড়াতে, আর সাইন-ইন করা ইউজারের
+    `tracking_id` সেশন থেকে সার্ভার-সাইডে বসানো হয় বলে devtools থেকে
+    spoof করা যায় না)।
+  - `earn.html`-এর Offers Partners সেকশনে UpWall-এর পাশে **CPAGrip টাইল**
+    বসানো হয়েছে — ক্লিক করলে মোডাল খুলে `/api/offers/cpagrip-feed` থেকে
+    আসল লাইভ অফার (title, description, ছবি, coin reward সহ) কার্ড আকারে
+    দেখায়। **লাইভে টেস্ট করে কনফার্ম করা হয়েছে** — real offers (যেমন
+    "Get $100 to Spend at Jersey Mikes!") ঠিকমতো লোড ও রেন্ডার হচ্ছে।
+  - Cloudflare-এ `OFFERWALL_POSTBACK_PASSWORD` secret সেট করা আছে
+    (Production + Preview, `wrangler pages secret put` দিয়ে সেট করা —
+    ⚠️ dashboard UI দিয়ে env var এডিট করলে চলতি deployment-এ কার্যকর
+    নাও হতে পারে, নতুন deploy লাগে; `wrangler pages secret put` দিয়ে
+    সেট করাই সবচেয়ে নির্ভরযোগ্য)।
+  - CPAGrip ড্যাশবোর্ডে Global Postback ফর্মে Postback URL আর password
+    বসানো আছে। ⚠️ **Enabled টগল অন আছে কিনা মাঝে মাঝে যাচাই করে নেবেন।**
 - [x] **ডুপ্লিকেট-অ্যাকাউন্ট বাগ তদন্ত করা হয়েছে — বাগ নেই** — `register.js`/
       `login.js` দুটোতেই email `.trim().toLowerCase()` করে normalize করা
       আছে, আর `schema.sql`-এ `users.email UNIQUE`। D1-এ কোয়েরি চালিয়ে কনফার্ম
@@ -206,8 +213,8 @@ incm website/
 এগুলো এখনো **আসল ডেটার সাথে সংযুক্ত না** — এখনো ডেমো/স্ট্যাটিক ডেটা দেখাচ্ছে:
 
 - [x] **UpWall** — সম্পূর্ণ, লাইভ কাজ করছে (উপরে ২নং সেকশন দেখুন)।
-- [ ] **CPAGrip** — কোড লেখা হয়ে গেছে, শুধু deploy + enable + টেস্ট বাকি
-      (উপরে ২নং সেকশনে বিস্তারিত ধাপ দেখুন)।
+- [x] **CPAGrip** — সম্পূর্ণ, লাইভ কাজ করছে (postback + earn.html টাইল
+      দুটোই টেস্ট করে কনফার্ম করা হয়েছে, উপরে ২নং সেকশন দেখুন)।
 - [ ] অন্য আরও অফারওয়াল প্রোভাইডার (যেমন OfferToro, AdGate) যোগ করার
       দরকার হলে একই প্যাটার্নে (postback.js এর মতো) নতুন ফাইল বানানো যাবে।
 - [ ] **রেফারেল সিস্টেম** — `users_referred` ফিল্ড ডেটাবেসে আছে, কিন্তু কেউ
