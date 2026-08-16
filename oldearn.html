@@ -592,50 +592,6 @@
   .ow-reward .icon{width:14px;height:14px;}
   .ow-empty{grid-column:1/-1;text-align:center;padding:40px 10px;color:var(--text-faint);font-size:14px;}
 
-  /* ---------- offer detail (Requirements / Eligibility Criteria) screen ---------- */
-  .ow-back{
-    width:34px;height:34px;border-radius:9px;background:var(--panel-2);border:1px solid var(--border);
-    display:none;align-items:center;justify-content:center;color:var(--text-dim);flex-shrink:0;transition:.2s ease;
-  }
-  .ow-back:hover{color:var(--text);}
-  .ow-detail{
-    display:none;flex:1;min-height:0;flex-direction:column;background:var(--bg);
-  }
-  .ow-detail.show{display:flex;}
-  .owd-scroll{flex:1;min-height:0;overflow-y:auto;padding:22px 22px 26px;}
-  .owd-offer-strip{display:flex;align-items:center;gap:12px;margin-bottom:20px;}
-  .owd-offer-ico{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:var(--sh-sm);flex-shrink:0;overflow:hidden;}
-  .owd-offer-title{font-weight:800;font-size:15px;line-height:1.3;}
-  .owd-offer-reward{display:inline-flex;align-items:center;gap:4px;color:var(--green);font-size:12.5px;font-weight:700;margin-top:2px;}
-  .owd-offer-reward .icon{width:13px;height:13px;}
-  .owd-heading{font-family:'Sora',sans-serif;font-size:18px;font-weight:800;margin-bottom:6px;}
-  .owd-sub{font-size:13.5px;color:var(--text-dim);line-height:1.5;margin-bottom:20px;}
-  .owd-card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:18px;}
-  .owd-card-head{display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;}
-  .owd-card-ico{width:38px;height:38px;border-radius:10px;background:rgba(47,111,237,.15);display:flex;align-items:center;justify-content:center;color:var(--blue);flex-shrink:0;}
-  .owd-card-ico .icon{width:19px;height:19px;}
-  .owd-card-title{font-weight:800;font-size:15px;}
-  .owd-card-sub{font-size:12.5px;color:var(--text-faint);margin-top:2px;}
-  .owd-rules{display:flex;flex-direction:column;gap:10px;}
-  .owd-rule{display:flex;gap:12px;align-items:flex-start;background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:14px;}
-  .owd-rule-ico{width:20px;height:20px;flex-shrink:0;margin-top:1px;}
-  .owd-rule-ico.no{color:#F5455C;}
-  .owd-rule-ico.warn{color:var(--amber);}
-  .owd-rule-ico.ok{color:var(--green);}
-  .owd-rule-title{font-weight:700;font-size:13.5px;}
-  .owd-rule-desc{font-size:12px;color:var(--text-faint);margin-top:2px;line-height:1.4;}
-  .owd-footer{
-    flex-shrink:0;padding:16px 20px;background:var(--blue);color:#fff;
-    display:flex;align-items:center;justify-content:center;gap:8px;
-    font-weight:800;font-size:15px;transition:.2s ease;
-  }
-  .owd-footer:hover{filter:brightness(1.08);}
-  .owd-footer .icon{width:17px;height:17px;}
-  .ow-modal.light .owd-card{background:#fff;border-color:#e7e7ef;}
-  .ow-modal.light .owd-rule{background:#f4f4f8;border-color:#e7e7ef;}
-  .ow-modal.light .owd-heading{color:#14141F;}
-  .ow-modal.light .owd-sub{color:#6b6b7c;}
-
   /* ---------- responsive ---------- */
   @media (max-width:1100px){
     .offers-grid{grid-template-columns:repeat(3,1fr);}
@@ -713,10 +669,6 @@
     <symbol id="icon-android" viewBox="0 0 24 24"><path d="M6 10.5v6a1.5 1.5 0 0 0 3 0v-6"/><path d="M15 10.5v6a1.5 1.5 0 0 0 3 0v-6"/><path d="M7 10.5h10v7a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 7 17.5v-7Z"/><path d="M8.5 6.5 7 4.5M15.5 6.5 17 4.5"/><path d="M9 8.2h6"/></symbol>
     <symbol id="icon-monitor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/></symbol>
     <symbol id="icon-logout" viewBox="0 0 24 24"><path d="M9 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3"/><path d="M15 16l4-4-4-4"/><path d="M19 12H9"/></symbol>
-    <symbol id="icon-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.5 5.5l13 13"/></symbol>
-    <symbol id="icon-pin" viewBox="0 0 24 24"><path d="M12 21s7-6.6 7-11.5A7 7 0 0 0 5 9.5C5 14.4 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.3"/></symbol>
-    <symbol id="icon-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.6 2.6L16.5 9"/></symbol>
-    <symbol id="icon-back" viewBox="0 0 24 24"><path d="M15 5 8 12l7 7"/></symbol>
   </defs>
 </svg>
 
@@ -897,77 +849,15 @@
 <div class="ow-overlay" id="owOverlay">
   <div class="ow-modal" id="owModal">
     <div class="ow-head">
-      <button class="ow-back" id="owBack" title="Back"><svg class="icon" style="width:16px;height:16px"><use href="#icon-back"/></svg></button>
-      <span class="ow-menu-ico" id="owMenuIco"><svg class="icon" style="width:16px;height:16px"><use href="#icon-bars"/></svg></span>
+      <span class="ow-menu-ico"><svg class="icon" style="width:16px;height:16px"><use href="#icon-bars"/></svg></span>
       <span class="ow-brand"><svg class="icon"><use href="#icon-external"/></svg><span id="owBrandName">UpWall</span></span>
       <div class="ow-head-spacer"></div>
       <button class="ow-toggle" id="owMoon" title="Dark mode"><svg class="icon" style="width:16px;height:16px"><use href="#icon-moon"/></svg></button>
       <button class="ow-toggle" id="owSun" title="Light mode"><svg class="icon" style="width:16px;height:16px"><use href="#icon-sun"/></svg></button>
       <button class="ow-close" id="owClose" title="Close"><svg class="icon" style="width:16px;height:16px"><use href="#icon-x"/></svg></button>
     </div>
-    <div class="ow-body" id="owBody">
+    <div class="ow-body">
       <div class="ow-grid" id="owGrid"></div>
-    </div>
-
-    <!-- Requirements / Eligibility Criteria screen — shown when any offer is tapped -->
-    <div class="ow-detail" id="owDetail">
-      <div class="owd-scroll">
-        <div class="owd-offer-strip">
-          <div class="owd-offer-ico" id="owdOfferIco" style="background:#161a1f;">🎯</div>
-          <div>
-            <div class="owd-offer-title" id="owdOfferTitle">Offer</div>
-            <div class="owd-offer-reward"><svg class="icon"><use href="#icon-coin"/></svg><span id="owdOfferRewardSmall">—</span></div>
-          </div>
-        </div>
-
-        <h3 class="owd-heading">Requirements:</h3>
-        <p class="owd-sub" id="owdOfferDesc">Answer the questions and fill in your details.</p>
-
-        <div class="owd-card">
-          <div class="owd-card-head">
-            <span class="owd-card-ico"><svg class="icon"><use href="#icon-shield"/></svg></span>
-            <div>
-              <div class="owd-card-title">Eligibility Criteria</div>
-              <div class="owd-card-sub">Please ensure you meet all requirements</div>
-            </div>
-          </div>
-          <div class="owd-rules">
-            <div class="owd-rule">
-              <svg class="icon owd-rule-ico no"><use href="#icon-ban"/></svg>
-              <div>
-                <div class="owd-rule-title">No VPN/Proxy</div>
-                <div class="owd-rule-desc">Using a VPN or proxy service is not allowed</div>
-              </div>
-            </div>
-            <div class="owd-rule">
-              <svg class="icon owd-rule-ico no"><use href="#icon-ban"/></svg>
-              <div>
-                <div class="owd-rule-title">No Emulators</div>
-                <div class="owd-rule-desc">Emulators of any kind are prohibited</div>
-              </div>
-            </div>
-            <div class="owd-rule">
-              <svg class="icon owd-rule-ico warn"><use href="#icon-pin"/></svg>
-              <div>
-                <div class="owd-rule-title">Same Device &amp; Location</div>
-                <div class="owd-rule-desc">Start and finish from the same device and location</div>
-              </div>
-            </div>
-            <div class="owd-rule">
-              <svg class="icon owd-rule-ico ok"><use href="#icon-check-circle"/></svg>
-              <div>
-                <div class="owd-rule-title">New User Only</div>
-                <div class="owd-rule-desc">Must be a new user with no existing account</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <button class="owd-footer" id="owdEarnBtn">
-        <span id="owdEarnLabel">Earn +0.12 USD</span>
-        <svg class="icon"><use href="#icon-coin"/></svg>
-      </button>
     </div>
   </div>
 </div>
@@ -1130,7 +1020,6 @@ const offerwallData = {
 
 const owOverlay = document.getElementById('owOverlay');
 const owModal = document.getElementById('owModal');
-const owBody = document.getElementById('owBody');
 const owGrid = document.getElementById('owGrid');
 const owBrandName = document.getElementById('owBrandName');
 const owClose = document.getElementById('owClose');
@@ -1150,9 +1039,9 @@ function tagHTML(tag){
   return '';
 }
 
-function owCardHTML(o, idx){
+function owCardHTML(o){
   return `
-    <div class="ow-card" onclick="openOfferDetail(currentOfferList[${idx}])">
+    <div class="ow-card">
       <div class="ow-icon" style="background:${o.bg}">${o.emoji}</div>
       <div class="ow-info">
         <div class="ow-title">${o.title}${o.hot ? ' 🔥' : ''}</div>
@@ -1173,8 +1062,6 @@ function owCardHTML(o, idx){
 //   return data.offers || [];
 // }
 
-let currentOfferList = [];
-
 function openOfferwall(partner){
   // CPAGrip has a real, live offer feed — everything else here is still
   // sample/demo data (see offerwallData above and the fetchOfferwallOffers
@@ -1185,9 +1072,8 @@ function openOfferwall(partner){
   }
   owBrandName.textContent = partner;
   const offers = offerwallData[partner] || [];
-  currentOfferList = offers;
   owGrid.innerHTML = offers.length
-    ? offers.map((o, idx) => owCardHTML(o, idx)).join('')
+    ? offers.map(owCardHTML).join('')
     : '<div class="ow-empty">No offers available at the moment</div>';
   owOverlay.classList.add('show');
   document.body.style.overflow = 'hidden';
@@ -1222,19 +1108,19 @@ function normalizeCpagripOffer(o){
   return { id, title, desc, image, link, coins };
 }
 
-function cpagripCardHTML(o, idx){
+function cpagripCardHTML(o){
   const iconInner = o.image
     ? `<img src="${o.image}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:13px;" onerror="this.onerror=null;this.style.display='none';this.parentElement.textContent='🎯';">`
     : '🎯';
   return `
-    <div class="ow-card" onclick="openOfferDetail(currentOfferList[${idx}])">
+    <a class="ow-card" href="${o.link}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
       <div class="ow-icon" style="background:#161a1f;overflow:hidden;">${iconInner}</div>
       <div class="ow-info">
         <div class="ow-title">${o.title}</div>
         <div class="ow-desc">${o.desc}</div>
       </div>
       <div class="ow-reward"><svg class="icon"><use href="#icon-coin"/></svg>${o.coins}</div>
-    </div>`;
+    </a>`;
 }
 
 async function openCpagripOfferwall(){
@@ -1256,9 +1142,8 @@ async function openCpagripOfferwall(){
     console.log('CPAGrip feed — raw response:', data.raw ?? data);
 
     const offers = (data.offers || []).map(normalizeCpagripOffer).filter(Boolean);
-    currentOfferList = offers;
     owGrid.innerHTML = offers.length
-      ? offers.map((o, idx) => cpagripCardHTML(o, idx)).join('')
+      ? offers.map(cpagripCardHTML).join('')
       : '<div class="ow-empty">No offers available at the moment</div>';
   }catch(err){
     console.error('CPAGrip offerwall error:', err);
@@ -1269,83 +1154,12 @@ async function openCpagripOfferwall(){
 function closeOfferwall(){
   owOverlay.classList.remove('show');
   document.body.style.overflow = '';
-  closeOfferDetail();
 }
 
 owClose.addEventListener('click', closeOfferwall);
 owOverlay.addEventListener('click', (e) => { if(e.target === owOverlay) closeOfferwall(); });
 document.addEventListener('keydown', (e) => {
   if(e.key === 'Escape'){ closeOfferwall(); closeSide(); }
-});
-
-// ---------- Offer detail — "Requirements / Eligibility Criteria" screen ----------
-// Opens when any offer card is tapped, before the user is sent to the
-// actual offer link. Every offerwall shows something like this before an
-// offer starts, so this stays here across UpWall/CPALead/CPAGrip.
-const owDetail = document.getElementById('owDetail');
-const owBack = document.getElementById('owBack');
-const owMenuIco = document.getElementById('owMenuIco');
-const owdOfferIco = document.getElementById('owdOfferIco');
-const owdOfferTitle = document.getElementById('owdOfferTitle');
-const owdOfferRewardSmall = document.getElementById('owdOfferRewardSmall');
-const owdOfferDesc = document.getElementById('owdOfferDesc');
-const owdEarnBtn = document.getElementById('owdEarnBtn');
-const owdEarnLabel = document.getElementById('owdEarnLabel');
-
-let currentDetailOffer = null;
-
-function openOfferDetail(offer){
-  if(!offer) return;
-  currentDetailOffer = offer;
-
-  // offer icon: emoji-based (UpWall/CPALead sample data) or image-based (CPAGrip real feed)
-  if(offer.image){
-    owdOfferIco.style.background = '#161a1f';
-    owdOfferIco.innerHTML = `<img src="${offer.image}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.onerror=null;this.style.display='none';this.parentElement.textContent='🎯';">`;
-  }else{
-    owdOfferIco.style.background = offer.bg || '#161a1f';
-    owdOfferIco.textContent = offer.emoji || '🎯';
-  }
-
-  owdOfferTitle.textContent = offer.title || 'Offer';
-  owdOfferDesc.textContent = offer.desc || 'Answer the questions and fill in your details.';
-
-  // reward: UpWall/CPALead use a $ string (offer.reward), CPAGrip uses coins (offer.coins)
-  if(offer.reward !== undefined){
-    owdOfferRewardSmall.textContent = `$${offer.reward}`;
-    owdEarnLabel.textContent = `Earn +${offer.reward} USD`;
-  }else if(offer.coins !== undefined){
-    owdOfferRewardSmall.textContent = `${offer.coins} coins`;
-    owdEarnLabel.textContent = `Earn +${offer.coins} Coins`;
-  }else{
-    owdOfferRewardSmall.textContent = '—';
-    owdEarnLabel.textContent = 'Start Offer';
-  }
-
-  owDetail.classList.add('show');
-  owBody.style.display = 'none';
-  owBack.style.display = 'flex';
-  owMenuIco.style.display = 'none';
-  owDetail.querySelector('.owd-scroll').scrollTop = 0;
-}
-
-function closeOfferDetail(){
-  owDetail.classList.remove('show');
-  owBody.style.display = '';
-  owBack.style.display = 'none';
-  owMenuIco.style.display = '';
-  currentDetailOffer = null;
-}
-
-owBack.addEventListener('click', closeOfferDetail);
-
-owdEarnBtn.addEventListener('click', () => {
-  // Real offer link (CPAGrip / any provider that has one) → open it.
-  // Sample/demo offers (no real link yet) just close back to the grid.
-  if(currentDetailOffer && currentDetailOffer.link && currentDetailOffer.link !== '#'){
-    window.open(currentDetailOffer.link, '_blank', 'noopener');
-  }
-  closeOfferDetail();
 });
 
 owMoon.addEventListener('click', () => {
