@@ -346,6 +346,7 @@
     gap:16px;
   }
   .offer-card{
+    min-width:0;
     background:var(--panel-2);
     border:1px solid var(--border);
     border-radius:14px;
@@ -514,7 +515,8 @@
   .ow-close:hover{background:var(--orange-2);color:#fff;border-color:transparent;}
 
   .ow-body{
-    flex:1;overflow-y:auto;
+    flex:1;min-height:0;
+    overflow-y:auto;overflow-x:hidden;
     background:var(--bg);
     padding:20px;
   }
@@ -522,9 +524,11 @@
     display:grid;
     grid-template-columns:repeat(3,1fr);
     gap:16px;
+    min-width:0;
   }
   .ow-card{
     display:flex;gap:14px;
+    min-width:0;
     background:var(--panel);
     border:1px solid var(--border);
     border-radius:14px;
