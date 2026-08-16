@@ -143,6 +143,33 @@
   .topbar-brand .mark{width:28px;height:28px;border-radius:8px;background:var(--grad-orange);display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;font-weight:800;box-shadow:var(--sh-orange);}
   .topbar-brand .b2{background:var(--grad-orange);-webkit-background-clip:text;background-clip:text;color:transparent;}
   .topbar-spacer{flex:1;}
+  .auth-buttons{display:flex;align-items:center;gap:10px;}
+
+  .user-chip{display:flex;align-items:center;gap:10px;}
+  .coin-chip-mini{
+    display:flex;align-items:center;gap:6px;
+    background:var(--panel-2);border:1px solid var(--border);
+    padding:9px 13px;border-radius:11px;
+    font-weight:700;font-size:13.5px;color:var(--text);
+    box-shadow:var(--sh-sm);
+  }
+  .coin-chip-mini .icon{width:15px;height:15px;color:var(--orange);}
+  .avatar-chip{
+    display:flex;align-items:center;gap:8px;
+    background:var(--panel-2);border:1px solid var(--border);
+    padding:5px 12px 5px 5px;border-radius:100px;
+    box-shadow:var(--sh-sm);transition:background .2s ease;
+  }
+  .avatar-chip:hover{background:var(--panel);}
+  .avatar-chip .av-dot{
+    width:28px;height:28px;border-radius:50%;flex-shrink:0;
+    background:var(--grad-orange);color:#fff;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .avatar-chip .chip-name{
+    font-weight:700;font-size:13.5px;color:var(--text);
+    max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
 
   .btn-primary,.btn-dark,.btn-outline{
     display:inline-flex;
@@ -596,6 +623,8 @@
     .ticker-card{min-width:230px;}
     .ticker-meta{max-width:130px;}
     .topbar-brand span.b2, .topbar-brand span.b1{font-size:15px;}
+    .avatar-chip .chip-name{display:none;}
+    .avatar-chip{padding:5px;}
   }
 
   @media (prefers-reduced-motion: reduce){
@@ -639,6 +668,7 @@
     <symbol id="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M4.4 4.4l1.7 1.7M17.9 17.9l1.7 1.7M2 12h2.4M19.6 12H22M4.4 19.6l1.7-1.7M17.9 6.1l1.7-1.7"/></symbol>
     <symbol id="icon-android" viewBox="0 0 24 24"><path d="M6 10.5v6a1.5 1.5 0 0 0 3 0v-6"/><path d="M15 10.5v6a1.5 1.5 0 0 0 3 0v-6"/><path d="M7 10.5h10v7a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 7 17.5v-7Z"/><path d="M8.5 6.5 7 4.5M15.5 6.5 17 4.5"/><path d="M9 8.2h6"/></symbol>
     <symbol id="icon-monitor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/></symbol>
+    <symbol id="icon-logout" viewBox="0 0 24 24"><path d="M9 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3"/><path d="M15 16l4-4-4-4"/><path d="M19 12H9"/></symbol>
   </defs>
 </svg>
 
@@ -678,14 +708,29 @@
         <button class="menu-btn" id="sideOpen" aria-label="Open menu"><svg class="icon"><use href="#icon-menu"/></svg></button>
         <a href="index.html" class="topbar-brand"><span class="mark">৳</span><span class="b1">earn</span><span class="b2">bangla</span></a>
         <div class="topbar-spacer"></div>
-        <button class="btn-primary" onclick="location.href='/signup'">
-          <svg class="icon" style="width:15px;height:15px"><use href="#icon-signup"/></svg>
-          <span class="label">Sign Up</span>
-        </button>
-        <button class="btn-dark" onclick="location.href='/signin'">
-          <svg class="icon" style="width:15px;height:15px"><use href="#icon-signin"/></svg>
-          <span class="label">Sign In</span>
-        </button>
+        <div class="auth-buttons" id="authButtons">
+          <button class="btn-primary" onclick="location.href='/signup'">
+            <svg class="icon" style="width:15px;height:15px"><use href="#icon-signup"/></svg>
+            <span class="label">Sign Up</span>
+          </button>
+          <button class="btn-dark" onclick="location.href='/signin'">
+            <svg class="icon" style="width:15px;height:15px"><use href="#icon-signin"/></svg>
+            <span class="label">Sign In</span>
+          </button>
+        </div>
+        <div class="user-chip" id="userChip" style="display:none;">
+          <div class="coin-chip-mini">
+            <svg class="icon"><use href="#icon-coin"/></svg>
+            <span id="topCoinBalance">0</span>
+          </div>
+          <a href="profile.html" class="avatar-chip" id="topAvatarChip" title="My Profile">
+            <span class="av-dot"><svg class="icon" style="width:15px;height:15px"><use href="#icon-user"/></svg></span>
+            <span class="chip-name" id="topUsername"></span>
+          </a>
+          <button class="menu-btn" id="signOutTop" title="Sign out" aria-label="Sign out">
+            <svg class="icon"><use href="#icon-logout"/></svg>
+          </button>
+        </div>
       </div>
     </header>
 
@@ -1129,6 +1174,30 @@ owSun.addEventListener('click', () => {
 });
 owMoon.classList.add('on');
 
+// ---------- 6) SESSION CHECK — Sign In buttons vs Profile chip ----------
+// profile.html যেভাবে /api/auth/me দিয়ে session check করে ঠিক সেই একই
+// প্যাটার্ন এখানে — লগইন করা থাকলে টপবারে Sign Up/Sign In এর বদলে
+// coin balance + avatar (profile.html এ লিংক) + sign out বাটন দেখাবে।
+async function checkSession(){
+  try{
+    const res = await fetch(`${API_BASE}/auth/me`);
+    if(!res.ok) return; // সাইন-ইন করা নেই — ডিফল্ট Sign Up / Sign In বাটনই থাকবে
+    const { user } = await res.json();
+    document.getElementById('authButtons').style.display = 'none';
+    const chip = document.getElementById('userChip');
+    chip.style.display = 'flex';
+    document.getElementById('topUsername').textContent = user.username || '';
+    document.getElementById('topCoinBalance').textContent = user.coins ?? 0;
+  }catch(err){
+    // backend/API এখনো ডিপ্লয় করা না থাকলে — চুপচাপ ডিফল্ট বাটনই দেখাবে
+  }
+}
+
+document.getElementById('signOutTop').addEventListener('click', async () => {
+  try{ await fetch(`${API_BASE}/auth/logout`, { method:'POST' }); }catch(err){}
+  location.reload();
+});
+
 // ---------- 5) SCROLL REVEAL ----------
 function initReveal(){
   const items = document.querySelectorAll('.reveal');
@@ -1150,6 +1219,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   loadOffers('top',      'topOffers');
   loadOffers('featured', 'featuredOffers');
   initReveal();
+  checkSession();
 });
 </script>
 </body>
