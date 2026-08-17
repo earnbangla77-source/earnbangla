@@ -3,6 +3,10 @@
 > **স্ট্যাটাস (আপডেট):** ধাপ ১–৬ সম্পূর্ণ। ধাপ ৭ (live test) এখনো বাকি —
 > কারণ Offery-এর প্লেসমেন্ট এখনো **Pending** (Offery টিমের approval-এর
 > অপেক্ষায়)। Approve হলে ধাপ ৭ করা যাবে।
+>
+> এর পাশাপাশি profile.html-এ একটা আলাদা বাগ ধরা পড়েছে ও ফিক্স করা
+> হয়েছে (Offery postback-এর সাথেই সম্পর্কিত) — বিস্তারিত নিচে
+> **"বাগ ফিক্স"** সেকশনে।
 
 CPAGrip-এর ঠিক একই প্যাটার্নে **তৃতীয় প্রোভাইডার** হিসেবে Offery
 (offery.io) যোগ করা হচ্ছে। ব্যাকএন্ড ফাইল দুটো (`offery-feed.js`,
@@ -183,3 +187,32 @@ wrangler pages deployment tail --project-name=earnbangla
 `{"status":"credited"}`-এর বদলে raw response **"ok"** আসছে কিনা, আর
 duplicate `transId` দ্বিতীয়বার পাঠালে coins দ্বিতীয়বার না বাড়ছে কিনা
 — দুটোই কনফার্ম করুন। সব ঠিক থাকলে `PROJECT-STATUS.md` আপডেট করে দিন।
+
+---
+
+## বাগ ফিক্স (স্কোপের বাইরে, কিন্তু একই postback ফাইলে) — Profile-এ earning না দেখানো
+
+**সমস্যা:** profile.html-এ "Completed Offers", "Total Earning",
+"Earnings last 30 days" — সবসময় 0 দেখাচ্ছিল, যদিও coin balance ঠিকই
+বাড়ছিল।
+
+**কারণ:** `offery-postback.js`-এর credit ব্লক শুধু
+`UPDATE users SET coins = coins + ?` চালাচ্ছিল — `completed_offers` আর
+`total_earning` কলাম কখনো টাচ হচ্ছিল না। আর `earnings_30d` একটা static
+কলাম হিসেবে রাখা হয়েছিল যেটার কোনো decay/cron লজিক ছিল না, তাই ৩০ দিন
+পার হওয়া earning-ও কখনো বাদ পড়ত না।
+
+**ফিক্স (✅ করা হয়ে গেছে):**
+1. `functions/api/offers/offery-postback.js` — credit-এর সময়
+   `completed_offers` আর `total_earning`-ও ইনক্রিমেন্ট হয় এখন;
+   chargeback হলে দুটোই ডিক্রিমেন্ট হয় (0-এর নিচে যায় না)।
+2. `functions/api/auth/me.js` — `earnings30d` আর static কলাম থেকে না
+   পড়ে, প্রতিবার `offer_completions` টেবিল থেকে "গত ৩০ দিনের
+   `coins_earned` SUM" হিসেবে লাইভ ক্যালকুলেট করে পাঠায়।
+
+**⏳ বাকি:**
+- `functions/api/offers/withdraw/cpagrip-postback.js`-এও একই ফিক্স
+  লাগবে (এখনো অ্যাপ্লাই করা হয়নি — ফাইলটা এখনো শেয়ার করা হয়নি)।
+- `functions/api/activity.js` ফাইলটা আগে থেকেই আছে — এটা profile-এর
+  "Earnings" ট্যাবের জন্যই বানানো ছিল কিনা, নাকি অন্য কিছুর জন্য
+  (যেমন হোমপেজ অ্যাক্টিভিটি টিকার) — সেটা কনফার্ম করা বাকি।
