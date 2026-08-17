@@ -832,23 +832,17 @@
             <button class="btn-dark btn-sm">View All</button>
           </div>
           <div class="partners-grid" id="partnersGrid">
-            <button class="partner-card" onclick="openOfferwall('UpWall')">
-              <div class="partner-tile" style="background:linear-gradient(160deg,#0F2A3A,#0A1E2A);">
-                <span class="partner-wordmark">UPWALL</span>
-              </div>
-              <span class="partner-name">UpWall</span>
-            </button>
-            <button class="partner-card" onclick="openOfferwall('CPALead')">
-              <div class="partner-tile" style="background:linear-gradient(160deg,#241a33,#160f22);">
-                <span class="partner-wordmark">CPALEAD</span>
-              </div>
-              <span class="partner-name">CPALead</span>
-            </button>
             <button class="partner-card" onclick="openOfferwall('CPAGrip')">
               <div class="partner-tile" style="background:linear-gradient(160deg,#1a2e1f,#0f1c13);">
                 <span class="partner-wordmark">CPAGRIP</span>
               </div>
               <span class="partner-name">CPAGrip</span>
+            </button>
+            <button class="partner-card" onclick="openOfferwall('Offery')">
+              <div class="partner-tile" style="background:linear-gradient(160deg,#2a1a33,#1a0f22);">
+                <span class="partner-wordmark">OFFERY</span>
+              </div>
+              <span class="partner-name">Offery</span>
             </button>
           </div>
         </section>
@@ -899,7 +893,7 @@
     <div class="ow-head">
       <button class="ow-back" id="owBack" title="Back"><svg class="icon" style="width:16px;height:16px"><use href="#icon-back"/></svg></button>
       <span class="ow-menu-ico" id="owMenuIco"><svg class="icon" style="width:16px;height:16px"><use href="#icon-bars"/></svg></span>
-      <span class="ow-brand"><svg class="icon"><use href="#icon-external"/></svg><span id="owBrandName">UpWall</span></span>
+      <span class="ow-brand"><svg class="icon"><use href="#icon-external"/></svg><span id="owBrandName">CPAGrip</span></span>
       <div class="ow-head-spacer"></div>
       <button class="ow-toggle" id="owMoon" title="Dark mode"><svg class="icon" style="width:16px;height:16px"><use href="#icon-moon"/></svg></button>
       <button class="ow-toggle" id="owSun" title="Light mode"><svg class="icon" style="width:16px;height:16px"><use href="#icon-sun"/></svg></button>
@@ -1077,57 +1071,6 @@ async function loadOffers(type, containerId){
 }
 
 // ---------- 4) OFFERWALL MODAL ----------
-// প্রতিটা পার্টনারের জন্য sample অফার লিস্ট — Worker API রেডি হলে
-// fetchOfferwallOffers() ফাংশনে বদলে আসল ডেটা বসানো যাবে
-const offerwallData = {
-  UpWall: [
-    { emoji:'🔪', bg:'#E4572E', title:'Hungry Shredder', hot:false, desc:'Reach Height 1200 and earn your reward', device:'android', tags:['new','multi'], reward:'3.47' },
-    { emoji:'💎', bg:'#0B0B10', title:'Tap Gems - Diamond Rush', hot:false, desc:'Answer the questions and complete the offer', device:'monitor', tags:['new','easy'], reward:'0.12' },
-    { emoji:'🎁', bg:'#F4F4F8', title:'Gift Box', hot:true, desc:'Answer the questions and claim your box', device:'monitor', tags:['new','easy'], reward:'0.12' },
-    { emoji:'🪅', bg:'#5B7BA6', title:'Pinata Fiesta', hot:false, desc:'Reach 1200m Rope Length to earn your reward', device:'android', tags:['new','multi'], reward:'8.71' },
-    { emoji:'🏴‍☠️', bg:'#3A5F8A', title:'Pirates Treasure', hot:false, desc:'Install the app and reach the treasure island', device:'android', tags:['new','multi'], reward:'7.4' },
-    { emoji:'🪙', bg:'#F4F4F8', title:'Coin Catcher', hot:true, desc:'Click to catch your coins fast', device:'monitor', tags:['new','easy'], reward:'0.12' },
-    { emoji:'💰', bg:'#E8A33D', title:'Power Smash', hot:true, desc:'Tap to earn your bonus rewards', device:'monitor', tags:['new','easy'], reward:'0.12' },
-    { emoji:'🌐', bg:'#111318', title:'Proxy Browser', hot:true, desc:'Click install, then open and browse', device:'android', tags:['new','easy'], reward:'0.07' },
-    { emoji:'🍬', bg:'#8E3AA3', title:'Candy Grab', hot:false, desc:'Reach distance levels in the candy world', device:'android', tags:['new','multi'], reward:'27.87' },
-    { emoji:'Ⓜ️', bg:'#3355CC', title:'Cryptomania', hot:true, desc:'Install and open crypto mania app', device:'android', tags:['new'], reward:'0.09' },
-    { emoji:'👾', bg:'#B33B4A', title:'Heroes vs Crazy Mobs', hot:false, desc:'Battle game where players fight endless mobs', device:'android', tags:['new'], reward:'9.19' },
-    { emoji:'🧲', bg:'#2E7D6B', title:'Magnet Miner', hot:false, desc:'Reach specific depth levels underground', device:'android', tags:['new'], reward:'8.03' },
-    { emoji:'🚀', bg:'#1F3A5F', title:'Space Colony Rush', hot:true, desc:'Build your first colony to earn a reward', device:'android', tags:['new','easy'], reward:'2.15' },
-    { emoji:'🏰', bg:'#5A3A1F', title:'Kingdom Builder', hot:false, desc:'Reach town hall level 5 to unlock reward', device:'android', tags:['new','multi'], reward:'12.60' },
-    { emoji:'🐉', bg:'#2E1F5A', title:'Dragon Realm Saga', hot:false, desc:'Hatch your first dragon and level it up', device:'android', tags:['new','multi'], reward:'6.90' },
-    { emoji:'🎯', bg:'#0F2A3A', title:'Bullseye Blitz', hot:true, desc:'Score 500 points to claim your reward', device:'monitor', tags:['new','easy'], reward:'0.18' },
-    { emoji:'🍕', bg:'#8C2E1F', title:'Pizza Tycoon', hot:false, desc:'Serve 20 customers to unlock your reward', device:'android', tags:['new','multi'], reward:'4.75' },
-    { emoji:'🎣', bg:'#1F5A5A', title:'Fishing Frenzy', hot:false, desc:'Catch 10 fish to earn your first reward', device:'android', tags:['new','easy'], reward:'1.30' },
-    { emoji:'🏎️', bg:'#3A0F0F', title:'Nitro Street Racing', hot:true, desc:'Finish 3 races to claim your bonus', device:'android', tags:['new','multi'], reward:'5.55' },
-    { emoji:'🧟', bg:'#1A1A1A', title:'Zombie Outbreak', hot:false, desc:'Survive wave 5 to unlock your reward', device:'android', tags:['new'], reward:'7.85' },
-    { emoji:'🎰', bg:'#5A1F3A', title:'Lucky Spin Casino', hot:false, desc:'Sign up and spin the wheel once', device:'monitor', tags:['new','easy'], reward:'0.25' },
-    { emoji:'🛡️', bg:'#2E2E5A', title:'Castle Defense', hot:true, desc:'Defend for 3 waves to earn your reward', device:'android', tags:['new','multi'], reward:'9.40' },
-    { emoji:'📱', bg:'#0F1F2E', title:'App Reviewer Trial', hot:false, desc:'Download and open the app once', device:'android', tags:['new','easy'], reward:'0.15' },
-    { emoji:'🧠', bg:'#2E3A0F', title:'Brain Puzzle Master', hot:false, desc:'Solve 3 levels to unlock your reward', device:'monitor', tags:['new','easy'], reward:'0.22' }
-  ],
-  CPALead: [
-    { emoji:'🎮', bg:'#2E3A8C', title:'Quest Legends', hot:true, desc:'Complete the tutorial to claim your reward', device:'android', tags:['new','easy'], reward:'0.45' },
-    { emoji:'📝', bg:'#1F6F5C', title:'Quick Survey', hot:false, desc:'Answer a short survey about your habits', device:'monitor', tags:['new','easy'], reward:'0.30' },
-    { emoji:'🏆', bg:'#8C5A2E', title:'Trophy Rush', hot:false, desc:'Reach level 10 to unlock your reward', device:'android', tags:['new','multi'], reward:'5.60' },
-    { emoji:'🚗', bg:'#3A3A3A', title:'Turbo Racer', hot:true, desc:'Install the app and finish your first race', device:'android', tags:['new','easy'], reward:'0.20' },
-    { emoji:'🧩', bg:'#7A3AA8', title:'Puzzle Kingdom', hot:false, desc:'Solve 5 puzzles to unlock the vault', device:'android', tags:['new','multi'], reward:'4.10' },
-    { emoji:'📷', bg:'#2E6B8C', title:'Photo App Trial', hot:false, desc:'Sign up and try the premium editing tools', device:'monitor', tags:['new'], reward:'0.90' },
-    { emoji:'⚽', bg:'#1F5A2E', title:'Soccer Star League', hot:true, desc:'Win your first match to earn a reward', device:'android', tags:['new','easy'], reward:'1.75' },
-    { emoji:'🏹', bg:'#5A2E1F', title:'Archer Legends', hot:false, desc:'Reach level 8 to unlock your reward', device:'android', tags:['new','multi'], reward:'6.30' },
-    { emoji:'🛒', bg:'#2E5A4A', title:'Shopping Rewards App', hot:false, desc:'Sign up and browse 3 products', device:'monitor', tags:['new','easy'], reward:'0.40' },
-    { emoji:'🎬', bg:'#1A1A2E', title:'Movie Trivia Challenge', hot:true, desc:'Answer 5 questions correctly to win', device:'monitor', tags:['new','easy'], reward:'0.35' },
-    { emoji:'🐟', bg:'#0F3A4A', title:'Ocean Explorer', hot:false, desc:'Reach depth level 3 to earn your reward', device:'android', tags:['new'], reward:'3.20' },
-    { emoji:'🏠', bg:'#4A3A1F', title:'Dream Home Design', hot:false, desc:'Design your first room to unlock reward', device:'android', tags:['new','multi'], reward:'8.15' },
-    { emoji:'🥊', bg:'#5A1F1F', title:'Boxing Champions', hot:true, desc:'Win your first fight to claim reward', device:'android', tags:['new','easy'], reward:'2.05' },
-    { emoji:'📚', bg:'#2E2E5A', title:'Word Puzzle Daily', hot:false, desc:'Complete 3 word puzzles to unlock reward', device:'monitor', tags:['new','easy'], reward:'0.28' },
-    { emoji:'🎵', bg:'#3A0F3A', title:'Music Quiz Battle', hot:false, desc:'Answer 5 song rounds correctly', device:'monitor', tags:['new'], reward:'0.33' },
-    { emoji:'🐾', bg:'#1F5A1F', title:'Pet Rescue Story', hot:true, desc:'Rescue your first pet to earn reward', device:'android', tags:['new','multi'], reward:'5.90' },
-    { emoji:'🏗️', bg:'#4A2E0F', title:'City Builder Pro', hot:false, desc:'Reach population 100 to unlock reward', device:'android', tags:['new','multi'], reward:'11.20' },
-    { emoji:'🎲', bg:'#2E1F3A', title:'Board Game Arena', hot:false, desc:'Play your first match to earn reward', device:'monitor', tags:['new','easy'], reward:'0.27' }
-  ]
-};
-
 const owOverlay = document.getElementById('owOverlay');
 const owModal = document.getElementById('owModal');
 const owBody = document.getElementById('owBody');
@@ -1137,60 +1080,17 @@ const owClose = document.getElementById('owClose');
 const owMoon = document.getElementById('owMoon');
 const owSun = document.getElementById('owSun');
 
-function deviceIcon(device){
-  return device === 'android'
-    ? '<svg class="icon"><use href="#icon-android"/></svg>'
-    : '<svg class="icon"><use href="#icon-monitor"/></svg>';
-}
-
-function tagHTML(tag){
-  if(tag === 'new') return '<span class="ow-tag new">New Users</span>';
-  if(tag === 'easy') return '<span class="ow-tag easy">Easy ⚡</span>';
-  if(tag === 'multi') return '<span class="ow-tag multi">Multi-Reward</span>';
-  return '';
-}
-
-function owCardHTML(o, idx){
-  return `
-    <div class="ow-card" onclick="openOfferDetail(currentOfferList[${idx}])">
-      <div class="ow-icon" style="background:${o.bg}">${o.emoji}</div>
-      <div class="ow-info">
-        <div class="ow-title">${o.title}${o.hot ? ' 🔥' : ''}</div>
-        <div class="ow-desc">${o.desc}</div>
-        <div class="ow-meta">
-          <span class="ow-device">${deviceIcon(o.device)}</span>
-        </div>
-        <div class="ow-tags">${o.tags.map(tagHTML).join('')}</div>
-      </div>
-      <div class="ow-reward"><svg class="icon"><use href="#icon-coin"/></svg>${o.reward}</div>
-    </div>`;
-}
-
-// Worker API রেডি হলে এখানে বসিয়ে sample ডেটার বদলে আসল অফারওয়াল ডেটা আনা যাবে:
-// async function fetchOfferwallOffers(partner){
-//   const res = await fetch(`${API_BASE}/offerwall?partner=${partner}`);
-//   const data = await res.json();
-//   return data.offers || [];
-// }
-
 let currentOfferList = [];
 
 function openOfferwall(partner){
-  // CPAGrip has a real, live offer feed — everything else here is still
-  // sample/demo data (see offerwallData above and the fetchOfferwallOffers
-  // comment) until those providers get the same treatment.
   if(partner === 'CPAGrip'){
     openCpagripOfferwall();
     return;
   }
-  owBrandName.textContent = partner;
-  const offers = offerwallData[partner] || [];
-  currentOfferList = offers;
-  owGrid.innerHTML = offers.length
-    ? offers.map((o, idx) => owCardHTML(o, idx)).join('')
-    : '<div class="ow-empty">No offers available at the moment</div>';
-  owOverlay.classList.add('show');
-  document.body.style.overflow = 'hidden';
+  if(partner === 'Offery'){
+    openOfferyOfferwall();
+    return;
+  }
 }
 
 // ---------- CPAGrip — real offer feed via our own backend ----------
@@ -1262,6 +1162,67 @@ async function openCpagripOfferwall(){
       : '<div class="ow-empty">No offers available at the moment</div>';
   }catch(err){
     console.error('CPAGrip offerwall error:', err);
+    owGrid.innerHTML = '<div class="ow-empty">অফার লোড করা যায়নি, একটু পর আবার চেষ্টা করুন।</div>';
+  }
+}
+
+// ---------- Offery — real offer feed via our own backend ----------
+function normalizeOfferyOffer(row){
+  if(!row || typeof row !== 'object') return null;
+  const o = row.offer || {};
+  const id     = o.id ?? '';
+  const title  = o.name ?? 'Offer';
+  const desc   = o.description ?? '';
+  const image  = o.image ?? '';
+  const link   = row.url ?? '#';
+  // Offery already sends the coin amount pre-converted using the Currency
+  // Name/Exchange Rate set on the placement (Coins / 1000.00) — keep those
+  // in sync with functions/api/offers/offery-postback.js.
+  const coins  = Math.round(parseFloat(row.payout?.reward ?? 0)) || 0;
+  if(!id || !link || link === '#') return null;
+  return { id, title, desc, image, link, coins };
+}
+
+function offeryCardHTML(o, idx){
+  const iconInner = o.image
+    ? `<img src="${o.image}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:13px;" onerror="this.onerror=null;this.style.display='none';this.parentElement.textContent='🎯';">`
+    : '🎯';
+  return `
+    <div class="ow-card" onclick="openOfferDetail(currentOfferList[${idx}])">
+      <div class="ow-icon" style="background:#161a1f;overflow:hidden;">${iconInner}</div>
+      <div class="ow-info">
+        <div class="ow-title">${o.title}</div>
+        <div class="ow-desc">${o.desc}</div>
+      </div>
+      <div class="ow-reward"><svg class="icon"><use href="#icon-coin"/></svg>${o.coins}</div>
+    </div>`;
+}
+
+async function openOfferyOfferwall(){
+  owBrandName.textContent = 'Offery';
+  owGrid.innerHTML = '<div class="ow-empty">Loading offers…</div>';
+  owOverlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+
+  try{
+    const res = await fetch(`${API_BASE}/offers/offery-feed`);
+
+    if(res.status === 401){
+      owGrid.innerHTML = '<div class="ow-empty">অফার দেখতে আগে সাইন ইন করুন।</div>';
+      return;
+    }
+    if(!res.ok) throw new Error('offery feed request failed: ' + res.status);
+
+    const data = await res.json();
+    console.log('Offery feed — raw response:', data.raw ?? data);
+
+    const offers = (data.offers || []).map(normalizeOfferyOffer).filter(Boolean);
+    currentOfferList = offers;
+    owGrid.innerHTML = offers.length
+      ? offers.map((o, idx) => offeryCardHTML(o, idx)).join('')
+      : '<div class="ow-empty">No offers available at the moment</div>';
+  }catch(err){
+    console.error('Offery offerwall error:', err);
     owGrid.innerHTML = '<div class="ow-empty">অফার লোড করা যায়নি, একটু পর আবার চেষ্টা করুন।</div>';
   }
 }
