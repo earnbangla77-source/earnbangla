@@ -585,7 +585,7 @@
         <!-- ACTIVITY TABS -->
         <section class="panel tab-panel reveal">
           <div class="tab-row">
-            <button class="tab-btn active" data-tab="earnings"><svg class="icon"><use href="#i-wallet"></use></svg> Earnings <span class="badge">0</span></button>
+            <button class="tab-btn active" data-tab="earnings"><svg class="icon"><use href="#i-wallet"></use></svg> Earnings <span class="badge" id="earningsBadge">0</span></button>
             <button class="tab-btn" data-tab="withdrawals"><svg class="icon"><use href="#i-swap"></use></svg> Withdrawals <span class="badge" id="withdrawalsBadge">0</span></button>
             <button class="tab-btn" data-tab="pending"><svg class="icon"><use href="#i-clock"></use></svg> Pending <span class="badge" id="pendingBadge">0</span></button>
           </div>
@@ -761,6 +761,7 @@
     document.getElementById('dashboardView').style.display = 'block';
     renderUser(user);
     loadWithdrawals(null); // quietly fetch so both tab badges show real counts right away
+    loadEarnings(null); // same, for the Earnings tab badge
   }
 
   function showAuthGate(){
@@ -986,8 +987,11 @@
   const colValue = document.getElementById('colValue');
   const withdrawalsBadge = document.getElementById('withdrawalsBadge');
   const pendingBadge = document.getElementById('pendingBadge');
+  const earningsBadge = document.getElementById('earningsBadge');
   let withdrawalsData = [];
   let withdrawalsLoaded = false;
+  let earningsData = [];
+  let earningsLoaded = false;
 
   const pendingWithdrawals = () => withdrawalsData.filter(w => w.status === 'pending');
   const resolvedWithdrawals = () => withdrawalsData.filter(w => w.status !== 'pending');
@@ -1049,6 +1053,34 @@
     }
   }
 
+  function renderEarnings(list, emptyMsg){
+    if(!list.length){ renderEmptyRow(emptyMsg); return; }
+    activityBody.innerHTML = list.map(e => (
+      '<tr class="act-row">' +
+        '<td><div class="act-primary">' + e.name + '</div></td>' +
+        '<td>' + formatWhen(e.createdAt) + '</td>' +
+        '<td style="text-align:right;"><div class="act-primary">' + e.coins + ' coins</div></td>' +
+      '</tr>'
+    )).join('');
+  }
+
+  // renderTab: 'earnings' to render the tab after loading, or null/false to
+  // just refresh the badge count quietly without touching what's on screen.
+  async function loadEarnings(renderTab){
+    if(renderTab) renderEmptyRow('Loading…');
+    try{
+      const res = await fetch('/api/offers/earnings');
+      const body = await res.json().catch(() => ({}));
+      if(!res.ok) throw new Error(body.error || 'Could not load earnings.');
+      earningsData = body.earnings || [];
+      earningsLoaded = true;
+      earningsBadge.textContent = earningsData.length;
+      if(renderTab === 'earnings') renderEarnings(earningsData, tabMessages.earnings);
+    }catch(ex){
+      if(renderTab) renderEmptyRow('Could not load earnings. Please try again.');
+    }
+  }
+
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -1062,6 +1094,12 @@
           renderWithdrawals(list, tabMessages[tab]);
         } else {
           loadWithdrawals(tab);
+        }
+      } else if(tab === 'earnings'){
+        if(earningsLoaded){
+          renderEarnings(earningsData, tabMessages.earnings);
+        } else {
+          loadEarnings('earnings');
         }
       } else {
         renderEmptyRow(tabMessages[tab]);
