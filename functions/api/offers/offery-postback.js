@@ -34,6 +34,13 @@
 //
 // ⚠️ Requires offer_completions to have transaction_id + status columns —
 //    run offery-schema-addition.sql against earnbangla-db first.
+//
+// FIX (see profile "Total Earning" / "Completed Offers" always showing 0):
+// crediting a completion now ALSO bumps users.completed_offers and
+// users.total_earning, not just users.coins. Chargebacks reverse all three.
+// (users.earnings_30d is intentionally left alone here — it's computed live
+// in functions/api/auth/me.js from offer_completions instead of being a
+// static counter, so it stays correct as time passes.)
 
 function ok() {
   return new Response("ok", { status: 200, headers: { "content-type": "text/plain" } });
@@ -147,8 +154,13 @@ async function handlePostback(request, env) {
       return ok();
     }
 
-    await env.DB.prepare(`UPDATE users SET coins = MAX(coins - ?, 0) WHERE id = ?`)
-      .bind(existing.coins_earned, userId).run();
+    await env.DB.prepare(
+      `UPDATE users
+       SET coins = MAX(coins - ?, 0),
+           completed_offers = MAX(completed_offers - 1, 0),
+           total_earning = MAX(total_earning - ?, 0)
+       WHERE id = ?`
+    ).bind(existing.coins_earned, existing.coins_earned, userId).run();
 
     await env.DB.prepare(`UPDATE offer_completions SET status = 'chargeback' WHERE id = ?`)
       .bind(existing.id).run();
@@ -165,8 +177,13 @@ async function handlePostback(request, env) {
     return ok(); // already processed — idempotent, don't double-credit
   }
 
-  const update = await env.DB.prepare(`UPDATE users SET coins = coins + ? WHERE id = ?`)
-    .bind(coins, userId).run();
+  const update = await env.DB.prepare(
+    `UPDATE users
+     SET coins = coins + ?,
+         completed_offers = completed_offers + 1,
+         total_earning = total_earning + ?
+     WHERE id = ?`
+  ).bind(coins, coins, userId).run();
 
   if (!update.success || update.meta.changes === 0) {
     return fail("User not found.", 404);
