@@ -130,6 +130,14 @@ async function handlePostback(request, env) {
 
   // 1. Verify the signature
   const expected = md5(subId + transId + rewardRaw + secret);
+  // TEMP DEBUG — remove after troubleshooting. Logs the raw signature input
+  // and both hashes so you can compare against your PowerShell test script
+  // via `wrangler pages deployment tail`. Does NOT log the secret itself.
+  console.log("offery-postback DEBUG:", {
+    signatureInput: subId + transId + rewardRaw + "<secret>",
+    received: signature,
+    expected,
+  });
   if (!signature || signature !== expected) {
     return fail("Signature doesn't match.", 403);
   }
@@ -194,7 +202,10 @@ async function handlePostback(request, env) {
      VALUES ('offery', ?, ?, ?, ?, ?, 'credited', datetime('now'))`
   ).bind(userId, offerId, transId, parseFloat(params.payout) || 0, coins).run();
 
-  return ok();
+  // TEMP MARKER — remove after confirming this exact deployed file is the
+  // one actually serving /api/offers/offery-postback. Offery's real
+  // integration expects the raw text "ok" — do NOT ship this "-v2" suffix.
+  return new Response("ok-v2", { status: 200, headers: { "content-type": "text/plain" } });
 }
 
 export async function onRequestPost(context) {
