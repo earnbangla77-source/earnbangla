@@ -1,5 +1,9 @@
 # Offery অফারওয়াল — earn.html-এ ইন্টিগ্রেশন (বাকি কাজ)
 
+> **স্ট্যাটাস (আপডেট):** ধাপ ১–৬ সম্পূর্ণ। ধাপ ৭ (live test) এখনো বাকি —
+> কারণ Offery-এর প্লেসমেন্ট এখনো **Pending** (Offery টিমের approval-এর
+> অপেক্ষায়)। Approve হলে ধাপ ৭ করা যাবে।
+
 CPAGrip-এর ঠিক একই প্যাটার্নে **তৃতীয় প্রোভাইডার** হিসেবে Offery
 (offery.io) যোগ করা হচ্ছে। ব্যাকএন্ড ফাইল দুটো (`offery-feed.js`,
 `offery-postback.js`) আর schema migration (`offery-schema-addition.sql`)
@@ -8,14 +12,14 @@ CPAGrip-এর ঠিক একই প্যাটার্নে **তৃতী
 
 ---
 
-## ধাপ ১ — নতুন ফাইলগুলো সঠিক জায়গায় বসান
+## ধাপ ১ — ✅ নতুন ফাইলগুলো সঠিক জায়গায় বসান
 
 ```
 functions/api/offers/offery-feed.js
 functions/api/offers/offery-postback.js
 ```
 
-## ধাপ ২ — D1 তে schema migration চালান
+## ধাপ ২ — ✅ D1 তে schema migration চালান
 
 `offery-schema-addition.sql`-এর কমান্ডগুলো (একটা একটা করে) চালান:
 
@@ -29,7 +33,11 @@ wrangler d1 execute earnbangla-db --remote --command="CREATE INDEX IF NOT EXISTS
 দুটো (`transaction_id`, `status`) আগে থেকেই আছে, তাহলে ALTER TABLE
 স্কিপ করে শুধু ইনডেক্স কমান্ডটা চালান।
 
-## ধাপ ৩ — `earn.html`-এ partner tile যোগ করুন
+> **যা আসলে হয়েছে:** `transaction_id` কলাম আগে থেকেই ছিল, তাই ওই
+> ALTER TABLE লাইনটা স্কিপ করা হয়েছে। `status` কলাম আর index — দুটোই
+> নতুন করে চালানো হয়েছে, দুটোই সফল হয়েছে।
+
+## ধাপ ৩ — ✅ `earn.html`-এ partner tile যোগ করুন
 
 `partners-grid` div-এর ভেতরে CPAGrip বাটনের ঠিক পরে এই বাটনটা বসান:
 
@@ -42,7 +50,7 @@ wrangler d1 execute earnbangla-db --remote --command="CREATE INDEX IF NOT EXISTS
 </button>
 ```
 
-## ধাপ ৪ — `openOfferwall()` ডিসপ্যাচারে Offery স্পেশাল-কেস যোগ করুন
+## ধাপ ৪ — ✅ `openOfferwall()` ডিসপ্যাচারে Offery স্পেশাল-কেস যোগ করুন
 
 বর্তমানে এটা শুধু CPAGrip-কে স্পেশাল-কেস করে:
 
@@ -70,7 +78,7 @@ function openOfferwall(partner){
   ...
 ```
 
-## ধাপ ৫ — CPAGrip-এর ফাংশনগুলোর ঠিক পরে (openCpagripOfferwall-এর পর,
+## ধাপ ৫ — ✅ CPAGrip-এর ফাংশনগুলোর ঠিক পরে (openCpagripOfferwall-এর পর,
 closeOfferwall-এর আগে) এই নতুন ফাংশনগুলো বসান
 
 ```js
@@ -136,23 +144,34 @@ async function openOfferyOfferwall(){
 }
 ```
 
-## ধাপ ৬ — Offery অনুমোদন হওয়ার পর (App ID পাওয়ার পর)
+> **এক্সট্রা কাজ (প্ল্যানে ছিল না, বাড়তি করা হয়েছে):** `earn.html`-এ
+> UpWall আর CPALead-এর পুরনো hardcoded sample/demo offer ডেটা এবং
+> partner tile মুছে ফেলা হয়েছে, কারণ ওগুলো fake ডেটা ছিল। এখন
+> partners grid-এ শুধু CPAGrip আর Offery দেখায় — দুটোই real backend
+> feed-এর সাথে কানেক্টেড। এর ফলে `deviceIcon`/`tagHTML`/`owCardHTML`-এর
+> মতো কিছু dead-code ফাংশনও সরানো হয়েছে।
 
-1. Offery ড্যাশবোর্ড থেকে **API Key** আর **Secret Key** কপি করুন।
-2. `functions/api/offers/offery-feed.js`-এ `OFFERY_API_KEY` কনস্ট্যান্টে
+## ধাপ ৬ — ✅ Offery অনুমোদন হওয়ার পর (App ID পাওয়ার পর)
+
+1. ✅ Offery ড্যাশবোর্ড থেকে **API Key** আর **Secret Key** কপি করুন।
+2. ✅ `functions/api/offers/offery-feed.js`-এ `OFFERY_API_KEY` কনস্ট্যান্টে
    API Key বসান।
-3. Secret Key দিয়ে wrangler secret সেট করুন (দুই জায়গাতেই):
+3. ✅ Secret Key দিয়ে wrangler secret সেট করুন (দুই জায়গাতেই):
    ```
    wrangler pages secret put OFFERY_SECRET_KEY --project-name=earnbangla
    wrangler pages secret put OFFERY_SECRET_KEY --project-name=earnbangla --env preview
    ```
-4. Offery-এর "Add New Placement" ফর্মের **Postback URL**-এ বসান:
+4. ✅ Offery-এর "Add New Placement" ফর্মের **Postback URL**-এ বসান:
    ```
    https://earn-bangla.com/api/offers/offery-postback
    ```
    (আপনার আসল লাইভ ডোমেইন দিয়ে — উপরের ধাপগুলো আগে deploy হয়ে যাওয়ার পর)
 
-## ধাপ ৭ — টেস্ট করুন
+> **নোট:** এই চারটা কাজ Offery-এর approval আসার **আগেই** করে রাখা
+> হয়েছে (submit করার সময় Offery সাথে সাথে API Key/Secret Key দেখিয়ে
+> দিয়েছিল) — এখন শুধু Offery টিমের approval-এর অপেক্ষা।
+
+## ধাপ ৭ — ⏳ টেস্ট করুন (এখনো বাকি — Offery approval-এর অপেক্ষায়)
 
 `OFFERWALL-TROUBLESHOOTING.md`-এর "লাইভ log tail" পদ্ধতিতে:
 
