@@ -17,7 +17,7 @@ import { getUserFromRequest, json, errorJson } from "../../_lib/auth.js";
 
 // TODO: fill in once your Offery placement is approved
 // (Offery dashboard → your app → API Documents / App Details).
-const OFFERY_API_KEY ="8qb2kq6axoev42a70fz01b44chpx6q";
+const OFFERY_API_KEY = "8qb2kq6axoev42a70fz01b44chpx6q";
 
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -27,7 +27,7 @@ export async function onRequestGet(context) {
     return errorJson("Not signed in.", 401);
   }
 
-  const feedUrl = `https://offery.io/api/?apikey=${encodeURIComponent(OFFERY_API_KEY)}`;
+  const feedUrl = `https://offery.io/api/?apiKey=${encodeURIComponent(OFFERY_API_KEY)}`;
 
   try {
     const res = await fetch(feedUrl, {
