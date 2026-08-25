@@ -592,7 +592,7 @@
   .ow-reward .icon{width:14px;height:14px;}
   .ow-empty{grid-column:1/-1;text-align:center;padding:40px 10px;color:var(--text-faint);font-size:14px;}
 
-  /* ---------- ow-iframe-wrap: for providers embedded via iframe (e.g. Prime Wall), as opposed to ow-grid card feeds (CPAGrip/Offery) ---------- */
+  /* ---------- ow-iframe-wrap: for providers embedded via iframe (e.g. Prime Wall), as opposed to ow-grid card feeds (Offery) ---------- */
   .ow-iframe-wrap{display:none;height:100%;}
   .ow-iframe-wrap iframe{width:100%;height:100%;min-height:520px;border:0;display:block;background:#fff;}
   .ow-body.ow-iframe-mode{padding:0;}
@@ -838,12 +838,6 @@
             <button class="btn-dark btn-sm">View All</button>
           </div>
           <div class="partners-grid" id="partnersGrid">
-            <button class="partner-card" onclick="openOfferwall('CPAGrip')">
-              <div class="partner-tile" style="background:linear-gradient(160deg,#1a2e1f,#0f1c13);">
-                <span class="partner-wordmark">CPAGRIP</span>
-              </div>
-              <span class="partner-name">CPAGrip</span>
-            </button>
             <button class="partner-card" onclick="openOfferwall('Offery')">
               <div class="partner-tile" style="background:linear-gradient(160deg,#2a1a33,#1a0f22);">
                 <span class="partner-wordmark">OFFERY</span>
@@ -905,7 +899,7 @@
     <div class="ow-head">
       <button class="ow-back" id="owBack" title="Back"><svg class="icon" style="width:16px;height:16px"><use href="#icon-back"/></svg></button>
       <span class="ow-menu-ico" id="owMenuIco"><svg class="icon" style="width:16px;height:16px"><use href="#icon-bars"/></svg></span>
-      <span class="ow-brand"><svg class="icon"><use href="#icon-external"/></svg><span id="owBrandName">CPAGrip</span></span>
+      <span class="ow-brand"><svg class="icon"><use href="#icon-external"/></svg><span id="owBrandName">Offers</span></span>
       <div class="ow-head-spacer"></div>
       <button class="ow-toggle" id="owMoon" title="Dark mode"><svg class="icon" style="width:16px;height:16px"><use href="#icon-moon"/></svg></button>
       <button class="ow-toggle" id="owSun" title="Light mode"><svg class="icon" style="width:16px;height:16px"><use href="#icon-sun"/></svg></button>
@@ -1098,11 +1092,11 @@ const owSun = document.getElementById('owSun');
 let currentOfferList = [];
 // Signed-in user's id — needed client-side for Prime Wall, whose iframe URL
 // takes the user id directly (https://primewall.io/offer/PUBLIC_KEY/USER_ID).
-// CPAGrip/Offery don't need this: their tracking_id is looked up server-side
+// Offery doesn't need this: its tracking_id is looked up server-side
 // from the session cookie instead. Set inside checkSession() below.
 let currentUserId = null;
 
-// Toggles the offerwall modal body between the card-grid view (CPAGrip/Offery,
+// Toggles the offerwall modal body between the card-grid view (Offery,
 // built from a JSON feed we proxy) and the iframe view (Prime Wall, which only
 // gives us a ready-made embed URL, no feed API).
 function setOfferwallMode(mode){
@@ -1118,10 +1112,6 @@ function setOfferwallMode(mode){
 }
 
 function openOfferwall(partner){
-  if(partner === 'CPAGrip'){
-    openCpagripOfferwall();
-    return;
-  }
   if(partner === 'Offery'){
     openOfferyOfferwall();
     return;
@@ -1129,80 +1119,6 @@ function openOfferwall(partner){
   if(partner === 'Prime Wall'){
     openPrimeWallOfferwall();
     return;
-  }
-}
-
-// ---------- CPAGrip — real offer feed via our own backend ----------
-// We fetch through /api/offers/cpagrip-feed (a Cloudflare Function) instead
-// of calling cpagrip.com directly from the browser, because:
-//   1) CPAGrip's feed endpoint may not send CORS headers, so a direct
-//      browser fetch could get silently blocked.
-//   2) The signed-in user's real id (tracking_id) is looked up server-side
-//      from the session cookie, so it can't be spoofed from devtools.
-
-// CPAGrip's JSON field names weren't verifiable ahead of time (their feed
-// blocks non-browser fetches), so this checks several common key names per
-// field. Open devtools → Console after clicking the CPAGrip tile — the raw
-// response is logged there. If titles/images/links come through blank,
-// send that logged object over and the mapping below can be corrected to
-// match exactly.
-function normalizeCpagripOffer(o){
-  if(!o || typeof o !== 'object') return null;
-  const id     = o.offer_id ?? o.id ?? o.campaign_id ?? o.offerid ?? '';
-  const title  = o.title ?? o.name ?? o.offer_name ?? o.offername ?? 'Offer';
-  const desc   = o.description ?? o.desc ?? o.instructions ?? '';
-  const image  = o.offerphoto ?? o.image ?? o.icon ?? o.thumbnail ?? o.offer_image ?? '';
-  const link   = o.offerlink ?? o.link ?? o.url ?? o.click_url ?? o.offer_url ?? '#';
-  const payout = parseFloat(o.payout ?? o.amount ?? o.reward ?? 0) || 0;
-  // Keep this conversion in sync with COINS_PER_DOLLAR in
-  // functions/api/offers/cpagrip-postback.js (currently 1000 coins = $1.00).
-  const coins  = Math.round(payout * 1000);
-  if(!id || !link || link === '#') return null; // unusable without these
-  return { id, title, desc, image, link, coins };
-}
-
-function cpagripCardHTML(o, idx){
-  const iconInner = o.image
-    ? `<img src="${o.image}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:13px;" onerror="this.onerror=null;this.style.display='none';this.parentElement.textContent='🎯';">`
-    : '🎯';
-  return `
-    <div class="ow-card" onclick="openOfferDetail(currentOfferList[${idx}])">
-      <div class="ow-icon" style="background:#161a1f;overflow:hidden;">${iconInner}</div>
-      <div class="ow-info">
-        <div class="ow-title">${o.title}</div>
-        <div class="ow-desc">${o.desc}</div>
-      </div>
-      <div class="ow-reward"><svg class="icon"><use href="#icon-coin"/></svg>${o.coins}</div>
-    </div>`;
-}
-
-async function openCpagripOfferwall(){
-  owBrandName.textContent = 'CPAGrip';
-  setOfferwallMode('grid');
-  owGrid.innerHTML = '<div class="ow-empty">Loading offers…</div>';
-  owOverlay.classList.add('show');
-  document.body.style.overflow = 'hidden';
-
-  try{
-    const res = await fetch(`${API_BASE}/offers/cpagrip-feed`);
-
-    if(res.status === 401){
-      owGrid.innerHTML = '<div class="ow-empty">অফার দেখতে আগে সাইন ইন করুন।</div>';
-      return;
-    }
-    if(!res.ok) throw new Error('cpagrip feed request failed: ' + res.status);
-
-    const data = await res.json();
-    console.log('CPAGrip feed — raw response:', data.raw ?? data);
-
-    const offers = (data.offers || []).map(normalizeCpagripOffer).filter(Boolean);
-    currentOfferList = offers;
-    owGrid.innerHTML = offers.length
-      ? offers.map((o, idx) => cpagripCardHTML(o, idx)).join('')
-      : '<div class="ow-empty">No offers available at the moment</div>';
-  }catch(err){
-    console.error('CPAGrip offerwall error:', err);
-    owGrid.innerHTML = '<div class="ow-empty">অফার লোড করা যায়নি, একটু পর আবার চেষ্টা করুন।</div>';
   }
 }
 
@@ -1269,7 +1185,7 @@ async function openOfferyOfferwall(){
 }
 
 // ---------- Prime Wall — embedded via their offerwall iframe (no JSON feed API) ----------
-// Unlike CPAGrip/Offery, Prime Wall's dashboard doesn't expose a JSON offer
+// Unlike Offery, Prime Wall's dashboard doesn't expose a JSON offer
 // feed — it only gives a ready-made iframe URL that already contains their
 // whole offer-list UI: https://primewall.io/offer/PUBLIC_KEY/USER_ID
 // So instead of building our own ow-card grid, we just point an iframe at
@@ -1283,7 +1199,7 @@ function openPrimeWallOfferwall(){
   document.body.style.overflow = 'hidden';
 
   if(!currentUserId){
-    // Not signed in — reuse the grid area just to show the same message CPAGrip/Offery use
+    // Not signed in — reuse the grid area just to show the same message Offery uses
     setOfferwallMode('grid');
     owGrid.innerHTML = '<div class="ow-empty">অফার দেখতে আগে সাইন ইন করুন।</div>';
     return;
@@ -1309,7 +1225,7 @@ document.addEventListener('keydown', (e) => {
 // ---------- Offer detail — "Requirements / Eligibility Criteria" screen ----------
 // Opens when any offer card is tapped, before the user is sent to the
 // actual offer link. Every offerwall shows something like this before an
-// offer starts, so this stays here across UpWall/CPALead/CPAGrip.
+// offer starts, so this stays here across providers.
 const owDetail = document.getElementById('owDetail');
 const owBack = document.getElementById('owBack');
 const owMenuIco = document.getElementById('owMenuIco');
@@ -1326,7 +1242,7 @@ function openOfferDetail(offer){
   if(!offer) return;
   currentDetailOffer = offer;
 
-  // offer icon: emoji-based (UpWall/CPALead sample data) or image-based (CPAGrip real feed)
+  // offer icon: emoji-based (sample data) or image-based (real feed)
   if(offer.image){
     owdOfferIco.style.background = '#161a1f';
     owdOfferIco.innerHTML = `<img src="${offer.image}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.onerror=null;this.style.display='none';this.parentElement.textContent='🎯';">`;
@@ -1338,7 +1254,7 @@ function openOfferDetail(offer){
   owdOfferTitle.textContent = offer.title || 'Offer';
   owdOfferDesc.textContent = offer.desc || 'Answer the questions and fill in your details.';
 
-  // reward: UpWall/CPALead use a $ string (offer.reward), CPAGrip uses coins (offer.coins)
+  // reward: $ string (offer.reward) or coins (offer.coins) depending on the provider
   if(offer.reward !== undefined){
     owdOfferRewardSmall.textContent = `$${offer.reward}`;
     owdEarnLabel.textContent = `Earn +${offer.reward} USD`;
@@ -1368,7 +1284,7 @@ function closeOfferDetail(){
 owBack.addEventListener('click', closeOfferDetail);
 
 owdEarnBtn.addEventListener('click', () => {
-  // Real offer link (CPAGrip / any provider that has one) → open it.
+  // Real offer link (any provider that has one) → open it.
   // Sample/demo offers (no real link yet) just close back to the grid.
   if(currentDetailOffer && currentDetailOffer.link && currentDetailOffer.link !== '#'){
     window.open(currentDetailOffer.link, '_blank', 'noopener');
