@@ -592,6 +592,12 @@
   .ow-reward .icon{width:14px;height:14px;}
   .ow-empty{grid-column:1/-1;text-align:center;padding:40px 10px;color:var(--text-faint);font-size:14px;}
 
+  /* ---------- ow-iframe-wrap: for providers embedded via iframe (e.g. Prime Wall), as opposed to ow-grid card feeds (CPAGrip/Offery) ---------- */
+  .ow-iframe-wrap{display:none;height:100%;}
+  .ow-iframe-wrap iframe{width:100%;height:100%;min-height:520px;border:0;display:block;background:#fff;}
+  .ow-body.ow-iframe-mode{padding:0;}
+  .ow-body.ow-iframe-mode .ow-iframe-wrap{display:block;}
+
   /* ---------- offer detail (Requirements / Eligibility Criteria) screen ---------- */
   .ow-back{
     width:34px;height:34px;border-radius:9px;background:var(--panel-2);border:1px solid var(--border);
@@ -844,6 +850,12 @@
               </div>
               <span class="partner-name">Offery</span>
             </button>
+            <button class="partner-card" onclick="openOfferwall('Prime Wall')">
+              <div class="partner-tile" style="background:linear-gradient(160deg,#12283a,#0a1620);">
+                <span class="partner-wordmark">PRIME WALL</span>
+              </div>
+              <span class="partner-name">Prime Wall</span>
+            </button>
           </div>
         </section>
 
@@ -901,6 +913,7 @@
     </div>
     <div class="ow-body" id="owBody">
       <div class="ow-grid" id="owGrid"></div>
+      <div class="ow-iframe-wrap" id="owIframeWrap"><iframe id="owIframe" title="Offerwall" scrolling="yes" src="about:blank"></iframe></div>
     </div>
 
     <!-- Requirements / Eligibility Criteria screen — shown when any offer is tapped -->
@@ -1075,12 +1088,34 @@ const owOverlay = document.getElementById('owOverlay');
 const owModal = document.getElementById('owModal');
 const owBody = document.getElementById('owBody');
 const owGrid = document.getElementById('owGrid');
+const owIframeWrap = document.getElementById('owIframeWrap');
+const owIframe = document.getElementById('owIframe');
 const owBrandName = document.getElementById('owBrandName');
 const owClose = document.getElementById('owClose');
 const owMoon = document.getElementById('owMoon');
 const owSun = document.getElementById('owSun');
 
 let currentOfferList = [];
+// Signed-in user's id — needed client-side for Prime Wall, whose iframe URL
+// takes the user id directly (https://primewall.io/offer/PUBLIC_KEY/USER_ID).
+// CPAGrip/Offery don't need this: their tracking_id is looked up server-side
+// from the session cookie instead. Set inside checkSession() below.
+let currentUserId = null;
+
+// Toggles the offerwall modal body between the card-grid view (CPAGrip/Offery,
+// built from a JSON feed we proxy) and the iframe view (Prime Wall, which only
+// gives us a ready-made embed URL, no feed API).
+function setOfferwallMode(mode){
+  if(mode === 'iframe'){
+    owBody.classList.add('ow-iframe-mode');
+    owGrid.style.display = 'none';
+    owIframeWrap.style.display = 'block';
+  }else{
+    owBody.classList.remove('ow-iframe-mode');
+    owGrid.style.display = '';
+    owIframeWrap.style.display = 'none';
+  }
+}
 
 function openOfferwall(partner){
   if(partner === 'CPAGrip'){
@@ -1089,6 +1124,10 @@ function openOfferwall(partner){
   }
   if(partner === 'Offery'){
     openOfferyOfferwall();
+    return;
+  }
+  if(partner === 'Prime Wall'){
+    openPrimeWallOfferwall();
     return;
   }
 }
@@ -1139,6 +1178,7 @@ function cpagripCardHTML(o, idx){
 
 async function openCpagripOfferwall(){
   owBrandName.textContent = 'CPAGrip';
+  setOfferwallMode('grid');
   owGrid.innerHTML = '<div class="ow-empty">Loading offers…</div>';
   owOverlay.classList.add('show');
   document.body.style.overflow = 'hidden';
@@ -1200,6 +1240,7 @@ function offeryCardHTML(o, idx){
 
 async function openOfferyOfferwall(){
   owBrandName.textContent = 'Offery';
+  setOfferwallMode('grid');
   owGrid.innerHTML = '<div class="ow-empty">Loading offers…</div>';
   owOverlay.classList.add('show');
   document.body.style.overflow = 'hidden';
@@ -1227,10 +1268,36 @@ async function openOfferyOfferwall(){
   }
 }
 
+// ---------- Prime Wall — embedded via their offerwall iframe (no JSON feed API) ----------
+// Unlike CPAGrip/Offery, Prime Wall's dashboard doesn't expose a JSON offer
+// feed — it only gives a ready-made iframe URL that already contains their
+// whole offer-list UI: https://primewall.io/offer/PUBLIC_KEY/USER_ID
+// So instead of building our own ow-card grid, we just point an iframe at
+// it with the signed-in user's real id. Keep PRIMEWALL_PUBLIC_KEY in sync
+// with the Public Key shown on the Prime Wall dashboard (Integration page).
+const PRIMEWALL_PUBLIC_KEY = 'Il7Eo8';
+
+function openPrimeWallOfferwall(){
+  owBrandName.textContent = 'Prime Wall';
+  owOverlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+
+  if(!currentUserId){
+    // Not signed in — reuse the grid area just to show the same message CPAGrip/Offery use
+    setOfferwallMode('grid');
+    owGrid.innerHTML = '<div class="ow-empty">অফার দেখতে আগে সাইন ইন করুন।</div>';
+    return;
+  }
+
+  setOfferwallMode('iframe');
+  owIframe.src = `https://primewall.io/offer/${PRIMEWALL_PUBLIC_KEY}/${encodeURIComponent(currentUserId)}`;
+}
+
 function closeOfferwall(){
   owOverlay.classList.remove('show');
   document.body.style.overflow = '';
   closeOfferDetail();
+  owIframe.src = 'about:blank'; // stop the Prime Wall iframe running in the background
 }
 
 owClose.addEventListener('click', closeOfferwall);
@@ -1330,6 +1397,7 @@ async function checkSession(){
     const res = await fetch(`${API_BASE}/auth/me`);
     if(!res.ok) return; // সাইন-ইন করা নেই — ডিফল্ট Sign Up / Sign In বাটনই থাকবে
     const { user } = await res.json();
+    currentUserId = user.id ?? null;
     document.getElementById('authButtons').style.display = 'none';
     const chip = document.getElementById('userChip');
     chip.style.display = 'flex';
