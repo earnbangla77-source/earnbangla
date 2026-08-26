@@ -34,17 +34,33 @@ async function handlePostback(request, env) {
     const params = await readParams(request);
 
     const uid = params.uid || params.user_id;
-    const transactionId = params.transaction_id;
     const status = String(params.status);
     const offerId = params.of_id || params.offer_id || '';
     const rawAmount = params.virtual_currency ?? params.payout ?? params.amount;
     const amount = parseInt(rawAmount, 10);
     const hash = params.hash;
 
-    if (!uid || !hash || Number.isNaN(amount) || !transactionId) {
+    if (!uid || !hash || Number.isNaN(amount)) {
       console.log('admantum_postback_missing_params', JSON.stringify(params));
       return new Response('Missing required parameters', { status: 400 });
     }
+
+    // Admantum-er documented postback macros (uid, of_id, virtual_currency,
+    // status) e kono transaction_id/click_id nei — tader Postback Tester-o
+    // eta pathay na. Tai eta ekhon MANDATORY na. Amra age subid1/subid/
+    // click_id check kori (kono kaje Admantum ei fields-e real click id
+    // pathiye thake seta dhorar jonno), na paile uid+of_id+status+amount
+    // diye ekta synthetic id banai — eta same completion-er duplicate
+    // postback (retry) atkabe. Trade-off: ekই user same offer same
+    // amount-e dwitiyobar complete korle seta-o duplicate hisebe dhora
+    // porbe (repeatable offer hole eta thik na-o hote pare — dorkar hole
+    // synthetic id-te ekta date bucket jog kora jabe).
+    const transactionId =
+      params.transaction_id ||
+      params.subid1 ||
+      params.subid ||
+      params.click_id ||
+      `admantum_${uid}_${offerId}_${status}_${amount}`;
 
     const secret = env.ADMANTUM_SECRET_KEY;
     if (!secret) {
