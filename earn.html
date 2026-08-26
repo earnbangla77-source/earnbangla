@@ -841,6 +841,12 @@
               </div>
               <span class="partner-name">Offery</span>
             </button>
+            <button class="partner-card" onclick="openOfferwall('Revtoo')">
+              <div class="partner-tile" style="background:linear-gradient(160deg,#132a1e,#0d1a14);">
+                <span class="partner-wordmark">REVTOO</span>
+              </div>
+              <span class="partner-name">Revtoo</span>
+            </button>
             <button class="partner-card" onclick="openOfferwall('Prime Wall')">
               <div class="partner-tile" style="background:linear-gradient(160deg,#12283a,#0a1620);">
                 <span class="partner-wordmark">PRIME WALL</span>
@@ -1119,6 +1125,10 @@ function openOfferwall(partner){
     openOfferyOfferwall();
     return;
   }
+  if(partner === 'Revtoo'){
+    openRevtooOfferwall();
+    return;
+  }
   if(partner === 'Prime Wall'){
     openPrimeWallOfferwall();
     return;
@@ -1187,6 +1197,73 @@ async function openOfferyOfferwall(){
       : '<div class="ow-empty">No offers available at the moment</div>';
   }catch(err){
     console.error('Offery offerwall error:', err);
+    owGrid.innerHTML = '<div class="ow-empty">অফার লোড করা যায়নি, একটু পর আবার চেষ্টা করুন।</div>';
+  }
+}
+
+// ---------- Revtoo — real offer feed via our own backend ----------
+function normalizeRevtooOffer(o){
+  if(!o || typeof o !== 'object') return null;
+  const id     = o.id ?? '';
+  const title  = o.title ?? 'Offer';
+  const desc   = o.description ?? '';
+  const image  = o.image ?? '';
+  const link   = o.url ?? '#';
+  // Revtoo already sends the coin amount pre-converted using the Currency
+  // Name/Exchange Rate set on the placement (Points / 1000.00) — keep those
+  // in sync with functions/api/offers/revtoo-postback.js.
+  // Some offers (mostly surveys) have a VARIABLE reward — Revtoo sends the
+  // literal string "*" instead of a number for those, so coins stays null
+  // and the card shows "Varies" instead of a fake 0.
+  const coins  = (o.reward === '*' || o.reward == null) ? null : Math.round(parseFloat(o.reward)) || 0;
+  if(!id || !link || link === '#') return null;
+  return { id, title, desc, image, link, coins };
+}
+
+function revtooCardHTML(o, idx){
+  const iconInner = o.image
+    ? `<img src="${o.image}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:13px;" onerror="this.onerror=null;this.style.display='none';this.parentElement.textContent='🎯';">`
+    : '🎯';
+  const rewardHTML = o.coins === null
+    ? `<div class="ow-reward">Varies</div>`
+    : `<div class="ow-reward"><svg class="icon"><use href="#icon-coin"/></svg>${o.coins}</div>`;
+  return `
+    <div class="ow-card" onclick="openOfferDetail(currentOfferList[${idx}])">
+      <div class="ow-icon" style="background:#161a1f;overflow:hidden;">${iconInner}</div>
+      <div class="ow-info">
+        <div class="ow-title">${o.title}</div>
+        <div class="ow-desc">${o.desc}</div>
+      </div>
+      ${rewardHTML}
+    </div>`;
+}
+
+async function openRevtooOfferwall(){
+  owBrandName.textContent = 'Revtoo';
+  setOfferwallMode('grid');
+  owGrid.innerHTML = '<div class="ow-empty">Loading offers…</div>';
+  owOverlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+
+  try{
+    const res = await fetch(`${API_BASE}/offers/revtoo-feed`);
+
+    if(res.status === 401){
+      owGrid.innerHTML = '<div class="ow-empty">অফার দেখতে আগে সাইন ইন করুন।</div>';
+      return;
+    }
+    if(!res.ok) throw new Error('revtoo feed request failed: ' + res.status);
+
+    const data = await res.json();
+    console.log('Revtoo feed — raw response:', data.raw ?? data);
+
+    const offers = (data.offers || []).map(normalizeRevtooOffer).filter(Boolean);
+    currentOfferList = offers;
+    owGrid.innerHTML = offers.length
+      ? offers.map((o, idx) => revtooCardHTML(o, idx)).join('')
+      : '<div class="ow-empty">No offers available at the moment</div>';
+  }catch(err){
+    console.error('Revtoo offerwall error:', err);
     owGrid.innerHTML = '<div class="ow-empty">অফার লোড করা যায়নি, একটু পর আবার চেষ্টা করুন।</div>';
   }
 }
