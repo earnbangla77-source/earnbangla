@@ -847,6 +847,12 @@
               </div>
               <span class="partner-name">Prime Wall</span>
             </button>
+            <button class="partner-card" onclick="openOfferwall('RadiantWall')">
+              <div class="partner-tile" style="background:linear-gradient(160deg,#3a1228,#1c0a16);">
+                <span class="partner-wordmark">RADIANTWALL</span>
+              </div>
+              <span class="partner-name">RadiantWall</span>
+            </button>
           </div>
         </section>
 
@@ -1117,6 +1123,10 @@ function openOfferwall(partner){
     openPrimeWallOfferwall();
     return;
   }
+  if(partner === 'RadiantWall'){
+    openRadiantWallOfferwall();
+    return;
+  }
 }
 
 // ---------- Offery — real offer feed via our own backend ----------
@@ -1206,11 +1216,35 @@ function openPrimeWallOfferwall(){
   owIframe.src = `https://primewall.io/offer/${PRIMEWALL_PUBLIC_KEY}/${encodeURIComponent(currentUserId)}`;
 }
 
+// ---------- RadiantWall — embedded via their offerwall iframe (no JSON feed API) ----------
+// Same pattern as Prime Wall: RadiantWall's dashboard doesn't expose a JSON
+// offer feed either — it only gives a ready-made iframe tracking link:
+// https://radientwall.com/offer/SITE_KEY/USER_ID
+// Keep RADIANTWALL_PUBLIC_KEY in sync with the Public Key shown on the
+// RadiantWall dashboard (Sites page).
+const RADIANTWALL_PUBLIC_KEY = 'Sn2Ld6';
+
+function openRadiantWallOfferwall(){
+  owBrandName.textContent = 'RadiantWall';
+  owOverlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+
+  if(!currentUserId){
+    // Not signed in — reuse the grid area just to show the same message Offery/Prime Wall use
+    setOfferwallMode('grid');
+    owGrid.innerHTML = '<div class="ow-empty">অফার দেখতে আগে সাইন ইন করুন।</div>';
+    return;
+  }
+
+  setOfferwallMode('iframe');
+  owIframe.src = `https://radientwall.com/offer/${RADIANTWALL_PUBLIC_KEY}/${encodeURIComponent(currentUserId)}`;
+}
+
 function closeOfferwall(){
   owOverlay.classList.remove('show');
   document.body.style.overflow = '';
   closeOfferDetail();
-  owIframe.src = 'about:blank'; // stop the Prime Wall iframe running in the background
+  owIframe.src = 'about:blank'; // stop the Prime Wall / RadiantWall iframe running in the background
 }
 
 owClose.addEventListener('click', closeOfferwall);
