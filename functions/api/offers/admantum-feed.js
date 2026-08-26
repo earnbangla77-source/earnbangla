@@ -23,7 +23,7 @@ export async function onRequestGet({ request, env }) {
     const country = request.headers.get('CF-IPCountry') || '';
 
     const apiUrl =
-      `https://admantum.com/api/v3/offers/` +
+      `https://admantum.com/api/offers/` +
       `?appid=${encodeURIComponent(ADMANTUM_APP_ID)}` +
       `&uid=${encodeURIComponent(userId)}` +
       (ip ? `&ip=${encodeURIComponent(ip)}` : '') +
