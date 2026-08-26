@@ -847,6 +847,12 @@
               </div>
               <span class="partner-name">Revtoo</span>
             </button>
+            <button class="partner-card" onclick="openOfferwall('PaidBucksy')">
+              <div class="partner-tile" style="background:linear-gradient(160deg,#2a2213,#1a150d);">
+                <span class="partner-wordmark">PAIDBUCKSY</span>
+              </div>
+              <span class="partner-name">PaidBucksy</span>
+            </button>
             <button class="partner-card" onclick="openOfferwall('Prime Wall')">
               <div class="partner-tile" style="background:linear-gradient(160deg,#12283a,#0a1620);">
                 <span class="partner-wordmark">PRIME WALL</span>
@@ -1129,6 +1135,10 @@ function openOfferwall(partner){
     openRevtooOfferwall();
     return;
   }
+  if(partner === 'PaidBucksy'){
+    openPaidBucksyOfferwall();
+    return;
+  }
   if(partner === 'Prime Wall'){
     openPrimeWallOfferwall();
     return;
@@ -1293,6 +1303,33 @@ function openPrimeWallOfferwall(){
   owIframe.src = `https://primewall.io/offer/${PRIMEWALL_PUBLIC_KEY}/${encodeURIComponent(currentUserId)}`;
 }
 
+// ---------- PaidBucksy — embedded via their offerwall iframe (no JSON feed API) ----------
+// Same pattern as Prime Wall: PaidBucksy's docs (paidbucksy.gitbook.io) only
+// give a ready-made iframe embed URL, no JSON offer feed —
+// https://paidbucksy.com/offer/[API_KEY]/[USER_ID]
+// TODO: fill in once you copy the real API Key from the PaidBucksy
+// Placements list (paidbucksy.com/placements → your placement → link icon).
+// This is the public API Key, safe to keep client-side — NOT the Secret Key
+// (that one only goes server-side, in paidbucksy-postback.js, for signature
+// verification).
+const PAIDBUCKSY_API_KEY = 'Uv2Cz8';
+
+function openPaidBucksyOfferwall(){
+  owBrandName.textContent = 'PaidBucksy';
+  owOverlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+
+  if(!currentUserId){
+    // Not signed in — reuse the grid area just to show the same message the other providers use
+    setOfferwallMode('grid');
+    owGrid.innerHTML = '<div class="ow-empty">অফার দেখতে আগে সাইন ইন করুন।</div>';
+    return;
+  }
+
+  setOfferwallMode('iframe');
+  owIframe.src = `https://paidbucksy.com/offer/${PAIDBUCKSY_API_KEY}/${encodeURIComponent(currentUserId)}`;
+}
+
 // ---------- RadiantWall — embedded via their offerwall iframe (no JSON feed API) ----------
 // Same pattern as Prime Wall: RadiantWall's dashboard doesn't expose a JSON
 // offer feed either — it only gives a ready-made iframe tracking link:
@@ -1321,7 +1358,7 @@ function closeOfferwall(){
   owOverlay.classList.remove('show');
   document.body.style.overflow = '';
   closeOfferDetail();
-  owIframe.src = 'about:blank'; // stop the Prime Wall / RadiantWall iframe running in the background
+  owIframe.src = 'about:blank'; // stop the Prime Wall / RadiantWall / PaidBucksy iframe running in the background
 }
 
 owClose.addEventListener('click', closeOfferwall);
