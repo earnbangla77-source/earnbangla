@@ -146,6 +146,15 @@ async function handlePostback(request, env) {
   // 1. Verify the signature: MD5(subId + transId + reward + secret)
   const expected = md5(subId + transId + rewardRaw + secret);
   if (!signature || signature !== expected) {
+    // TEMPORARY DEBUG — remove once signature mismatches are resolved.
+    // Printed as a single plain string (not an object with a "signature"
+    // key) because Cloudflare's log tail auto-redacts fields that look
+    // like secrets/signatures. Never prints the secret itself.
+    console.log(
+      "RADIENTWALL_DEBUG subId=[" + subId + "] transId=[" + transId +
+      "] rewardRaw=[" + rewardRaw + "] secretLen=" + secret.length +
+      " EXPECTEDHASH:" + expected + " RECEIVEDHASH:" + signature
+    );
     return fail("Signature doesn't match.", 403);
   }
 
