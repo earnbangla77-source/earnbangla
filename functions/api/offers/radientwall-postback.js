@@ -1,8 +1,12 @@
 // functions/api/offers/radientwall-postback.js
 //
 // ⚠️ Place this file at functions/api/offers/radientwall-postback.js
-//    (sibling to offery-postback.js / primewall-postback.js) — this
-//    REPLACES the earlier DEBUG version once you deploy this.
+//    (sibling to offery-postback.js / primewall-postback.js)
+//
+// CONFIRMED WORKING (tested via curl.exe against production, 2026-08-26):
+//   - Signature formula: MD5(subId + transId + reward + RADIENTWALL_SECRET_KEY) ✅
+//   - New transaction → "OK" + coins credited ✅
+//   - Same transaction resubmitted → "DUP" + no double-credit ✅
 //
 // Receives server-to-server postbacks from RadiantWall when a user
 // completes an offer. Confirmed from RadiantWall's own docs (Integration →
@@ -146,15 +150,6 @@ async function handlePostback(request, env) {
   // 1. Verify the signature: MD5(subId + transId + reward + secret)
   const expected = md5(subId + transId + rewardRaw + secret);
   if (!signature || signature !== expected) {
-    // TEMPORARY DEBUG — remove once signature mismatches are resolved.
-    // Printed as a single plain string (not an object with a "signature"
-    // key) because Cloudflare's log tail auto-redacts fields that look
-    // like secrets/signatures. Never prints the secret itself.
-    console.log(
-      "RADIENTWALL_DEBUG subId=[" + subId + "] transId=[" + transId +
-      "] rewardRaw=[" + rewardRaw + "] secretLen=" + secret.length +
-      " EXPECTEDHASH:" + expected + " RECEIVEDHASH:" + signature
-    );
     return fail("Signature doesn't match.", 403);
   }
 
