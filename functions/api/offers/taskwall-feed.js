@@ -87,13 +87,37 @@ export async function onRequestGet(context) {
 }
 
 function normalizeTaskwallOffer(o) {
+  // ⚠️ TaskWall's docs list `user_amount` as the already-converted coin
+  // amount, but a live test against this app's real feed (curl, 2026-08-27)
+  // showed `user_amount: null` on every single offer returned — both plain
+  // offers and `multi_event` ones. Falling back to `o.user_amount` alone
+  // (the original code) means every offer shows 0 coins. So instead we
+  // convert `payout` (a USD string, e.g. "10.00") ourselves, using the
+  // same 1000-coins-per-$1 rate every other provider on this project uses.
+  // If TaskWall ever starts sending a real (non-null) `user_amount`, we
+  // still prefer it — this only falls back to `payout` when it's missing.
+  const amount = (o.user_amount != null && o.user_amount !== "")
+    ? parseFloat(o.user_amount)
+    : parseFloat(o.payout || 0) * 1000;
+
+  // `multi_event` offers (confirmed via live test) pay out in stages —
+  // see `events[].event_payout` for each stage's own USD amount. The
+  // top-level `payout` is already the combined total across every stage,
+  // so we still show one card with the full reward, but note the
+  // multi-step nature in the description so it isn't confused with a
+  // single-action offer.
+  let description = o.description || "";
+  if (o.multi_event && Array.isArray(o.events) && o.events.length) {
+    description += ` (${o.events.length}টা ধাপে সম্পূর্ণ করতে হবে)`;
+  }
+
   return {
     id: o.offer_id,
     title: o.title,
-    description: o.description,
+    description,
     image: o.icon,
     link: o.link,
-    reward: o.user_amount,
+    reward: amount,
   };
 }
 
