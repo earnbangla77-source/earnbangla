@@ -1,96 +1,95 @@
 // functions/api/offers/admantum-feed.js
+// Cloudflare Pages Function — GET /api/offers/admantum-feed
 //
-// Type A provider (JSON offer feed). Session cookie theke user lookup kore,
-// tarpor Admantum-er Offers API theke offer list fetch kore normalize kore
-// pathay. AppId/Secret ekhane hardcode kora, kintu secret kono client-facing
-// response-e jay na — ei file "backend proxy" hisebe kaj kore.
+// Server-side proxy for Admantum's Offers API (https://admantum.com/api/v3/offers/).
+// Same pattern as offery-feed.js:
+//   1) Keeps ADMANTUM_APP_ID / secret handling out of client-side JS.
+//   2) The signed-in user's real id is looked up here from the session
+//      cookie (eb_session) and passed to Admantum server-side.
 //
-// ⚠️ IMPORTANT: `getUserIdFromSession()` function-ta ekta PLACEHOLDER.
-// Tomar existing session-lookup logic (jeta functions/api/auth/me.js-e
-// ache) er sathe eta match kore niyo — table/column name ei repo onujayi
-// vinno hote pare.
+// Requires the caller to be signed in — returns 401 if not (matches
+// openAdmantumOfferwall()'s res.status === 401 check in earn.html).
+//
+// ⚠️ Admantum's `device` param is NOT optional in practice — leaving it out
+// returns {"success":false,"message":"invalid device"} even though the docs
+// don't call it mandatory. Fixed here by detecting device from the User-Agent
+// header. If Admantum ever rejects with "invalid device" again, the accepted
+// value strings may need adjusting — ask Admantum support for the exact set.
 
-const ADMANTUM_APP_ID = '52189';
+import { getUserFromRequest, json, errorJson } from "../../_lib/auth.js";
 
-export async function onRequestGet({ request, env }) {
+const ADMANTUM_APP_ID = "52189";
+
+export async function onRequestGet(context) {
+  const { request, env } = context;
+
+  const me = await getUserFromRequest(request, env.DB);
+  if (!me) {
+    return errorJson("Not signed in.", 401);
+  }
+
+  const ip = request.headers.get("CF-Connecting-IP") || "";
+  const device = detectDevice(request.headers.get("User-Agent") || "");
+
+  const feedUrl =
+    `https://admantum.com/api/v3/offers/` +
+    `?appid=${encodeURIComponent(ADMANTUM_APP_ID)}` +
+    `&uid=${encodeURIComponent(me.id)}` +
+    `&device=${encodeURIComponent(device)}` +
+    (ip ? `&ip=${encodeURIComponent(ip)}` : "");
+
   try {
-    const userId = await getUserIdFromSession(request, env);
-    if (!userId) {
-      return json({ success: false, error: 'Not authenticated' }, 401);
-    }
-
-    const ip = request.headers.get('CF-Connecting-IP') || '';
-    const country = request.headers.get('CF-IPCountry') || '';
-
-    const apiUrl =
-      `https://admantum.com/api/v3/offers/` +
-      `?appid=${encodeURIComponent(ADMANTUM_APP_ID)}` +
-      `&uid=${encodeURIComponent(userId)}` +
-      (ip ? `&ip=${encodeURIComponent(ip)}` : '') +
-      (country ? `&country=${encodeURIComponent(country)}` : '');
-
-    const upstream = await fetch(apiUrl);
-    const data = await upstream.json();
-
-    if (!upstream.ok || data.success !== true) {
-      console.error('Admantum feed upstream error:', JSON.stringify(data).slice(0, 500));
-      return json({ success: false, error: 'Upstream error' }, 502);
-    }
-
-    const offers = (data.offers || []).map(normalizeAdmantumOffer);
-
-    return json({
-      success: true,
-      currency: data.app_currency || 'Coins',
-      count: offers.length,
-      offers,
+    const res = await fetch(feedUrl, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 earnbangla-offerwall-proxy",
+      },
     });
+
+    if (!res.ok) {
+      console.error("admantum-feed: upstream status", res.status);
+      return errorJson("Admantum feed request failed.", 502);
+    }
+
+    const raw = await res.text();
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      console.error("admantum-feed: non-JSON response:", raw.slice(0, 300));
+      return errorJson("Admantum returned an unexpected response.", 502);
+    }
+
+    if (data.success !== true) {
+      console.error("admantum-feed: upstream error:", raw.slice(0, 300));
+      return errorJson(data.message || "Admantum feed error.", 502);
+    }
+
+    const offers = (Array.isArray(data.offers) ? data.offers : []).map(normalizeAdmantumOffer);
+
+    // `raw` included so the frontend can console.log() the untouched
+    // response while confirming field names — same pattern as offery-feed.
+    return json({ offers, raw: data });
   } catch (err) {
-    console.error('Admantum feed exception:', err.message);
-    return json({ success: false, error: 'Server error' }, 500);
+    console.error("admantum-feed error:", err);
+    return errorJson("Could not reach Admantum.", 502);
   }
 }
 
 function normalizeAdmantumOffer(o) {
   return {
     id: o.offer_id,
-    provider: 'admantum',
     title: o.offer_title,
     description: o.offer_description,
-    requirements: o.offer_requirements,
-    instructions: o.offer_instructions || [],
     image: o.offer_image,
     link: o.offer_link,
     reward: o.offer_virtual_currency,
-    payout: o.offer_payout,
-    type: o.offer_type,
-    difficulty: o.offer_difficulty,
-    devices: o.offer_devices || [],
-    countries: o.offer_countries || [],
-    events: (o.offer_events || []).map(e => ({
-      name: e.event_name,
-      reward: e.event_virtual_currency,
-    })),
   };
 }
 
-// --- PLACEHOLDER: replace with your real session -> user_id lookup ---
-async function getUserIdFromSession(request, env) {
-  const cookie = request.headers.get('Cookie') || '';
-  const match = cookie.match(/session=([^;]+)/);
-  if (!match) return null;
-  const token = match[1];
-
-  const row = await env.DB.prepare(
-    `SELECT user_id FROM sessions WHERE token = ? AND expires_at > datetime('now')`
-  ).bind(token).first();
-
-  return row ? row.user_id : null;
-}
-
-function json(obj, status = 200) {
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
+function detectDevice(ua) {
+  const s = ua.toLowerCase();
+  if (/ipad|tablet(?!.*mobile)/.test(s)) return "tablet";
+  if (/mobi|android|iphone/.test(s)) return "mobile";
+  return "desktop";
 }
