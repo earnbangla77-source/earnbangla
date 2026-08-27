@@ -1,227 +1,224 @@
 // functions/api/offers/admantum-postback.js
 //
-// Admantum documentation (admantum.com/documentation) onujayi:
-//   - Method: POST (docs bole POST-only, kintu dashboard-er "Postback Url"
-//     template-e shobkichu query-string hisebe bosano thake — mane data
-//     URL-er query string-eই thake, body-te na. Tai amra always URL theke
-//     age params porhi, body fallback hisebe rakhi.)
-//   - Mandatory params: uid, virtual_currency
-//   - hash = MD5(uid + of_id + virtual_currency + SECRET_KEY)  -- NO separator
-//   - status: "1" = completion (credit), "0" = reversal (chargeback)
-//   - Expected response string: "OK"
+// ⚠️ Place this file at functions/api/offers/admantum-postback.js
+//    (sibling to offery-postback.js and revtoo-postback.js)
 //
-// ⚠️ Admantum kono transaction_id/unique conversion id pathay na (docs-e
-// confirm kora — mandatory params khali uid ar virtual_currency). Tai
-// duplicate-check এখানে (uid + of_id) দিয়ে হয়, কোনো txn id দিয়ে না। এর
-// মানে একই offer বারবার সম্পূর্ণ করা গেলে (যেমন repeatable daily survey)
-// দ্বিতীয়বার credit হবে না — Admantum support-এর সাথে চেক করে দেখো ওদের
-// offer গুলো সাধারণত one-time কিনা।
+// Receives server-to-server postbacks from Admantum (admantum.com) when a
+// user completes an offer. Confirmed against admantum.com/documentation:
 //
-// ⚠️ Cloudflare Workers-er Web Crypto API-te MD5 নেই (শুধু SHA family), তাই
-// নিচে একটা pure-JS MD5 implementation দেওয়া হলো (RFC1321 standard
-// algorithm, কোনো proprietary/copyrighted লাইব্রেরি থেকে কপি করা না)।
+//   uid              - the earnbangla user's id (same value sent as uid in
+//                       the offer feed request, admantum-feed.js)
+//   of_id            - Admantum's offer id (logged only, not stored as a
+//                       separate column — folded into the synthetic
+//                       transaction id below)
+//   virtual_currency - coins to credit, ALREADY converted using the
+//                       Exchange Rate set on the Admantum App (dashboard →
+//                       Offerwalls → Manage Apps → Edit). Keep that rate in
+//                       sync with admantum-feed.js's offer_virtual_currency
+//                       passthrough.
+//   status           - "1" = completion (credit), "0" = reversal (chargeback)
+//   hash             - MD5(uid + of_id + virtual_currency + SECRET_KEY),
+//                       NO separators between the parts
+//   subid1           - optional passthrough sub id (logged only)
 //
-// Setup korte hobe:
+// ⚠️ Admantum does NOT send a unique transaction/conversion id (confirmed —
+// their mandatory params are only uid and virtual_currency). So unlike
+// Offery/Revtoo, there's no real transId to dedupe on. This file builds a
+// synthetic one from `admantum-${uid}-${of_id}` instead. Trade-off: if an
+// Admantum offer is repeatable (e.g. a daily survey), a second completion
+// of the SAME offer by the SAME user will be silently treated as a
+// duplicate and not re-credited. Ask Admantum support whether their offers
+// are one-time-only; if any are repeatable, this needs a real unique key
+// (e.g. incorporate a timestamp param if they'll add one).
+//
+// Admantum's dashboard Postback Test / Postback Url template shows the URL
+// built with query-string params even though the docs call the method
+// "POST" — so params are read from the URL query string first, with a
+// POST-body fallback just in case.
+//
+// Admantum expects the exact response text "OK" (uppercase) on success —
+// different from Revtoo's lowercase "ok".
+//
+// ⚠️ Requires env.ADMANTUM_SECRET_KEY (the "Secret Key" shown on the
+//    Manage Apps page for this App):
+//
 //   wrangler pages secret put ADMANTUM_SECRET_KEY --project-name=earnbangla
-//   (production + --env preview duitao)
-//   value: adm9267g3233e523   (screenshot theke — চাইলে dashboard theke
-//   ghure abar confirm kore niyo, eta sensitive)
+//   wrangler pages secret put ADMANTUM_SECRET_KEY --project-name=earnbangla --env preview
+//
+// ⚠️ Reuses the same offer_completions table (provider, user_id, offer_id,
+//    transaction_id, payout, coins_earned, status, created_at) already used
+//    for Offery/Revtoo — NO new D1 migration needed, this just inserts rows
+//    with provider = 'admantum'.
+//
+// Same earnings-tracking fix as Offery/Revtoo: crediting a completion bumps
+// users.coins AND users.completed_offers AND users.total_earning, not just
+// coins. Chargebacks reverse all three.
 
-export async function onRequestPost({ request, env }) {
-  return handlePostback(request, env);
+function ok() {
+  return new Response("OK", { status: 200, headers: { "content-type": "text/plain" } });
 }
 
-// Admantum bole POST-only, kintu Postback Tester majhe majhe GET-o pathate
-// pare — safety-r jonno GET support-o rakha holo.
-export async function onRequestGet({ request, env }) {
-  return handlePostback(request, env);
+function fail(message, status = 400) {
+  console.error("admantum-postback:", message);
+  return new Response(message, { status, headers: { "content-type": "text/plain" } });
 }
 
-async function handlePostback(request, env) {
-  try {
-    const params = await readParams(request);
-
-    const uid = params.uid || params.user_id;
-    const status = String(params.status ?? '');
-    const offerId = params.of_id || params.offer_id || '';
-    const rawAmount = params.virtual_currency ?? params.payout ?? params.amount;
-    const amount = parseInt(rawAmount, 10);
-    const hash = params.hash;
-    // Synthetic dedupe key — Admantum doesn't send a unique transaction id
-    const transactionId = `admantum-${uid}-${offerId}`;
-
-    if (!uid || !hash || Number.isNaN(amount)) {
-      console.log('admantum_postback_missing_params', JSON.stringify(params));
-      return new Response('Missing required parameters', { status: 400 });
-    }
-
-    const secret = env.ADMANTUM_SECRET_KEY;
-    if (!secret) {
-      console.error('ADMANTUM_SECRET_KEY not configured');
-      return new Response('Server misconfigured', { status: 500 });
-    }
-
-    // hash = MD5(uid + of_id + virtual_currency + Secret Key), no separators
-    const stringToHash = `${uid}${offerId}${amount}${secret}`;
-    const expectedHash = md5Hex(stringToHash);
-
-    if (expectedHash.toLowerCase() !== String(hash).toLowerCase()) {
-      console.log('admantum_postback_bad_signature', uid, offerId);
-      return new Response('Invalid signature', { status: 403 });
-    }
-
-    // Duplicate check — provider + synthetic transaction_id (uid+offerId)
-    const existing = await env.DB.prepare(
-      `SELECT id FROM offer_completions WHERE provider = 'admantum' AND transaction_id = ?`
-    ).bind(transactionId).first();
-
-    if (existing) {
-      return new Response('OK', { status: 200 });
-    }
-
-    const user = await env.DB.prepare(`SELECT id FROM users WHERE id = ?`).bind(uid).first();
-    if (!user) {
-      // Admantum-er nijer dashboard Tester-e User ID field khali rakhle ora
-      // nije theke ekta random/dummy id boshiye dey — real user na bole eta
-      // expected. Real test korte hole real sign-in kora user.id boshate hobe.
-      console.log('admantum_postback_user_not_found', uid);
-      return new Response('User not found.', { status: 404 });
-    }
-
-    if (status === '1') {
-      // Completion → credit
-      await env.DB.batch([
-        env.DB.prepare(
-          `UPDATE users SET coins = coins + ?, completed_offers = completed_offers + 1, total_earning = total_earning + ? WHERE id = ?`
-        ).bind(amount, amount, uid),
-        env.DB.prepare(
-          `INSERT INTO offer_completions (user_id, provider, offer_id, transaction_id, coins_earned, status) VALUES (?, 'admantum', ?, ?, ?, 'credited')`
-        ).bind(uid, offerId, transactionId, amount),
-      ]);
-    } else if (status === '0') {
-      // Reversal / chargeback → decrement, never below 0
-      await env.DB.batch([
-        env.DB.prepare(
-          `UPDATE users SET coins = MAX(coins - ?, 0), completed_offers = MAX(completed_offers - 1, 0), total_earning = MAX(total_earning - ?, 0) WHERE id = ?`
-        ).bind(amount, amount, uid),
-        env.DB.prepare(
-          `INSERT INTO offer_completions (user_id, provider, offer_id, transaction_id, coins_earned, status) VALUES (?, 'admantum', ?, ?, ?, 'reversed')`
-        ).bind(uid, offerId, transactionId, -amount),
-      ]);
-    } else {
-      console.log('admantum_postback_unknown_status', status);
-      return new Response('Unknown status', { status: 400 });
-    }
-
-    return new Response('OK', { status: 200 });
-  } catch (err) {
-    console.error('admantum_postback_exception', err.message);
-    return new Response('Server Error', { status: 500 });
-  }
-}
-
-async function readParams(request) {
-  // Admantum-er "Postback Url" template dekhle bojha jay data URL-er query
-  // string-eই bosano thake (?uid={uid}&of_id={of_id}&...) — method POST
-  // hole-o. Tai age soja query string theke params pori.
-  const url = new URL(request.url);
-  const params = Object.fromEntries(url.searchParams.entries());
-
-  if (Object.keys(params).length > 0) {
-    return params;
-  }
-
-  // Fallback: jodi kokhono body-r moddhe data pathay
-  if (request.method === 'POST') {
-    try {
-      const contentType = request.headers.get('content-type') || '';
-      if (contentType.includes('application/json')) {
-        return await request.json();
-      }
-      if (contentType.includes('form')) {
-        const formData = await request.formData();
-        return Object.fromEntries(formData.entries());
-      }
-    } catch (err) {
-      // body na thakle ba parse na hole — khali object e thik ache
-    }
-  }
-
-  return params;
-}
-
-// ---------------------------------------------------------------------
-// Pure-JS MD5 (RFC1321). Cloudflare Workers' Web Crypto has no MD5.
-// ---------------------------------------------------------------------
-function md5Hex(str) {
+// Minimal, dependency-free MD5 (hex output) — same implementation used in
+// revtoo-postback.js. Needed because Cloudflare's Web Crypto API only
+// supports SHA-1/256/384/512, not MD5.
+function md5(input) {
   function rotl(x, c) { return (x << c) | (x >>> (32 - c)); }
-  function toBytesUtf8(s) {
-    return new TextEncoder().encode(s);
+  function toHex(num) {
+    let s = "";
+    for (let i = 0; i < 4; i++) s += ((num >> (i * 8)) & 0xff).toString(16).padStart(2, "0");
+    return s;
   }
-
-  const K = new Uint32Array([
-    0xd76aa478,0xe8c7b756,0x242070db,0xc1bdceee,0xf57c0faf,0x4787c62a,0xa8304613,0xfd469501,
-    0x698098d8,0x8b44f7af,0xffff5bb1,0x895cd7be,0x6b901122,0xfd987193,0xa679438e,0x49b40821,
-    0xf61e2562,0xc040b340,0x265e5a51,0xe9b6c7aa,0xd62f105d,0x02441453,0xd8a1e681,0xe7d3fbc8,
-    0x21e1cde6,0xc33707d6,0xf4d50d87,0x455a14ed,0xa9e3e905,0xfcefa3f8,0x676f02d9,0x8d2a4c8a,
-    0xfffa3942,0x8771f681,0x6d9d6122,0xfde5380c,0xa4beea44,0x4bdecfa9,0xf6bb4b60,0xbebfbc70,
-    0x289b7ec6,0xeaa127fa,0xd4ef3085,0x04881d05,0xd9d4d039,0xe6db99e5,0x1fa27cf8,0xc4ac5665,
-    0xf4292244,0x432aff97,0xab9423a7,0xfc93a039,0x655b59c3,0x8f0ccc92,0xffeff47d,0x85845dd1,
-    0x6fa87e4f,0xfe2ce6e0,0xa3014314,0x4e0811a1,0xf7537e82,0xbd3af235,0x2ad7d2bb,0xeb86d391,
-  ]);
+  const K = new Array(64);
+  for (let i = 0; i < 64; i++) K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296) | 0;
   const S = [
-    7,12,17,22, 7,12,17,22, 7,12,17,22, 7,12,17,22,
-    5, 9,14,20, 5, 9,14,20, 5, 9,14,20, 5, 9,14,20,
-    4,11,16,23, 4,11,16,23, 4,11,16,23, 4,11,16,23,
-    6,10,15,21, 6,10,15,21, 6,10,15,21, 6,10,15,21,
+    7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
+    5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20,
+    4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
+    6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21,
   ];
-
-  const msg = toBytesUtf8(str);
-  const origLenBits = BigInt(msg.length) * 8n;
-
-  let padded = Array.from(msg);
-  padded.push(0x80);
-  while (padded.length % 64 !== 56) padded.push(0);
-  for (let i = 0; i < 8; i++) {
-    padded.push(Number((origLenBits >> BigInt(8 * i)) & 0xffn));
-  }
+  const utf8 = new TextEncoder().encode(input);
+  const bitLen = utf8.length * 8;
+  const bytes = Array.from(utf8);
+  bytes.push(0x80);
+  while (bytes.length % 64 !== 56) bytes.push(0);
+  for (let i = 0; i < 8; i++) bytes.push(Math.floor(bitLen / Math.pow(2, i * 8)) & 0xff);
 
   let a0 = 0x67452301, b0 = 0xefcdab89, c0 = 0x98badcfe, d0 = 0x10325476;
-
-  for (let chunkStart = 0; chunkStart < padded.length; chunkStart += 64) {
-    const M = new Uint32Array(16);
-    for (let i = 0; i < 16; i++) {
-      const o = chunkStart + i * 4;
-      M[i] = padded[o] | (padded[o+1] << 8) | (padded[o+2] << 16) | (padded[o+3] << 24);
+  for (let chunk = 0; chunk < bytes.length; chunk += 64) {
+    const M = new Array(16);
+    for (let j = 0; j < 16; j++) {
+      const o = chunk + j * 4;
+      M[j] = bytes[o] | (bytes[o + 1] << 8) | (bytes[o + 2] << 16) | (bytes[o + 3] << 24);
     }
-
     let A = a0, B = b0, C = c0, D = d0;
-
     for (let i = 0; i < 64; i++) {
       let F, g;
       if (i < 16) { F = (B & C) | (~B & D); g = i; }
       else if (i < 32) { F = (D & B) | (~D & C); g = (5 * i + 1) % 16; }
       else if (i < 48) { F = B ^ C ^ D; g = (3 * i + 5) % 16; }
       else { F = C ^ (B | ~D); g = (7 * i) % 16; }
-
-      F = (F + A + K[i] + M[g]) >>> 0;
+      F = (F + A + K[i] + M[g]) | 0;
       A = D; D = C; C = B;
-      B = (B + rotl(F, S[i])) >>> 0;
+      B = (B + rotl(F, S[i])) | 0;
     }
+    a0 = (a0 + A) | 0; b0 = (b0 + B) | 0; c0 = (c0 + C) | 0; d0 = (d0 + D) | 0;
+  }
+  return toHex(a0) + toHex(b0) + toHex(c0) + toHex(d0);
+}
 
-    a0 = (a0 + A) >>> 0;
-    b0 = (b0 + B) >>> 0;
-    c0 = (c0 + C) >>> 0;
-    d0 = (d0 + D) >>> 0;
+async function handlePostback(request, env) {
+  const url = new URL(request.url);
+  let params = Object.fromEntries(url.searchParams.entries());
+
+  if (request.method === "POST" && Object.keys(params).length === 0) {
+    const contentType = request.headers.get("content-type") || "";
+    try {
+      let bodyParams = {};
+      if (contentType.includes("application/json")) {
+        bodyParams = await request.json();
+      } else if (contentType.includes("form")) {
+        const formData = await request.formData();
+        bodyParams = Object.fromEntries(formData.entries());
+      }
+      params = { ...params, ...bodyParams };
+    } catch {
+      // no/unparseable body — fine, params stays as the (empty) query string
+    }
   }
 
-  const toHexLE = (n) => {
-    let hex = '';
-    for (let i = 0; i < 4; i++) {
-      hex += ((n >>> (8 * i)) & 0xff).toString(16).padStart(2, '0');
-    }
-    return hex;
-  };
+  const uid = String(params.uid || "");
+  const offerId = String(params.of_id || "");
+  const amountRaw = params.virtual_currency; // keep raw string for the signature check
+  const amount = parseFloat(amountRaw);
+  const status = String(params.status || "1");
+  const hash = String(params.hash || "");
 
-  return toHexLE(a0) + toHexLE(b0) + toHexLE(c0) + toHexLE(d0);
+  const secret = env.ADMANTUM_SECRET_KEY || "";
+  if (!secret) return fail("Server not configured (missing ADMANTUM_SECRET_KEY).", 500);
+
+  // 1. Verify the signature — MD5(uid + of_id + virtual_currency + secret), no separators
+  const expected = md5(uid + offerId + amountRaw + secret);
+  if (!hash || hash.toLowerCase() !== expected.toLowerCase()) {
+    return fail("Signature doesn't match.", 403);
+  }
+
+  // 2. Validate required fields
+  if (!uid || !Number.isFinite(amount)) {
+    return fail("Missing or invalid parameters.", 400);
+  }
+
+  const userId = uid;
+  const coins = Math.round(Math.abs(amount));
+  // Admantum sends no unique transaction id — build a synthetic one (see
+  // the trade-off note at the top of this file).
+  const transId = `admantum-${uid}-${offerId}`;
+  console.log("admantum-postback:", { userId, transId, offerId, coins, status });
+
+  if (status === "0") {
+    // ---- Reversal: reverse a previous credit, if one exists ----
+    const existing = await env.DB.prepare(
+      `SELECT id, coins_earned FROM offer_completions WHERE provider = 'admantum' AND transaction_id = ? AND status = 'credited'`
+    ).bind(transId).first();
+
+    if (!existing) {
+      // Nothing to reverse (never credited, or already reversed) — still ok.
+      return ok();
+    }
+
+    await env.DB.prepare(
+      `UPDATE users
+       SET coins = MAX(coins - ?, 0),
+           completed_offers = MAX(completed_offers - 1, 0),
+           total_earning = MAX(total_earning - ?, 0)
+       WHERE id = ?`
+    ).bind(existing.coins_earned, existing.coins_earned, userId).run();
+
+    await env.DB.prepare(`UPDATE offer_completions SET status = 'chargeback' WHERE id = ?`)
+      .bind(existing.id).run();
+
+    return ok();
+  }
+
+  // ---- Credit ----
+  const dup = await env.DB.prepare(
+    `SELECT id FROM offer_completions WHERE provider = 'admantum' AND transaction_id = ?`
+  ).bind(transId).first();
+
+  if (dup) {
+    return ok(); // already processed — idempotent, don't double-credit
+  }
+
+  const update = await env.DB.prepare(
+    `UPDATE users
+     SET coins = coins + ?,
+         completed_offers = completed_offers + 1,
+         total_earning = total_earning + ?
+     WHERE id = ?`
+  ).bind(coins, coins, userId).run();
+
+  if (!update.success || update.meta.changes === 0) {
+    return fail("User not found.", 404);
+  }
+
+  await env.DB.prepare(
+    `INSERT INTO offer_completions (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
+     VALUES ('admantum', ?, ?, ?, ?, ?, 'credited', datetime('now'))`
+  ).bind(userId, offerId, transId, 0, coins).run();
+
+  return ok();
+}
+
+export async function onRequestPost(context) {
+  try { return await handlePostback(context.request, context.env); }
+  catch (err) { return fail(err.message || "Server error", 500); }
+}
+
+export async function onRequestGet(context) {
+  try { return await handlePostback(context.request, context.env); }
+  catch (err) { return fail(err.message || "Server error", 500); }
 }
