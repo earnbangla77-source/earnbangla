@@ -19,9 +19,15 @@
 //   userid  - Required.
 //   country - Optional (ISO2, e.g. TR/US/GB).
 //   os      - Optional: android / ios / desktop.
-// Response: {"status":"success","count":N,"offers":[{offer_id, title,
+// Response (per docs, NOT matching live behavior — see below):
+//   {"status":"success","count":N,"offers":[{offer_id, title,
 //   description, icon, payout, link, user_amount, devices, available_in,
-//   countries}, ...]}  — note `status` is the STRING "success", not a bool.
+//   countries}, ...]}
+// ⚠️ CONFIRMED VIA LIVE wrangler-tail TEST (2026-08-27): the real response
+//   uses a boolean `success` field, NOT the documented string `status`:
+//   {"success":true,"count":N,"offers":[...]}  (and `{"success":false,
+//   "message":"..."}` on failure). Code below checks `data.success`, not
+//   `data.status` — do not "fix" this back to match the docs.
 
 import { getUserFromRequest, json, errorJson } from "../../_lib/auth.js";
 
@@ -69,8 +75,14 @@ export async function onRequestGet(context) {
       return errorJson("TaskWall returned an unexpected response.", 502);
     }
 
-    // NOTE: TaskWall's `status` field is the string "success", not a bool.
-    if (data.status !== "success") {
+    // ⚠️ TaskWall's docs example shows `status: "success"` (a string), but
+    // a live wrangler-tail-confirmed response from this app's real feed
+    // came back as `success: true` (a boolean) instead — there is no
+    // `status` field at all in practice. Checking `data.status` (the old,
+    // docs-following code) was always true-y-false here, so this branch
+    // fired as "error" on every request even when TaskWall returned valid
+    // offers, which is what caused the persistent 502s.
+    if (data.success !== true) {
       console.error("taskwall-feed: upstream error:", raw.slice(0, 300));
       return errorJson(data.message || "TaskWall feed error.", 502);
     }
