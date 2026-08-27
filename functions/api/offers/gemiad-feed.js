@@ -4,7 +4,8 @@
 // Server-side proxy for GemiAd's Static Offers API
 // (dashboard.gemiad.com/publisher/documentation → API Offers).
 //
-// ⚠️ CONFIRMED from GemiAd's own Documentation page (2026-08-27):
+// ⚠️ CONFIRMED from GemiAd's own Documentation page (2026-08-27, "API
+//    Offers" section, full response example + field table now checked):
 //   GET http://api.gemiwall.com/api/offers/static
 //   Required query params: placementId, apiKey
 //   Rate limit: 5 requests/minute PER PLACEMENT — exceeding returns 429.
@@ -12,33 +13,31 @@
 //   TaskWall — see taskwall-feed.js) — NOT a string `status`. This file
 //   checks `data.success === true`, not `data.status`.
 //
-// ⚠️ NOT confirmed yet — GemiAd's docs "Response Example" was cut off
-//    before the individual offer object's fields were visible. This file
-//    makes a best-effort guess at offer field names based on common
-//    offerwall API conventions (title/description/icon/payout/link), with
-//    fallback candidate names for each. The `raw` field in this endpoint's
-//    JSON response carries GemiAd's untouched payload through — after the
-//    FIRST real request, open the browser console (or wrangler tail),
-//    check `raw`, and fix normalizeGemiadOffer() below if any field came
-//    back empty or wrong. Do not assume this mapping is correct without
-//    checking a real response first — see the TaskWall user_amount/
-//    multi_event lesson and the three-bugs-in-a-row history in
-//    OFFERWALL-MASTER-GUIDE.md §7 for why this matters.
+// ⚠️ Offer object fields CONFIRMED (no longer guessed) from the docs'
+//    Response Example + "Response Fields Documentation" table:
+//      name            → display title (NOT "title")
+//      description.en  → locale-keyed object, e.g. { en: "..." }
+//      icon            → icon/logo URL
+//      payout          → total reward in USD (NOT already coins — see
+//                         the conversion note in normalizeGemiadOffer below)
+//      url             → click/tracking URL, containing a literal
+//                         "[USER_ID]" placeholder (NOT "{USER_ID}")
+//      events[]        → sub-events for multi-event offers (multiEvent:
+//                         true); each event may carry its own `payout`.
+//                         Not currently surfaced to the frontend — the
+//                         offer's top-level `payout` (the total) is used.
+//      category, country[], device[], trackingType, dailyCap,
+//      dailyClickCap, epc, cvr — available but not currently used by
+//      normalizeGemiadOffer(); add if the frontend needs them later.
 //
-// ⚠️ Unlike TaskWall/Admantum/Offery, GemiAd's static endpoint does NOT
-//    take a userid/subId param at all (confirmed — docs list only
-//    placementId + apiKey). GemiAd is not personalizing the feed per user;
-//    the per-user tracking id almost certainly needs to be injected into
-//    each offer's click/tracking link before sending the user there
-//    (common pattern for "static" offer feeds elsewhere in the industry).
-//    Until a real response is seen, injectUserId() below tries a handful
-//    of common macro spellings ({USER_ID}, {SUBID}, {CLICKID}, lowercase
-//    variants) and otherwise passes the link through unchanged — check the
-//    real `link` values GemiAd returns and fix this once the actual macro
-//    (if any) is known. This is the single most important thing to verify
-//    before relying on this file for real coin payouts, since a wrong or
-//    missing user id here means GemiAd's postback can't be matched back to
-//    the right earnbangla user.
+// ⚠️ GemiAd's static endpoint does NOT take a userid/subId param at all
+//    (confirmed — docs list only placementId + apiKey). The per-user
+//    tracking id is injected into each offer's `url` by replacing the
+//    literal "[USER_ID]" placeholder — see injectUserId() below (confirmed
+//    from docs, no longer a guessed macro spelling). Optional `sub1`
+//    (source) / `sub2` (subsource) params are also supported per docs but
+//    not currently appended — add `&sub1=...&sub2=...` in injectUserId()
+//    if per-traffic-source attribution is needed later.
 //
 // Rate limiting (5 req/min/placement): this file caches GemiAd's response
 // in-memory for CACHE_TTL_MS and serves the cache to concurrent/rapid user
@@ -49,12 +48,26 @@
 // up multiple isolates or recycle one), not a strict guarantee — if 429s
 // still show up under real traffic, move this to Cloudflare KV instead.
 //
-// Reuses env.GEMIAD_SECRET_KEY (the same "Secret Key" from GemiAd
-// dashboard → Profile Settings already used in gemiad-postback.js's hash)
-// as the apiKey — GemiAd's dashboard only exposes ONE secret key anywhere
-// (Profile Settings), no separate placement-level API key field was found
-// after checking, so this is the confirmed single source of truth. If
-// GemiAd later adds a separate placement-level key, swap it in below.
+// ⚠️ IMPORTANT — apiKey is NOT the same Secret Key used in
+//    gemiad-postback.js's hash. Confirmed via a live 401 "Invalid API key"
+//    test against the real endpoint: GemiAd's docs say apiKey is "your API
+//    key from the placement settings" — i.e. a PER-PLACEMENT key found on
+//    the Placement's own settings page in the dashboard, distinct from the
+//    single "Secret Key" under Profile Settings that the postback hash
+//    uses. env.GEMIAD_SECRET_KEY here must be set to THAT placement-level
+//    API key, not the Profile Settings Secret Key — re-check the
+//    Placement → Settings page in the dashboard and update the secret:
+//   wrangler pages secret put GEMIAD_SECRET_KEY --project-name=earnbangla
+//    (Re-verify gemiad-postback.js separately — its hash formula was
+//    confirmed against the Postbacks docs page and should keep using the
+//    Profile Settings Secret Key; only THIS file's apiKey was wrong.)
+//
+// env.GEMIAD_SECRET_KEY here must hold the PLACEMENT-LEVEL API key from
+// GemiAd dashboard → Placement → Settings — NOT the Profile Settings
+// Secret Key (that one stays server-side only in gemiad-postback.js for
+// the hash check). Despite the shared variable name (kept as-is to match
+// the existing wrangler secret already provisioned for this project),
+// these are two different keys — see the confirmed note above.
 
 import { getUserFromRequest, json, errorJson } from "../../_lib/auth.js";
 
@@ -140,24 +153,41 @@ export async function onRequestGet(context) {
 
   const offers = rawOffers.map((o) => normalizeGemiadOffer(o, me.id));
 
-  // `raw` included so the frontend can console.log() the untouched
-  // response while confirming field names — same pattern as
-  // offery-feed.js / taskwall-feed.js. REMOVE once field names below are
-  // confirmed correct, to avoid shipping GemiAd's full payload to the client.
-  return json({ offers, raw: data });
+  // Field names are now confirmed correct (see header note), so `raw` is
+  // no longer needed for debugging — dropped to avoid shipping GemiAd's
+  // full payload (including other users'-irrelevant offer internals) to
+  // the client on every request.
+  return json({ offers });
 }
 
 function normalizeGemiadOffer(o, userId) {
-  const title = o.title ?? o.name ?? o.offer_name ?? "";
-  const description = o.description ?? o.short_description ?? "";
-  const image = o.icon ?? o.image ?? o.icon_url ?? "";
-  const rawAmount =
-    o.reward ?? o.amount ?? o.coins ?? o.payout_coins ?? o.payout ?? 0;
-  const reward = parseFloat(rawAmount) || 0;
-  const link = injectUserId(o.link ?? o.url ?? o.tracking_link ?? "", userId);
+  // Confirmed field names from GemiAd's "API Offers" documentation
+  // (dashboard.gemiad.com/publisher/documentation → API Offers, response
+  // example + field table). No more guessing:
+  //   id, name, description.{locale}, icon, url, payout (USD), events[],
+  //   category, country[], device[], trackingType, dailyCap, etc.
+  const title = o.name ?? "";
+  // description is a locale-keyed object, e.g. { en: "..." } — fall back to
+  // "en", then to whatever the first available locale is.
+  const description =
+    (o.description && (o.description.en || Object.values(o.description)[0])) || "";
+  const image = o.icon ?? "";
+
+  // payout is in USD (confirmed) — convert to this placement's coin
+  // currency the same way every other provider on this site does
+  // (1000 coins = $1), matching the reward the gemiad-postback.js hash/
+  // credit flow will later report back for the SAME offer completion.
+  const payoutUsd = parseFloat(o.payout) || 0;
+  const reward = Math.round(payoutUsd * 1000);
+
+  // Tracking URL uses a literal "[USER_ID]" placeholder (confirmed, NOT
+  // "{USER_ID}") — replace it with this user's id so GemiAd can match the
+  // later postback back to them. sub1/sub2 are optional per docs; omitted
+  // here since we don't have a separate source/subsource to pass.
+  const link = injectUserId(o.url ?? "", userId);
 
   return {
-    id: o.offer_id ?? o.id,
+    id: o.id,
     title,
     description,
     image,
@@ -166,20 +196,10 @@ function normalizeGemiadOffer(o, userId) {
   };
 }
 
-// Best-effort macro replacement. GemiAd's postback URL uses {USER_ID}/
-// {OFFER_ID}-style macros (confirmed from the postback docs), so the click
-// link plausibly uses a similar {...} placeholder for the user id — this
-// covers the most likely spellings. Once a real `link` value is seen (via
-// the `raw` field above), replace this with whatever macro GemiAd actually
-// uses, or with a plain query-string append if there's no macro at all.
+// Replaces GemiAd's literal "[USER_ID]" placeholder in the click/tracking
+// URL with this user's id (confirmed from the "API Offers" docs — NOT a
+// "{USER_ID}"-style macro like the postback URL uses).
 function injectUserId(link, userId) {
   if (!link) return link;
-  const encoded = encodeURIComponent(userId);
-  return link
-    .replace("{USER_ID}", encoded)
-    .replace("{user_id}", encoded)
-    .replace("{SUBID}", encoded)
-    .replace("{subid}", encoded)
-    .replace("{CLICKID}", encoded)
-    .replace("{clickid}", encoded);
+  return link.replace("[USER_ID]", encodeURIComponent(userId));
 }
