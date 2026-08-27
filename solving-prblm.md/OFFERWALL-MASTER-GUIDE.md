@@ -31,7 +31,7 @@ earn-bangla.com একটা GPT (Get-Paid-To) সাইট — ইউজার�
 image, reward, link)। আমরা backend-এ সেটা proxy করি (API key লুকানোর
 জন্য) আর frontend-এ নিজেদের কার্ড ডিজাইনে দেখাই।
 
-**উদাহরণ:** CPAGrip, Offery, Revtoo
+**উদাহরণ:** CPAGrip, Offery, Revtoo, Admantum
 
 **দুইটা ফাইল লাগে:**
 - `functions/api/offers/<provider>-feed.js` — offers proxy
@@ -77,6 +77,27 @@ owIframe.src = `https://provider.com/offer/${PUBLIC_KEY}/${encodeURIComponent(cu
 লাগে; Type A প্রোভাইডারদের লাগে না কারণ feed.js নিজেই session cookie
 থেকে ইউজার লুকআপ করে server-side-এ।
 
+**⚠️ সেই server-side লুকআপ ঠিক কীভাবে হয় — গেস করা যাবে না।** আসল প্যাটার্ন
+(সব Type A `<provider>-feed.js`-এ, `offery-feed.js`/`revtoo-feed.js` দেখুন):
+
+```js
+import { getUserFromRequest, json, errorJson } from "../../_lib/auth.js";
+
+export async function onRequestGet(context) {
+  const { request, env } = context;
+  const me = await getUserFromRequest(request, env.DB);
+  if (!me) return errorJson("Not signed in.", 401);
+  // me.id ব্যবহার করুন provider-এর uid/user_id প্যারামিটারে
+}
+```
+
+`_lib/auth.js`-এর ভেতরের raw table/column বিস্তারিত না জেনেই এই একটাই
+import দিয়ে কাজ চলে — নিজে থেকে `sessions` টেবিলে raw SQL query লিখে
+"session cookie theke user lookup" রিইনভেন্ট করতে যাবেন না (Admantum
+ইন্টিগ্রেশনে ঠিক এই ভুলটাই প্রথমবার হয়েছিল, ফলে feed.js সবসময় 500 দিত
+— বিস্তারিত §৭ দেখুন)। ইতিমধ্যে কাজ করা কোনো একটা `<provider>-feed.js`
+ফাইল হাতের কাছে না থাকলে নতুন করে লেখার আগে সেটা চেয়ে নিন।
+
 `setOfferwallMode('grid' | 'iframe')` মোডালের ভেতরের `#owGrid` আর
 `#owIframeWrap`-এর মধ্যে টগল করে। `closeOfferwall()` সবসময়
 `owIframe.src = 'about:blank'` করে — Type B প্রোভাইডার ব্যাকগ্রাউন্ডে
@@ -113,6 +134,33 @@ CREATE INDEX IF NOT EXISTS idx_offer_completions_provider_transaction
 প্রোভাইডার যোগ করলে নতুন migration লাগে না** — শুধু `provider = '<নাম>'`
 দিয়ে আলাদা রো হিসেবে সেভ হয়।
 
+**⚠️ `offer_completions`-এ INSERT করার সময় কলাম অর্ডার/নাম হুবহু এভাবেই
+থাকতে হবে** (আসল working schema, `revtoo-postback.js` থেকে confirmed —
+নিজে থেকে অনুমান করে ভিন্ন অর্ডার/কলাম বসালে exception হয়ে সোজা 500
+"Server Error" দেয়, Admantum ইন্টিগ্রেশনে এটাই দ্বিতীয় বাগ ছিল):
+
+```sql
+INSERT INTO offer_completions
+  (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
+VALUES ('<provider>', ?, ?, ?, ?, ?, 'credited', datetime('now'))
+```
+
+User-not-found চেক করার সঠিক প্যাটার্নও আলাদা `SELECT` দিয়ে না — সরাসরি
+credit-এর `UPDATE users SET ... WHERE id = ?` চালিয়ে
+`update.meta.changes === 0` হলে "User not found." রিটার্ন করা হয়
+(`revtoo-postback.js`-এর `handlePostback()` দেখুন)।
+
+### Cloudflare Workers-এ MD5 নেই — reinvent না করে reuse করুন
+
+Cloudflare-এর Web Crypto API-তে শুধু SHA-1/256/384/512 আছে, **MD5 নেই**।
+কিন্তু বেশিরভাগ offerwall প্রোভাইডারের (Offery, Revtoo, Admantum,
+RadiantWall, PaidBucksy) সিগনেচার ফর্মুলা MD5-based। প্রতিটা
+`<provider>-postback.js`-এ তাই একটা pure-JS MD5 implementation (RFC1321,
+কোনো প্রোপ্রাইটারি লাইব্রেরি থেকে কপি করা না) ইনলাইন করা আছে — নতুন
+প্রোভাইডার যোগ করার সময় নতুন করে MD5 না লিখে `revtoo-postback.js` বা
+`admantum-postback.js`-এর `md5(input)` ফাংশনটা হুবহু কপি করে নিন (দুটোই
+Node.js-এর বিল্ট-ইন MD5-এর বিপরীতে টেস্ট করে ভেরিফাইড)।
+
 ### `earnings_30d` লাইভ ক্যালকুলেট হয়
 
 `functions/api/auth/me.js` কোনো static কলাম থেকে earnings_30d পড়ে না —
@@ -125,14 +173,15 @@ CREATE INDEX IF NOT EXISTS idx_offer_completions_provider_transaction
 
 ## ৫. প্রোভাইডার-ভেদে যা যা আলাদা হতে পারে (এখানেই সবচেয়ে বেশি বাগ হয়)
 
-| | Offery | Revtoo | RadiantWall | PaidBucksy | Prime Wall | CPAGrip |
-|---|---|---|---|---|---|---|
-| টাইপ | A (feed) | A (feed) | B (iframe) | B (iframe) | B (iframe) | A (feed) |
-| Method | GET | GET | GET | GET | ? (অজানা) | POST (password-based, MD5 না) |
-| ID param নাম | `subId`/`transId` | `subId`/`transId` | `subId`/`transId` | `user_id`/`transaction_id` | ? (অজানা) | `tracking_id` |
-| Auth পদ্ধতি | MD5 signature | MD5 signature | MD5 signature | MD5 signature | ? (অজানা) | shared **password** (query/body param, signature না) |
-| সফল রেসপন্স | `"ok"` (lowercase) | `"ok"` (lowercase) | `"OK"` (uppercase) | `"OK"` (uppercase) | ? (অজানা) | JSON (`{"status":"credited"}` টাইপ, ফাইল শেয়ার করা হয়নি) |
-| ডুপ্লিকেট রেসপন্স | `"ok"` (idempotent, একই) | `"ok"` (idempotent) | `"DUP"` | `"DUP"` | ? (অজানা) | ? |
+| | Offery | Revtoo | Admantum | RadiantWall | PaidBucksy | Prime Wall | CPAGrip |
+|---|---|---|---|---|---|---|---|
+| টাইপ | A (feed) | A (feed) | A (feed) | B (iframe) | B (iframe) | B (iframe) | A (feed) |
+| Method | GET | GET | POST (docs বলে, কিন্তু params সবসময় URL query string-এ, body-তে না — নিচে দেখুন) | GET | GET | ? (অজানা) | POST (password-based, MD5 না) |
+| ID param নাম | `subId`/`transId` | `subId`/`transId` | `uid`/`of_id` (কোনো unique transaction id নেই — সিন্থেটিক `admantum-${uid}-${of_id}` দিয়ে dedupe) | `subId`/`transId` | `user_id`/`transaction_id` | ? (অজানা) | `tracking_id` |
+| Auth পদ্ধতি | MD5 signature | MD5 signature | MD5 signature — `MD5(uid + of_id + virtual_currency + SECRET)`, কোনো separator ছাড়া | MD5 signature | MD5 signature | ? (অজানা) | shared **password** (query/body param, signature না) |
+| সফল রেসপন্স | `"ok"` (lowercase) | `"ok"` (lowercase) | `"OK"` (uppercase) | `"OK"` (uppercase) | `"OK"` (uppercase) | ? (অজানা) | JSON (`{"status":"credited"}` টাইপ, ফাইল শেয়ার করা হয়নি) |
+| ডুপ্লিকেট রেসপন্স | `"ok"` (idempotent, একই) | `"ok"` (idempotent) | `"OK"` (idempotent, একই — আলাদা DUP স্ট্রিং নেই) | `"DUP"` | `"DUP"` | ? (অজানা) | ? |
+| Feed API-র quirk | — | variable-payout অফারে `"*"` আসে (`coins: null`) | `device` প্যারামিটার docs-এ mandatory না বলা হলেও আসলে **required** — না দিলে `{"success":false,"message":"invalid device"}` | — | — | — | — |
 
 **⚠️ সবচেয়ে গুরুত্বপূর্ণ শিক্ষা:** কোনো প্রোভাইডারের রেসপন্স ফরম্যাট
 আরেকটার মতো হবে ধরে নেওয়া যাবে না — case পর্যন্ত মিলতে হবে
@@ -175,6 +224,30 @@ Type B (iframe)। Public Key (`Sn2Ld6`) কোডে, Secret Key
 ভুল সিগনেচারে `403`। RadiantWall dashboard-এর নিজস্ব "Test Postback"
 বাটন 500 error দিচ্ছিল বলে ম্যানুয়াল curl টেস্টেই ভরসা করা হয়েছে।
 
+### ⏳ Admantum — কোড রেডি, live Postback Test-এর কনফার্মেশন বাকি
+Type A (feed)। App Id `52189`, Secret Key ও Publisher Id dashboard
+স্ক্রিনশট থেকে কনফার্মড ও বসানো হয়েছে (`ADMANTUM_SECRET_KEY` wrangler
+secret)। Frontend (tile, dispatcher, `normalizeAdmantumOffer()`,
+`admantumCardHTML()`, `openAdmantumOfferwall()`) `earn.html`-এ সম্পূর্ণ।
+
+এই ইন্টিগ্রেশনে পরপর তিনটা বাগ ধরে ফিক্স করা হয়েছে (বিস্তারিত §৭):
+1. `admantum-feed.js`-এ session lookup গেস করে লেখা হয়েছিল (raw
+   `sessions` টেবিল query) — আসল `_lib/auth.js`-এর
+   `getUserFromRequest()` দিয়ে ঠিক করা হয়েছে।
+2. Admantum-এর feed API-তে `device` প্যারামিটার undocumented কিন্তু
+   আসলে mandatory — যোগ করা হয়েছে (`detectDevice()` UA থেকে)।
+3. `admantum-postback.js`-এ `offer_completions` INSERT-এর কলাম
+   অর্ডার/নাম ভুল ছিল, আর `transaction_id` required রাখা হয়েছিল যেটা
+   Admantum আসলে পাঠায়ই না — `revtoo-postback.js`-এর আসল schema/প্যাটার্ন
+   মিলিয়ে ঠিক করা হয়েছে (synthetic dedupe key দিয়ে)।
+
+MD5 সিগনেচার ফর্মুলা (`MD5(uid+of_id+virtual_currency+SECRET)`) Node.js-এর
+বিল্ট-ইন MD5-এর বিপরীতে টেস্ট করে, আর Admantum dashboard-এর নিজস্ব
+Postback Test-এর exact hash value-র সাথে মিলিয়ে **দুইবারই confirmed
+সঠিক** পাওয়া গেছে। **পরবর্তী সেশনে প্রথম চেক করার জিনিস:** এই তিন নম্বর
+ফিক্সের পর dashboard-এর Postback Test আবার চালিয়ে `STATUS: Postback
+Success` আসে কিনা, আর real user id দিয়ে coins ঠিকমতো ক্রেডিট হয় কিনা।
+
 ### ⏳ Prime Wall — ব্লকড, postback ফরম্যাট অজানা
 Frontend (tile, iframe modal, `PRIMEWALL_PUBLIC_KEY = 'Il7Eo8'`) সম্পূর্ণ।
 কিন্তু Prime Wall postback-এ ঠিক কোন প্যারামিটার কোন নামে পাঠায় সেটা
@@ -203,6 +276,33 @@ param দিয়ে ভেরিফাই হয় (`password`, `payout`, `of
 **ফিক্স:** credit ব্লকে তিনটা কলামই ইনক্রিমেন্ট, chargeback-এ তিনটাই
 ডিক্রিমেন্ট (0-এর নিচে না)। **Offery আর নতুন সব প্রোভাইডারে এই ফিক্স
 আছে। CPAGrip-এ এখনো apply করা হয়নি (⏳ বাকি)।**
+
+### ফিক্সড: নতুন প্রোভাইডারের feed.js/postback.js গেস করে লেখা → সবসময় 500 "Server Error"
+**কারণ:** নতুন provider-এর জন্য session-lookup কোড আর `offer_completions`
+INSERT-এর কলাম অর্ডার/নাম আগের কোনো working ফাইল না দেখেই আন্দাজ করে
+লেখা হয়েছিল (raw `sessions` table query বানানো, ভুল কলাম অর্ডার,
+অস্তিত্বহীন `transaction_id` field required রাখা)। এগুলোর যেকোনো একটা
+আসল schema-র সাথে না মিললে Cloudflare Function exception থ্রো করে সোজা
+generic 500 "Server Error" রিটার্ন করে — provider-এর নিজস্ব dashboard-এ
+শুধু "Postback Failed" দেখায়, আসল কারণ বলে না, তাই বারবার আন্দাজ করে
+ফিক্স করাটা সময় নষ্ট করে (Admantum ইন্টিগ্রেশনে এই ভুল পরপর দুইবার হয়েছিল)।
+
+**ফিক্স:** নতুন provider-এর ফাইল লেখার আগে ইতিমধ্যে কাজ করা কোনো
+provider-এর `<provider>-feed.js` আর `<provider>-postback.js` (যেমন
+`offery-*`/`revtoo-*`) reference হিসেবে হাতে নিয়ে, session-lookup import,
+`offer_completions` INSERT-এর কলাম অর্ডার, আর user-not-found চেক করার
+প্যাটার্ন — এই তিনটাই হুবহু কপি করে শুধু provider-নির্দিষ্ট অংশ
+(param নাম, hash ফর্মুলা, response string) বদলাতে হবে। **কখনো নতুন করে
+schema/helper reinvent করা যাবে না।** বিস্তারিত টেমপ্লেট §৩ আর §৪-এ।
+
+### ফিক্সড: Feed API-র docs-এ লেখা নেই এমন mandatory প্যারামিটার মিস হওয়া
+**কারণ:** Admantum-এর official docs `device` প্যারামিটারকে mandatory
+বলেনি, কিন্তু বাদ দিলে API `{"success":false,"message":"invalid device"}`
+রিটার্ন করে — offers কখনো লোড হয়নি।
+**ফিক্স:** শুধু docs পড়ে সন্তুষ্ট না হয়ে, নতুন কোনো feed API লেখার সময়
+`web_fetch`/`curl` দিয়ে সরাসরি একটা টেস্ট রিকোয়েস্ট পাঠিয়ে আসল response
+দেখে নিশ্চিত হওয়া উচিত সব দরকারি param পাঠানো হচ্ছে কিনা — docs
+অসম্পূর্ণ হতে পারে।
 
 ---
 
@@ -256,6 +356,16 @@ redact হয় না।
 sign-in করা ইউজারের real `user.id` বসাতে হবে (D1 থেকে
 `SELECT id FROM users LIMIT 5;` দিয়ে বের করা যায়)।
 
+### Provider "POST" বললেও params body-তে না, URL query string-এই থাকতে পারে
+কিছু provider-এর dashboard-এ দেখানো Postback URL template নিজেই পুরো
+query string embed করা থাকে (`...postback?uid={uid}&of_id={of_id}&...`)
+— যদিও docs method-কে "POST" বলে। বাস্তবে data URL-এর query string-এই
+আসে, POST body খালি থাকে। শুধু POST body parse করার কোড লিখলে (form
+data / JSON) params সবসময় খালি পাওয়া যাবে, ফলে "Missing parameters"
+বা silent fail হবে। **সমাধান:** postback handler-এ সবসময় আগে
+`new URL(request.url).searchParams` থেকে params পড়ুন, body parsing
+শুধু fallback হিসেবে রাখুন (`admantum-postback.js` দেখুন)।
+
 ### দ্রুততম ডিবাগ পদ্ধতি: Live log tail
 ```powershell
 wrangler pages deployment tail --project-name=earnbangla
@@ -268,9 +378,19 @@ wrangler pages deployment tail --project-name=earnbangla
 
 ## ৯. নতুন প্রোভাইডার যোগ করার চেকলিস্ট (কপি-পেস্ট রেডি)
 
+0. **প্রথমেই** ইতিমধ্যে কাজ করা একটা `<provider>-feed.js` (Type A হলে)
+   আর একটা `<provider>-postback.js` reference হিসেবে হাতে নিন
+   (`offery-*`/`revtoo-*` সবচেয়ে ভালো, পুরোপুরি টেস্টেড)। session-lookup
+   import, `offer_completions` INSERT-এর কলাম অর্ডার, user-not-found
+   চেক করার প্যাটার্ন — এগুলো কখনো নতুন করে গেস করে লিখবেন না, হুবহু কপি
+   করে শুধু provider-নির্দিষ্ট অংশ বদলান (§৩, §৪, §৭ দেখুন — গেস করলে
+   কেন সমস্যা হয় তার বিস্তারিত ইতিহাস আছে)।
 1. প্রোভাইডারের অফিসিয়াল ডকুমেন্টেশন খুঁজে বের করুন (docs./gitbook.io
    সাবডোমেইন সাধারণত থাকে) — feed API + postback দুটোই পড়ুন, অন্য
-   প্রোভাইডারের সাথে মিলবে ধরে না নিয়ে।
+   প্রোভাইডারের সাথে মিলবে ধরে না নিয়ে। **শুধু docs পড়েই সন্তুষ্ট হবেন
+   না** — feed API-তে একটা আসল টেস্ট রিকোয়েস্ট পাঠিয়ে (curl/web_fetch)
+   response verify করুন, কারণ কিছু provider-এর docs অসম্পূর্ণ (undocumented
+   mandatory param থাকতে পারে — §৭-এ Admantum-এর `device` param উদাহরণ)।
 2. Type A (JSON feed) নাকি Type B (iframe-only) — ঠিক করুন।
 3. **Type A হলে:**
    - `functions/api/offers/<provider>-feed.js` — session cookie থেকে
