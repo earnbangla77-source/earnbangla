@@ -877,6 +877,12 @@
               </div>
               <span class="partner-name">Taskwall</span>
             </button>
+            <button class="partner-card" onclick="openOfferwall('GemiAd')">
+              <div class="partner-tile" style="background:linear-gradient(160deg,#1a1f3a,#0d0f22);">
+                <span class="partner-wordmark">GEMIAD</span>
+              </div>
+              <span class="partner-name">GemiAd</span>
+            </button>
           </div>
         </section>
 
@@ -1167,6 +1173,10 @@ function openOfferwall(partner){
     openTaskwallOfferwall();
     return;
   }
+  if(partner === 'GemiAd'){
+    openGemiadOfferwall();
+    return;
+  }
 }
 
 // ---------- Offery — real offer feed via our own backend ----------
@@ -1423,6 +1433,71 @@ async function openTaskwallOfferwall(){
       : '<div class="ow-empty">No offers available at the moment</div>';
   }catch(err){
     console.error('Taskwall offerwall error:', err);
+    owGrid.innerHTML = '<div class="ow-empty">অফার লোড করা যায়নি, একটু পর আবার চেষ্টা করুন।</div>';
+  }
+}
+
+// ---------- GemiAd — real offer feed via our own backend ----------
+// Like Admantum/Taskwall, gemiad-feed.js already normalizes the raw GemiAd
+// API response server-side (id/title/description/image/link/reward), so
+// the client-side mapping here is a straight field copy — keep it in sync
+// with normalizeGemiadOffer() in functions/api/offers/gemiad-feed.js.
+function normalizeGemiadOffer(o){
+  if(!o || typeof o !== 'object') return null;
+  const id     = o.id ?? '';
+  const title  = o.title ?? 'Offer';
+  const desc   = o.description ?? '';
+  const image  = o.image ?? '';
+  const link   = o.link ?? '#';
+  // reward is the coin amount, already converted using GemiAd's Exchange
+  // Rate (1000 coins = $1) — keep in sync with the reward handling in
+  // functions/api/offers/gemiad-postback.js.
+  const coins  = Math.round(parseFloat(o.reward ?? 0)) || 0;
+  if(!id || !link || link === '#') return null;
+  return { id, title, desc, image, link, coins };
+}
+
+function gemiadCardHTML(o, idx){
+  const iconInner = o.image
+    ? `<img src="${o.image}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:13px;" onerror="this.onerror=null;this.style.display='none';this.parentElement.textContent='🎯';">`
+    : '🎯';
+  return `
+    <div class="ow-card" onclick="openOfferDetail(currentOfferList[${idx}])">
+      <div class="ow-icon" style="background:#161a1f;overflow:hidden;">${iconInner}</div>
+      <div class="ow-info">
+        <div class="ow-title">${o.title}</div>
+        <div class="ow-desc">${o.desc}</div>
+      </div>
+      <div class="ow-reward"><svg class="icon"><use href="#icon-coin"/></svg>${o.coins}</div>
+    </div>`;
+}
+
+async function openGemiadOfferwall(){
+  owBrandName.textContent = 'GemiAd';
+  setOfferwallMode('grid');
+  owGrid.innerHTML = '<div class="ow-empty">Loading offers…</div>';
+  owOverlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+
+  try{
+    const res = await fetch(`${API_BASE}/offers/gemiad-feed`);
+
+    if(res.status === 401){
+      owGrid.innerHTML = '<div class="ow-empty">অফার দেখতে আগে সাইন ইন করুন।</div>';
+      return;
+    }
+    if(!res.ok) throw new Error('gemiad feed request failed: ' + res.status);
+
+    const data = await res.json();
+    console.log('GemiAd feed — raw response:', data.raw ?? data);
+
+    const offers = (data.offers || []).map(normalizeGemiadOffer).filter(Boolean);
+    currentOfferList = offers;
+    owGrid.innerHTML = offers.length
+      ? offers.map((o, idx) => gemiadCardHTML(o, idx)).join('')
+      : '<div class="ow-empty">No offers available at the moment</div>';
+  }catch(err){
+    console.error('GemiAd offerwall error:', err);
     owGrid.innerHTML = '<div class="ow-empty">অফার লোড করা যায়নি, একটু পর আবার চেষ্টা করুন।</div>';
   }
 }
