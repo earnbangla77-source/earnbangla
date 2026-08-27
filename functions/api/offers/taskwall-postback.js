@@ -96,6 +96,16 @@ async function readParams(request) {
 }
 
 async function handlePostback(request, env) {
+  // --- TEMP DEBUG: see exactly what TaskWall's server sends. Remove once diagnosed. ---
+  const debugRawBody = await request.clone().text().catch(() => "<unreadable>");
+  console.log("taskwall-postback: DEBUG incoming request", {
+    method: request.method,
+    contentType: request.headers.get("content-type"),
+    url: request.url,
+    rawBody: debugRawBody,
+  });
+  // --- END TEMP DEBUG ---
+
   const params = await readParams(request);
 
   const userId = String(params.userid || "");
