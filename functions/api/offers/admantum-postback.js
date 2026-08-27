@@ -1,13 +1,21 @@
 // functions/api/offers/admantum-postback.js
 //
 // Admantum documentation (admantum.com/documentation) onujayi:
-//   - Method: POST (only)
-//   - Mandatory params: uid, virtual_currency (payout thakle virtual_currency
-//     lagbe na bole documentation e bola ache, tobe amra virtual_currency
-//     always pathate bolbo Admantum support-ke, na hoy fallback rakhlam)
+//   - Method: POST (docs bole POST-only, kintu dashboard-er "Postback Url"
+//     template-e shobkichu query-string hisebe bosano thake — mane data
+//     URL-er query string-eই thake, body-te na. Tai amra always URL theke
+//     age params porhi, body fallback hisebe rakhi.)
+//   - Mandatory params: uid, virtual_currency
 //   - hash = MD5(uid + of_id + virtual_currency + SECRET_KEY)  -- NO separator
 //   - status: "1" = completion (credit), "0" = reversal (chargeback)
-//   - Expected response string: "OK"  (exact — lowercase na)
+//   - Expected response string: "OK"
+//
+// ⚠️ Admantum kono transaction_id/unique conversion id pathay na (docs-e
+// confirm kora — mandatory params khali uid ar virtual_currency). Tai
+// duplicate-check এখানে (uid + of_id) দিয়ে হয়, কোনো txn id দিয়ে না। এর
+// মানে একই offer বারবার সম্পূর্ণ করা গেলে (যেমন repeatable daily survey)
+// দ্বিতীয়বার credit হবে না — Admantum support-এর সাথে চেক করে দেখো ওদের
+// offer গুলো সাধারণত one-time কিনা।
 //
 // ⚠️ Cloudflare Workers-er Web Crypto API-te MD5 নেই (শুধু SHA family), তাই
 // নিচে একটা pure-JS MD5 implementation দেওয়া হলো (RFC1321 standard
@@ -34,33 +42,18 @@ async function handlePostback(request, env) {
     const params = await readParams(request);
 
     const uid = params.uid || params.user_id;
-    const status = String(params.status);
+    const status = String(params.status ?? '');
     const offerId = params.of_id || params.offer_id || '';
     const rawAmount = params.virtual_currency ?? params.payout ?? params.amount;
     const amount = parseInt(rawAmount, 10);
     const hash = params.hash;
+    // Synthetic dedupe key — Admantum doesn't send a unique transaction id
+    const transactionId = `admantum-${uid}-${offerId}`;
 
     if (!uid || !hash || Number.isNaN(amount)) {
       console.log('admantum_postback_missing_params', JSON.stringify(params));
       return new Response('Missing required parameters', { status: 400 });
     }
-
-    // Admantum-er documented postback macros (uid, of_id, virtual_currency,
-    // status) e kono transaction_id/click_id nei — tader Postback Tester-o
-    // eta pathay na. Tai eta ekhon MANDATORY na. Amra age subid1/subid/
-    // click_id check kori (kono kaje Admantum ei fields-e real click id
-    // pathiye thake seta dhorar jonno), na paile uid+of_id+status+amount
-    // diye ekta synthetic id banai — eta same completion-er duplicate
-    // postback (retry) atkabe. Trade-off: ekই user same offer same
-    // amount-e dwitiyobar complete korle seta-o duplicate hisebe dhora
-    // porbe (repeatable offer hole eta thik na-o hote pare — dorkar hole
-    // synthetic id-te ekta date bucket jog kora jabe).
-    const transactionId =
-      params.transaction_id ||
-      params.subid1 ||
-      params.subid ||
-      params.click_id ||
-      `admantum_${uid}_${offerId}_${status}_${amount}`;
 
     const secret = env.ADMANTUM_SECRET_KEY;
     if (!secret) {
@@ -73,11 +66,11 @@ async function handlePostback(request, env) {
     const expectedHash = md5Hex(stringToHash);
 
     if (expectedHash.toLowerCase() !== String(hash).toLowerCase()) {
-      console.log('admantum_postback_bad_signature', uid, transactionId);
+      console.log('admantum_postback_bad_signature', uid, offerId);
       return new Response('Invalid signature', { status: 403 });
     }
 
-    // Duplicate check — provider + transaction_id
+    // Duplicate check — provider + synthetic transaction_id (uid+offerId)
     const existing = await env.DB.prepare(
       `SELECT id FROM offer_completions WHERE provider = 'admantum' AND transaction_id = ?`
     ).bind(transactionId).first();
@@ -88,6 +81,9 @@ async function handlePostback(request, env) {
 
     const user = await env.DB.prepare(`SELECT id FROM users WHERE id = ?`).bind(uid).first();
     if (!user) {
+      // Admantum-er nijer dashboard Tester-e User ID field khali rakhle ora
+      // nije theke ekta random/dummy id boshiye dey — real user na bole eta
+      // expected. Real test korte hole real sign-in kora user.id boshate hobe.
       console.log('admantum_postback_user_not_found', uid);
       return new Response('User not found.', { status: 404 });
     }
@@ -125,16 +121,33 @@ async function handlePostback(request, env) {
 }
 
 async function readParams(request) {
-  if (request.method === 'GET') {
-    const url = new URL(request.url);
-    return Object.fromEntries(url.searchParams.entries());
+  // Admantum-er "Postback Url" template dekhle bojha jay data URL-er query
+  // string-eই bosano thake (?uid={uid}&of_id={of_id}&...) — method POST
+  // hole-o. Tai age soja query string theke params pori.
+  const url = new URL(request.url);
+  const params = Object.fromEntries(url.searchParams.entries());
+
+  if (Object.keys(params).length > 0) {
+    return params;
   }
-  const contentType = request.headers.get('content-type') || '';
-  if (contentType.includes('application/json')) {
-    return await request.json();
+
+  // Fallback: jodi kokhono body-r moddhe data pathay
+  if (request.method === 'POST') {
+    try {
+      const contentType = request.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        return await request.json();
+      }
+      if (contentType.includes('form')) {
+        const formData = await request.formData();
+        return Object.fromEntries(formData.entries());
+      }
+    } catch (err) {
+      // body na thakle ba parse na hole — khali object e thik ache
+    }
   }
-  const formData = await request.formData();
-  return Object.fromEntries(formData.entries());
+
+  return params;
 }
 
 // ---------------------------------------------------------------------
