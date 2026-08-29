@@ -1528,69 +1528,31 @@ async function openTaskwallOfferwall(){
   }
 }
 
-// ---------- GemiAd — real offer feed via our own backend ----------
-// Like Admantum/Taskwall, gemiad-feed.js already normalizes the raw GemiAd
-// API response server-side (id/title/description/image/link/reward), so
-// the client-side mapping here is a straight field copy — keep it in sync
-// with normalizeGemiadOffer() in functions/api/offers/gemiad-feed.js.
-function normalizeGemiadOffer(o){
-  if(!o || typeof o !== 'object') return null;
-  const id     = o.id ?? '';
-  const title  = o.title ?? 'Offer';
-  const desc   = o.description ?? '';
-  const image  = o.image ?? '';
-  const link   = o.link ?? '#';
-  // reward is the coin amount, already converted using GemiAd's Exchange
-  // Rate (1000 coins = $1) — keep in sync with the reward handling in
-  // functions/api/offers/gemiad-postback.js.
-  const coins  = Math.round(parseFloat(o.reward ?? 0)) || 0;
-  if(!id || !link || link === '#') return null;
-  return { id, title, desc, image, link, coins };
-}
+// ---------- GemiAd — embedded via their offerwall iframe (GemiWall, no JSON feed API) ----------
+// Same pattern as Prime Wall / PaidBucksy / RadiantWall: GemiAd's own
+// integration page (gemiad.com/monetize) lists "Iframe Wall" as the
+// Recommended web integration over their Advanced API — a ready-made embed
+// at gemiwall.com/PLACEMENT_ID/USER_ID that already contains their whole
+// offer-list UI, so no feed.js/card-grid needed on our side.
+// GEMIAD_PLACEMENT_ID is the Placement/app-card id shown on the GemiAd
+// dashboard (dashboard.gemiad.com) for this site's placement — same id
+// gemiad-postback.js's counterpart config should already be using.
+const GEMIAD_PLACEMENT_ID = '6a900ec9d7e247e9a4fd0b74';
 
-function gemiadCardHTML(o, idx){
-  const iconInner = o.image
-    ? `<img src="${o.image}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:13px;" onerror="this.onerror=null;this.style.display='none';this.parentElement.textContent='🎯';">`
-    : '🎯';
-  return `
-    <div class="ow-card" onclick="openOfferDetail(currentOfferList[${idx}])">
-      <div class="ow-icon" style="background:#161a1f;overflow:hidden;">${iconInner}</div>
-      <div class="ow-info">
-        <div class="ow-title">${o.title}</div>
-        <div class="ow-desc">${o.desc}</div>
-      </div>
-      <div class="ow-reward"><svg class="icon"><use href="#icon-coin"/></svg>${o.coins}</div>
-    </div>`;
-}
-
-async function openGemiadOfferwall(){
+function openGemiadOfferwall(){
   owBrandName.textContent = 'GemiAd';
-  setOfferwallMode('grid');
-  owGrid.innerHTML = '<div class="ow-empty">Loading offers…</div>';
   owOverlay.classList.add('show');
   document.body.style.overflow = 'hidden';
 
-  try{
-    const res = await fetch(`${API_BASE}/offers/gemiad-feed`);
-
-    if(res.status === 401){
-      owGrid.innerHTML = '<div class="ow-empty">অফার দেখতে আগে সাইন ইন করুন।</div>';
-      return;
-    }
-    if(!res.ok) throw new Error('gemiad feed request failed: ' + res.status);
-
-    const data = await res.json();
-    console.log('GemiAd feed — raw response:', data.raw ?? data);
-
-    const offers = (data.offers || []).map(normalizeGemiadOffer).filter(Boolean);
-    currentOfferList = offers;
-    owGrid.innerHTML = offers.length
-      ? offers.map((o, idx) => gemiadCardHTML(o, idx)).join('')
-      : '<div class="ow-empty">No offers available at the moment</div>';
-  }catch(err){
-    console.error('GemiAd offerwall error:', err);
-    owGrid.innerHTML = '<div class="ow-empty">অফার লোড করা যায়নি, একটু পর আবার চেষ্টা করুন।</div>';
+  if(!currentUserId){
+    // Not signed in — reuse the grid area just to show the same message the other providers use
+    setOfferwallMode('grid');
+    owGrid.innerHTML = '<div class="ow-empty">অফার দেখতে আগে সাইন ইন করুন।</div>';
+    return;
   }
+
+  setOfferwallMode('iframe');
+  owIframe.src = `https://gemiwall.com/${GEMIAD_PLACEMENT_ID}/${encodeURIComponent(currentUserId)}`;
 }
 
 // ---------- Prime Wall — embedded via their offerwall iframe (no JSON feed API) ----------
@@ -1673,7 +1635,7 @@ function closeOfferwall(){
   owOverlay.classList.remove('show');
   document.body.style.overflow = '';
   closeOfferDetail();
-  owIframe.src = 'about:blank'; // stop the Prime Wall / RadiantWall / PaidBucksy iframe running in the background
+  owIframe.src = 'about:blank'; // stop the Prime Wall / RadiantWall / PaidBucksy / GemiAd iframe running in the background
 }
 
 owClose.addEventListener('click', closeOfferwall);
