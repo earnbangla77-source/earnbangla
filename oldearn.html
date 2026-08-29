@@ -400,94 +400,46 @@
   .offer-desc{font-size:12.5px;color:var(--text-faint);line-height:1.5;flex:1;}
   .offer-card .btn-primary{justify-content:center;width:100%;padding:9px;font-size:13px;}
 
-  /* partners — horizontal auto-scrolling row (logo-first cards) */
+  /* partners */
   .partners-grid{
     position:relative;z-index:1;
-    display:flex;
-    gap:16px;
-    overflow-x:auto;
-    scroll-behavior:smooth;
-    scroll-snap-type:x proximity;
-    padding-bottom:2px;
-    -ms-overflow-style:none;
-    scrollbar-width:none;
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:18px;
   }
-  .partners-grid::-webkit-scrollbar{display:none;}
   .partner-card{
-    flex:0 0 168px;
-    scroll-snap-align:start;
-    display:block;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    text-align:left;
     background:none;
     cursor:pointer;
   }
   .partner-tile{
-    height:236px;
+    height:230px;
     border-radius:var(--radius);
     display:flex;
-    flex-direction:column;
     align-items:center;
-    justify-content:flex-end;
+    justify-content:center;
     box-shadow:var(--sh-sm);
     border:1px solid var(--border);
     transition:transform .3s ease, box-shadow .3s ease;
     position:relative;
     overflow:hidden;
-    padding:16px 12px 14px;
-    gap:7px;
-    text-align:center;
   }
   .partner-tile:hover{transform:translateY(-6px);box-shadow:var(--sh-lg);}
-  .partner-logo-wrap{
-    flex:1;
-    width:100%;
-    min-height:0;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    padding-top:6px;
-  }
-  /* real provider logo — dropped into /images/offerwall/<slug>.png; falls back
-     to the wordmark below via onerror in the markup until the file exists.
-     Capped at 62%/58% (not 100%) so a real logo image sits comfortably inside
-     the tile instead of dominating it. */
-  .partner-logo{
-    max-width:62%;
-    max-height:58%;
-    width:auto;
-    height:auto;
-    object-fit:contain;
-    filter:drop-shadow(0 8px 16px rgba(0,0,0,.35));
-  }
   .partner-wordmark{
     font-weight:800;
-    font-size:15px;
+    font-size:20px;
     letter-spacing:.5px;
     color:#fff;
   }
   .partner-name{
+    text-align:center;
     font-weight:700;
     font-size:13.5px;
-    color:#fff;
-  }
-  .partner-stars{
-    display:block;
-    color:var(--amber);
-    font-size:11px;
-    letter-spacing:1.5px;
-  }
-
-  /* prev/next arrows for the partners scroll row */
-  .scroll-nav{display:flex;align-items:center;gap:8px;}
-  .scroll-nav-btn{
-    width:32px;height:32px;border-radius:9px;
-    background:var(--panel-2);border:1px solid var(--border);
     color:var(--text-dim);
-    display:flex;align-items:center;justify-content:center;
-    transition:.2s ease;flex-shrink:0;
   }
-  .scroll-nav-btn:hover{background:var(--panel);color:var(--text);}
-  .scroll-nav-btn .icon{width:15px;height:15px;}
-  .scroll-nav-btn:disabled{opacity:.35;cursor:default;pointer-events:none;}
 
   /* reveal */
   .reveal{opacity:0;transform:translateY(22px);transition:opacity .7s ease, transform .7s ease;}
@@ -693,11 +645,13 @@
   /* ---------- responsive ---------- */
   @media (max-width:1100px){
     .offers-grid{grid-template-columns:repeat(3,1fr);}
+    .partners-grid{grid-template-columns:repeat(4,1fr);}
     .footer-inner{grid-template-columns:1.2fr 1fr 1fr;}
     .ow-grid{grid-template-columns:repeat(2,1fr);}
   }
   @media (max-width:900px){
     .offers-grid{grid-template-columns:repeat(2,1fr);}
+    .partners-grid{grid-template-columns:repeat(3,1fr);}
     .footer-inner{grid-template-columns:1fr 1fr;row-gap:28px;}
   }
   @media (max-width:768px){
@@ -706,8 +660,7 @@
     .ticker-track{padding:0 16px;}
     .section-title{font-size:16.5px;}
     .offer-section,.partners-section{padding:20px 16px 24px;}
-    .partner-card{flex-basis:136px;}
-    .partner-tile{height:196px;padding:12px 10px 11px;}
+    .partners-grid{grid-template-columns:repeat(2,1fr);}
     .sidebar{width:82vw;max-width:300px;}
     .ow-grid{grid-template-columns:1fr;}
     .ow-modal{max-height:92vh;}
@@ -770,7 +723,6 @@
     <symbol id="icon-pin" viewBox="0 0 24 24"><path d="M12 21s7-6.6 7-11.5A7 7 0 0 0 5 9.5C5 14.4 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.3"/></symbol>
     <symbol id="icon-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.6 2.6L16.5 9"/></symbol>
     <symbol id="icon-back" viewBox="0 0 24 24"><path d="M15 5 8 12l7 7"/></symbol>
-    <symbol id="icon-chevron-right" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
   </defs>
 </svg>
 
@@ -876,44 +828,62 @@
         <section class="partners-section reveal">
           <div class="section-head">
             <div class="section-title">
-              <span class="icon-wrap"><svg class="icon"><use href="#icon-flame"/></svg></span>
-              Featured Offerwalls
-            </div>
-            <div style="display:flex;align-items:center;gap:10px;">
-              <div class="scroll-nav">
-                <button class="scroll-nav-btn" id="featuredWallsPrev" aria-label="Scroll left" type="button">
-                  <svg class="icon"><use href="#icon-back"/></svg>
-                </button>
-                <button class="scroll-nav-btn" id="featuredWallsNext" aria-label="Scroll right" type="button">
-                  <svg class="icon"><use href="#icon-chevron-right"/></svg>
-                </button>
-              </div>
-              <button class="btn-dark btn-sm">View All</button>
-            </div>
-          </div>
-          <div class="partners-grid" id="featuredWallsGrid"></div>
-        </section>
-
-        <section class="partners-section reveal">
-          <div class="section-head">
-            <div class="section-title">
               <span class="icon-wrap"><svg class="icon"><use href="#icon-sparkle"/></svg></span>
               Offers Partners
               <span class="info-btn">?</span>
             </div>
-            <div style="display:flex;align-items:center;gap:10px;">
-              <div class="scroll-nav">
-                <button class="scroll-nav-btn" id="partnersPrev" aria-label="Scroll left" type="button">
-                  <svg class="icon"><use href="#icon-back"/></svg>
-                </button>
-                <button class="scroll-nav-btn" id="partnersNext" aria-label="Scroll right" type="button">
-                  <svg class="icon"><use href="#icon-chevron-right"/></svg>
-                </button>
-              </div>
-              <button class="btn-dark btn-sm">View All</button>
-            </div>
+            <button class="btn-dark btn-sm">View All</button>
           </div>
-          <div class="partners-grid" id="partnersGrid"></div>
+          <div class="partners-grid" id="partnersGrid">
+            <button class="partner-card" onclick="openOfferwall('Offery')">
+              <div class="partner-tile" style="background:linear-gradient(160deg,#2a1a33,#1a0f22);">
+                <span class="partner-wordmark">OFFERY</span>
+              </div>
+              <span class="partner-name">Offery</span>
+            </button>
+            <button class="partner-card" onclick="openOfferwall('Revtoo')">
+              <div class="partner-tile" style="background:linear-gradient(160deg,#132a1e,#0d1a14);">
+                <span class="partner-wordmark">REVTOO</span>
+              </div>
+              <span class="partner-name">Revtoo</span>
+            </button>
+            <button class="partner-card" onclick="openOfferwall('PaidBucksy')">
+              <div class="partner-tile" style="background:linear-gradient(160deg,#2a2213,#1a150d);">
+                <span class="partner-wordmark">PAIDBUCKSY</span>
+              </div>
+              <span class="partner-name">PaidBucksy</span>
+            </button>
+            <button class="partner-card" onclick="openOfferwall('Prime Wall')">
+              <div class="partner-tile" style="background:linear-gradient(160deg,#12283a,#0a1620);">
+                <span class="partner-wordmark">PRIME WALL</span>
+              </div>
+              <span class="partner-name">Prime Wall</span>
+            </button>
+            <button class="partner-card" onclick="openOfferwall('RadiantWall')">
+              <div class="partner-tile" style="background:linear-gradient(160deg,#3a1228,#1c0a16);">
+                <span class="partner-wordmark">RADIANTWALL</span>
+              </div>
+              <span class="partner-name">RadiantWall</span>
+            </button>
+            <button class="partner-card" onclick="openOfferwall('Admantum')">
+              <div class="partner-tile" style="background:linear-gradient(160deg,#0f2a2a,#0a1a1a);">
+                <span class="partner-wordmark">ADMANTUM</span>
+              </div>
+              <span class="partner-name">Admantum</span>
+            </button>
+            <button class="partner-card" onclick="openOfferwall('Taskwall')">
+              <div class="partner-tile" style="background:linear-gradient(160deg,#2a1810,#1a0f0a);">
+                <span class="partner-wordmark">TASKWALL</span>
+              </div>
+              <span class="partner-name">Taskwall</span>
+            </button>
+            <button class="partner-card" onclick="openOfferwall('GemiAd')">
+              <div class="partner-tile" style="background:linear-gradient(160deg,#1a1f3a,#0d0f22);">
+                <span class="partner-wordmark">GEMIAD</span>
+              </div>
+              <span class="partner-name">GemiAd</span>
+            </button>
+          </div>
         </section>
 
       </div>
@@ -1172,67 +1142,6 @@ function setOfferwallMode(mode){
     owGrid.style.display = '';
     owIframeWrap.style.display = 'none';
   }
-}
-
-// ---------- Offerwall partners — two independent lists ----------
-// "Offers Partners" (OFFERWALL_PARTNERS) = the 8 walls already integrated
-// with real postback/feed code below.
-// "Featured Offerwalls" (FEATURED_OFFERWALLS) = a SEPARATE, currently-empty
-// list — for different providers you plan to set up specifically for that
-// row. It does NOT reuse/duplicate entries from OFFERWALL_PARTNERS. Add
-// objects here in the same shape once you're ready to wire a provider in;
-// the section stays hidden automatically while this list is empty.
-const OFFERWALL_PARTNERS = [
-  { name: 'Offery',      slug: 'offery',      wordmark: 'OFFERY',      bg: 'linear-gradient(160deg,#2a1a33,#1a0f22)' },
-  { name: 'Revtoo',      slug: 'revtoo',      wordmark: 'REVTOO',      bg: 'linear-gradient(160deg,#132a1e,#0d1a14)' },
-  { name: 'PaidBucksy',  slug: 'paidbucksy',  wordmark: 'PAIDBUCKSY',  bg: 'linear-gradient(160deg,#2a2213,#1a150d)' },
-  { name: 'Prime Wall',  slug: 'primewall',   wordmark: 'PRIME WALL',  bg: 'linear-gradient(160deg,#12283a,#0a1620)' },
-  { name: 'RadiantWall', slug: 'radiantwall', wordmark: 'RADIANTWALL', bg: 'linear-gradient(160deg,#3a1228,#1c0a16)' },
-  { name: 'Admantum',    slug: 'admantum',    wordmark: 'ADMANTUM',   bg: 'linear-gradient(160deg,#0f2a2a,#0a1a1a)' },
-  { name: 'Taskwall',    slug: 'taskwall',    wordmark: 'TASKWALL',   bg: 'linear-gradient(160deg,#2a1810,#1a0f0a)' },
-  { name: 'GemiAd',      slug: 'gemiad',      wordmark: 'GEMIAD',     bg: 'linear-gradient(160deg,#1a1f3a,#0d0f22)' },
-];
-
-const FEATURED_OFFERWALLS = [
-  // Example of what to add here later:
-  // { name: 'NewWall', slug: 'newwall', wordmark: 'NEWWALL', bg: 'linear-gradient(160deg,#2a1a33,#1a0f22)' },
-];
-
-function partnerCardHTML(p){
-  return `
-    <button class="partner-card" onclick="openOfferwall('${p.name}')">
-      <div class="partner-tile" style="background:${p.bg};">
-        <div class="partner-logo-wrap">
-          <img class="partner-logo" src="images/offerwall/${p.slug}.png" alt="${p.name}" loading="lazy"
-               onload="this.nextElementSibling.style.display='none';" onerror="this.remove();">
-          <span class="partner-wordmark">${p.wordmark}</span>
-        </div>
-        <span class="partner-name">${p.name}</span>
-        <span class="partner-stars">★★★★★</span>
-      </div>
-    </button>`;
-}
-
-// Renders `list` into #containerId. If the list is empty, the whole
-// enclosing .partners-section is hidden instead of showing an empty row —
-// so Featured Offerwalls simply won't appear on the page until you add
-// something to FEATURED_OFFERWALLS above.
-function renderPartnersRow(containerId, list){
-  const el = document.getElementById(containerId);
-  if(!el) return;
-  const section = el.closest('.partners-section');
-  if(!list.length){
-    if(section) section.style.display = 'none';
-    el.innerHTML = '';
-    return;
-  }
-  if(section) section.style.display = '';
-  el.innerHTML = list.map(partnerCardHTML).join('');
-}
-
-function renderAllPartnerRows(){
-  renderPartnersRow('featuredWallsGrid', FEATURED_OFFERWALLS);
-  renderPartnersRow('partnersGrid', OFFERWALL_PARTNERS);
 }
 
 function openOfferwall(partner){
@@ -1803,62 +1712,6 @@ function initReveal(){
   items.forEach(i=>obs.observe(i));
 }
 
-// ---------- 6) PARTNERS ROWS — auto-scrolling carousel + prev/next arrows ----------
-// Takes ids so it can be reused for every offerwall row (Featured Offerwalls,
-// Offers Partners, and any new row added later) instead of one-off copies.
-// Cards themselves stay plain buttons (openOfferwall(...)); this just moves
-// the row. Pauses on hover/touch so it never fights someone mid-scroll, and
-// loops back to the start once it reaches the end.
-function initPartnersScroll(trackId, prevId, nextId){
-  const track = document.getElementById(trackId);
-  const prevBtn = document.getElementById(prevId);
-  const nextBtn = document.getElementById(nextId);
-  if(!track) return;
-
-  const AUTO_INTERVAL = 2600; // ms between auto-advances
-  let autoTimer = null;
-
-  function stepSize(){
-    const card = track.querySelector('.partner-card');
-    if(!card) return 200;
-    const gap = parseFloat(getComputedStyle(track).columnGap || getComputedStyle(track).gap || 16);
-    return card.getBoundingClientRect().width + gap;
-  }
-
-  function atEnd(){
-    return track.scrollLeft >= track.scrollWidth - track.clientWidth - 4;
-  }
-
-  function advance(dir){
-    if(dir > 0 && atEnd()){
-      track.scrollTo({ left: 0, behavior: 'smooth' });
-    }else{
-      track.scrollBy({ left: dir * stepSize(), behavior: 'smooth' });
-    }
-  }
-
-  function startAuto(){
-    stopAuto();
-    autoTimer = setInterval(() => advance(1), AUTO_INTERVAL);
-  }
-  function stopAuto(){
-    if(autoTimer){ clearInterval(autoTimer); autoTimer = null; }
-  }
-
-  prevBtn?.addEventListener('click', () => { stopAuto(); advance(-1); startAuto(); });
-  nextBtn?.addEventListener('click', () => { stopAuto(); advance(1);  startAuto(); });
-
-  track.addEventListener('mouseenter', stopAuto);
-  track.addEventListener('mouseleave', startAuto);
-  track.addEventListener('touchstart', stopAuto, { passive: true });
-  track.addEventListener('touchend',   startAuto);
-  document.addEventListener('visibilitychange', () => {
-    if(document.hidden) stopAuto(); else startAuto();
-  });
-
-  startAuto();
-}
-
 // ---------- INIT ----------
 document.addEventListener('DOMContentLoaded', ()=>{
   initTicker();
@@ -1866,9 +1719,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   loadOffers('top',      'topOffers');
   loadOffers('featured', 'featuredOffers');
   initReveal();
-  renderAllPartnerRows();
-  initPartnersScroll('featuredWallsGrid', 'featuredWallsPrev', 'featuredWallsNext');
-  initPartnersScroll('partnersGrid', 'partnersPrev', 'partnersNext');
   checkSession();
 });
 </script>
