@@ -1191,6 +1191,7 @@ const OFFERWALL_PARTNERS = [
   { name: 'Admantum',    slug: 'admantum',    wordmark: 'ADMANTUM',   bg: 'linear-gradient(160deg,#0f2a2a,#0a1a1a)' },
   { name: 'Taskwall',    slug: 'taskwall',    wordmark: 'TASKWALL',   bg: 'linear-gradient(160deg,#2a1810,#1a0f0a)' },
   { name: 'GemiAd',      slug: 'gemiad',      wordmark: 'GEMIAD',     bg: 'linear-gradient(160deg,#1a1f3a,#0d0f22)' },
+  { name: 'Nexowall',    slug: 'nexowall',    wordmark: 'NEXOWALL',   bg: 'linear-gradient(160deg,#1a2a3a,#0d1a22)' },
 ];
 
 const FEATURED_OFFERWALLS = [
@@ -1275,6 +1276,10 @@ function openOfferwall(partner){
   }
   if(partner === 'VortexWall'){
     openVortexwallOfferwall();
+    return;
+  }
+  if(partner === 'Nexowall'){
+    openNexowallOfferwall();
     return;
   }
   if(partner === 'CPAlead'){
@@ -1644,6 +1649,33 @@ function openRadiantWallOfferwall(){
   owIframe.src = `https://radientwall.com/offer/${RADIANTWALL_PUBLIC_KEY}/${encodeURIComponent(currentUserId)}`;
 }
 
+// ---------- Nexowall — embedded via their offerwall iframe (Type B, no JSON feed API) ----------
+// Same pattern as RadiantWall/PaidBucksy: Nexowall's dashboard doesn't
+// expose a JSON offer feed either — it only gives a ready-made iframe
+// tracking link: https://nexowall.me/live-offers?app_id=APP_ID&user_id=USER_ID
+// Keep NEXOWALL_APP_ID in sync with the App ID shown on the Nexowall
+// dashboard (Placements page, "Earn bangla" row).
+// ⚠️ App ID has 'o' vs '0' ambiguity between the placements table screenshot
+// and the iframe URL you pasted — double-check against the dashboard before
+// treating this as final, a wrong char here will silently 404 like VortexWall.
+const NEXOWALL_APP_ID = 'v60h0rr3GtO6fUGg';
+
+function openNexowallOfferwall(){
+  owBrandName.textContent = 'Nexowall';
+  owOverlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+
+  if(!currentUserId){
+    // Not signed in — reuse the grid area just to show the same message Offery/Prime Wall use
+    setOfferwallMode('grid');
+    owGrid.innerHTML = '<div class="ow-empty">অফার দেখতে আগে সাইন ইন করুন।</div>';
+    return;
+  }
+
+  setOfferwallMode('iframe');
+  owIframe.src = `https://nexowall.me/live-offers?app_id=${NEXOWALL_APP_ID}&user_id=${encodeURIComponent(currentUserId)}`;
+}
+
 // ---------- VortexWall — embedded via their offerwall iframe (Type B, no JSON feed API) ----------
 // Confirmed iframe URL format: https://vortexwall.com/ow/PLACEMENT_ID/USER_ID
 // (the trailing path segment IS the identity_id — same value the postback
@@ -1706,7 +1738,7 @@ function closeOfferwall(){
   owOverlay.classList.remove('show');
   document.body.style.overflow = '';
   closeOfferDetail();
-  owIframe.src = 'about:blank'; // stop the Prime Wall / RadiantWall / PaidBucksy / GemiAd / VortexWall / CPAlead iframe running in the background
+  owIframe.src = 'about:blank'; // stop the Prime Wall / RadiantWall / PaidBucksy / GemiAd / Nexowall / VortexWall / CPAlead iframe running in the background
 }
 
 owClose.addEventListener('click', closeOfferwall);
