@@ -1194,8 +1194,8 @@ const OFFERWALL_PARTNERS = [
 ];
 
 const FEATURED_OFFERWALLS = [
-  // Example of what to add here later:
-  // { name: 'NewWall', slug: 'newwall', wordmark: 'NEWWALL', bg: 'linear-gradient(160deg,#2a1a33,#1a0f22)' },
+  { name: 'VortexWall', slug: 'vortexwall', wordmark: 'VORTEXWALL', bg: 'linear-gradient(160deg,#2a1030,#170a1c)' },
+  { name: 'CPAlead',    slug: 'cpalead',    wordmark: 'CPALEAD',    bg: 'linear-gradient(160deg,#0f2438,#0a1620)' },
 ];
 
 function partnerCardHTML(p){
@@ -1266,6 +1266,14 @@ function openOfferwall(partner){
   }
   if(partner === 'GemiAd'){
     openGemiadOfferwall();
+    return;
+  }
+  if(partner === 'VortexWall'){
+    openVortexwallOfferwall();
+    return;
+  }
+  if(partner === 'CPAlead'){
+    openCpaleadOfferwall();
     return;
   }
 }
@@ -1631,11 +1639,70 @@ function openRadiantWallOfferwall(){
   owIframe.src = `https://radientwall.com/offer/${RADIANTWALL_PUBLIC_KEY}/${encodeURIComponent(currentUserId)}`;
 }
 
+// ---------- VortexWall — embedded via their offerwall iframe (Type B, no JSON feed API) ----------
+// Confirmed iframe URL format: https://vortexwall.com/ow/PLACEMENT_ID/USER_ID
+// (the trailing path segment IS the identity_id — same value the postback
+// later receives back as {identity_id} in vortexwall-postback.js). Keep
+// VORTEXWALL_PLACEMENT_ID in sync with the placement id shown on
+// publisher.vortexwall.com/placement if you ever create a second placement.
+const VORTEXWALL_PLACEMENT_ID = '66c8b5c978b9f28fe2e';
+
+function openVortexwallOfferwall(){
+  owBrandName.textContent = 'VortexWall';
+  owOverlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+
+  if(!currentUserId){
+    // Not signed in — reuse the grid area just to show the same message the other providers use
+    setOfferwallMode('grid');
+    owGrid.innerHTML = '<div class="ow-empty">অফার দেখতে আগে সাইন ইন করুন।</div>';
+    return;
+  }
+
+  setOfferwallMode('iframe');
+  owIframe.src = `https://vortexwall.com/ow/${VORTEXWALL_PLACEMENT_ID}/${encodeURIComponent(currentUserId)}`;
+}
+
+// ---------- CPAlead — embedded via their offerwall iframe (no JSON feed API uploaded) ----------
+// Unlike VortexWall/Prime Wall/etc, CPAlead does NOT have one fixed iframe
+// URL for everyone — id/pub/gate_id/pc_id below must be YOUR OWN
+// account/offerwall ids, taken from YOUR "Create Offerwall" → Get Code page
+// (cpalead.com/en/tools/create-offerwall), confirmed URL shape:
+//   https://cdnflair.com/view.php?id=ID&pub=PUB&gate_id=GATE_ID&subid=SUBID&pc_id=PC_ID
+// (CPAlead serves the wall itself off their cdnflair.com CDN domain, not
+// cpalead.com directly.) id/pub/gate_id/pc_id are fixed per your account —
+// only subid changes per visitor, which we set to currentUserId at runtime.
+// ⚠️ Do NOT paste values copied from someone else's live wall/site — those
+// route conversions (and postbacks) to THEIR CPAlead account, not yours,
+// and violate CPAlead's terms. Fill these in only from your own dashboard.
+// Also: when creating the wall, set "Points per $1.00 payout" to 1000 to
+// match COINS_PER_DOLLAR in cpalead-postback.js and every other provider.
+const CPALEAD_ID = 'REPLACE_WITH_YOUR_CPALEAD_OFFERWALL_ID';
+const CPALEAD_PUB_ID = 'REPLACE_WITH_YOUR_CPALEAD_PUB_ID';
+const CPALEAD_GATE_ID = 'REPLACE_WITH_YOUR_CPALEAD_GATE_ID';
+const CPALEAD_PC_ID = 'REPLACE_WITH_YOUR_CPALEAD_PC_ID';
+
+function openCpaleadOfferwall(){
+  owBrandName.textContent = 'CPAlead';
+  owOverlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+
+  if(!currentUserId){
+    // Not signed in — reuse the grid area just to show the same message the other providers use
+    setOfferwallMode('grid');
+    owGrid.innerHTML = '<div class="ow-empty">অফার দেখতে আগে সাইন ইন করুন।</div>';
+    return;
+  }
+
+  setOfferwallMode('iframe');
+  owIframe.src = `https://cdnflair.com/view.php?id=${CPALEAD_ID}&pub=${CPALEAD_PUB_ID}&gate_id=${CPALEAD_GATE_ID}&subid=${encodeURIComponent(currentUserId)}&pc_id=${CPALEAD_PC_ID}`;
+}
+
 function closeOfferwall(){
   owOverlay.classList.remove('show');
   document.body.style.overflow = '';
   closeOfferDetail();
-  owIframe.src = 'about:blank'; // stop the Prime Wall / RadiantWall / PaidBucksy / GemiAd iframe running in the background
+  owIframe.src = 'about:blank'; // stop the Prime Wall / RadiantWall / PaidBucksy / GemiAd / VortexWall / CPAlead iframe running in the background
 }
 
 owClose.addEventListener('click', closeOfferwall);
