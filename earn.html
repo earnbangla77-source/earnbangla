@@ -1194,7 +1194,7 @@ const OFFERWALL_PARTNERS = [
 ];
 
 const FEATURED_OFFERWALLS = [
-  { name: 'VortexWall', slug: 'vortexwall', wordmark: 'VORTEXWALL', bg: 'linear-gradient(160deg,#2a1030,#170a1c)' },
+  { name: 'VortexWall', slug: 'vortexwall', wordmark: 'VORTEXWALL', bg: 'linear-gradient(160deg,#4a3268,#2e2148)' },
   { name: 'CPAlead',    slug: 'cpalead',    wordmark: 'CPALEAD',    bg: 'linear-gradient(160deg,#0f2438,#0a1620)' },
 ];
 
@@ -1236,6 +1236,11 @@ function renderAllPartnerRows(){
 }
 
 function openOfferwall(partner){
+  // Reset iframe-only attributes some providers need (e.g. CPAlead's sandbox
+  // + referrerpolicy) so they don't leak into whichever wall opens next.
+  owIframe.removeAttribute('sandbox');
+  owIframe.removeAttribute('referrerpolicy');
+
   if(partner === 'Offery'){
     openOfferyOfferwall();
     return;
@@ -1664,23 +1669,18 @@ function openVortexwallOfferwall(){
 }
 
 // ---------- CPAlead — embedded via their offerwall iframe (no JSON feed API uploaded) ----------
-// Unlike VortexWall/Prime Wall/etc, CPAlead does NOT have one fixed iframe
-// URL for everyone — id/pub/gate_id/pc_id below must be YOUR OWN
-// account/offerwall ids, taken from YOUR "Create Offerwall" → Get Code page
-// (cpalead.com/en/tools/create-offerwall), confirmed URL shape:
-//   https://cdnflair.com/view.php?id=ID&pub=PUB&gate_id=GATE_ID&subid=SUBID&pc_id=PC_ID
-// (CPAlead serves the wall itself off their cdnflair.com CDN domain, not
-// cpalead.com directly.) id/pub/gate_id/pc_id are fixed per your account —
-// only subid changes per visitor, which we set to currentUserId at runtime.
-// ⚠️ Do NOT paste values copied from someone else's live wall/site — those
-// route conversions (and postbacks) to THEIR CPAlead account, not yours,
-// and violate CPAlead's terms. Fill these in only from your own dashboard.
-// Also: when creating the wall, set "Points per $1.00 payout" to 1000 to
-// match COINS_PER_DOLLAR in cpalead-postback.js and every other provider.
-const CPALEAD_ID = 'REPLACE_WITH_YOUR_CPALEAD_OFFERWALL_ID';
-const CPALEAD_PUB_ID = 'REPLACE_WITH_YOUR_CPALEAD_PUB_ID';
-const CPALEAD_GATE_ID = 'REPLACE_WITH_YOUR_CPALEAD_GATE_ID';
-const CPALEAD_PC_ID = 'REPLACE_WITH_YOUR_CPALEAD_PC_ID';
+// Real "Get Code" snippet from your own CPAlead offerwall (Reward Tools →
+// Offerwall → Create Offerwall → Get Code):
+//   <iframe sandbox='allow-popups allow-same-origin allow-scripts allow-forms
+//     allow-top-navigation-by-user-activation allow-popups-to-escape-sandbox'
+//     referrerpolicy='no-referrer' src='https://www.qckclk.com/wall/jYZJ' ...>
+// CPAlead actually serves this wall off their qckclk.com short-link/tracking
+// domain, not cpalead.com or cdnflair.com. CPALEAD_WALL_ID is your fixed
+// wall id; since "Ask visitors for a username" was left UNCHECKED when this
+// wall was created, we append ?subid=USER_ID ourselves (per CPAlead's own
+// note on that setting) so conversions match back to the right user via
+// {subid} in cpalead-postback.js.
+const CPALEAD_WALL_ID = 'jYZJ';
 
 function openCpaleadOfferwall(){
   owBrandName.textContent = 'CPAlead';
@@ -1695,7 +1695,11 @@ function openCpaleadOfferwall(){
   }
 
   setOfferwallMode('iframe');
-  owIframe.src = `https://cdnflair.com/view.php?id=${CPALEAD_ID}&pub=${CPALEAD_PUB_ID}&gate_id=${CPALEAD_GATE_ID}&subid=${encodeURIComponent(currentUserId)}&pc_id=${CPALEAD_PC_ID}`;
+  // CPAlead's own Get Code snippet asks for this specific sandbox +
+  // referrerpolicy combination — keep them in sync with the dashboard.
+  owIframe.setAttribute('sandbox', 'allow-popups allow-same-origin allow-scripts allow-forms allow-top-navigation-by-user-activation allow-popups-to-escape-sandbox');
+  owIframe.setAttribute('referrerpolicy', 'no-referrer');
+  owIframe.src = `https://www.qckclk.com/wall/${CPALEAD_WALL_ID}?subid=${encodeURIComponent(currentUserId)}`;
 }
 
 function closeOfferwall(){
