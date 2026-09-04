@@ -1231,7 +1231,7 @@ const HOT_OFFERS = [
 function hotOfferPlatformsHTML(o){
   if(!o.platforms || !o.platforms.length) return '';
   return `<div class="hot-offer-platforms">${
-    o.platforms.map(p => `<img src="image/icon/${p}.png" alt="${p}" loading="lazy" onerror="this.remove();">`).join('')
+    o.platforms.map(p => `<img src="images/icon/${p}.png" alt="${p}" loading="lazy" onerror="this.remove();">`).join('')
   }</div>`;
 }
 
@@ -1239,7 +1239,7 @@ function hotOfferCardHTML(o){
   return `
     <a class="hot-offer-card" href="${o.url || '#'}" target="_blank" rel="noopener">
       <div class="hot-offer-thumb">
-        <img class="hot-offer-logo" src="image/offercard/${o.slug}.png" alt="${o.title}" loading="lazy" onerror="this.style.opacity='0';">
+        <img class="hot-offer-logo" src="images/offercard/${o.slug}.png" alt="${o.title}" loading="lazy" onerror="this.style.opacity='0';">
         ${hotOfferPlatformsHTML(o)}
       </div>
       <div class="hot-offer-info">
