@@ -1192,6 +1192,7 @@ const OFFERWALL_PARTNERS = [
   { name: 'Taskwall',    slug: 'taskwall',    wordmark: 'TASKWALL',   bg: 'linear-gradient(160deg,#2a1810,#1a0f0a)' },
   { name: 'GemiAd',      slug: 'gemiad',      wordmark: 'GEMIAD',     bg: 'linear-gradient(160deg,#1a1f3a,#0d0f22)' },
   { name: 'Nexowall',    slug: 'nexowall',    wordmark: 'NEXOWALL',   bg: 'linear-gradient(160deg,#1a2a3a,#0d1a22)' },
+  { name: 'Gamwall',     slug: 'gamwall',     wordmark: 'GAMWALL',    bg: 'linear-gradient(160deg,#2a1a3a,#170d22)' },
 ];
 
 const FEATURED_OFFERWALLS = [
@@ -1284,6 +1285,10 @@ function openOfferwall(partner){
   }
   if(partner === 'CPAlead'){
     openCpaleadOfferwall();
+    return;
+  }
+  if(partner === 'Gamwall'){
+    openGamwallOfferwall();
     return;
   }
 }
@@ -1734,11 +1739,35 @@ function openCpaleadOfferwall(){
   owIframe.src = `https://www.qckclk.com/wall/${CPALEAD_WALL_ID}?subid=${encodeURIComponent(currentUserId)}`;
 }
 
+// ---------- Gamwall — embedded via their offerwall iframe (no JSON feed API) ----------
+// Same pattern as RadiantWall/Nexowall: Gamwall's publisher panel doesn't
+// expose a JSON offer feed either — it only gives a ready-made offerwall
+// URL: https://gamwall.com/offerwall.php?placement_id=57&user_id=USER_ID
+// Keep GAMWALL_PLACEMENT_ID in sync with the placement id shown on the
+// Gamwall Publisher Panel (Placement → id 57, "Earn Bangla").
+const GAMWALL_PLACEMENT_ID = '57';
+
+function openGamwallOfferwall(){
+  owBrandName.textContent = 'Gamwall';
+  owOverlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+
+  if(!currentUserId){
+    // Not signed in — reuse the grid area just to show the same message the other providers use
+    setOfferwallMode('grid');
+    owGrid.innerHTML = '<div class="ow-empty">অফার দেখতে আগে সাইন ইন করুন।</div>';
+    return;
+  }
+
+  setOfferwallMode('iframe');
+  owIframe.src = `https://gamwall.com/offerwall.php?placement_id=${GAMWALL_PLACEMENT_ID}&user_id=${encodeURIComponent(currentUserId)}`;
+}
+
 function closeOfferwall(){
   owOverlay.classList.remove('show');
   document.body.style.overflow = '';
   closeOfferDetail();
-  owIframe.src = 'about:blank'; // stop the Prime Wall / RadiantWall / PaidBucksy / GemiAd / Nexowall / VortexWall / CPAlead iframe running in the background
+  owIframe.src = 'about:blank'; // stop the Prime Wall / RadiantWall / PaidBucksy / GemiAd / Nexowall / VortexWall / CPAlead / Gamwall iframe running in the background
 }
 
 owClose.addEventListener('click', closeOfferwall);
