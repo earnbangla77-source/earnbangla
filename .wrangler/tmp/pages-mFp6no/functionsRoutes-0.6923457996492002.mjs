@@ -14,8 +14,12 @@ import { onRequestPost as __api_offers_admantum_postback_js_onRequestPost } from
 import { onRequestGet as __api_offers_cpalead_postback_js_onRequestGet } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\offers\\cpalead-postback.js"
 import { onRequestPost as __api_offers_cpalead_postback_js_onRequestPost } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\offers\\cpalead-postback.js"
 import { onRequestGet as __api_offers_earnings_js_onRequestGet } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\offers\\earnings.js"
+import { onRequestGet as __api_offers_gamwall_postback_js_onRequestGet } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\offers\\gamwall-postback.js"
+import { onRequestPost as __api_offers_gamwall_postback_js_onRequestPost } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\offers\\gamwall-postback.js"
 import { onRequestGet as __api_offers_gemiad_postback_js_onRequestGet } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\offers\\gemiad-postback.js"
 import { onRequestPost as __api_offers_gemiad_postback_js_onRequestPost } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\offers\\gemiad-postback.js"
+import { onRequestGet as __api_offers_nexowall_postback_js_onRequestGet } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\offers\\nexowall-postback.js"
+import { onRequestPost as __api_offers_nexowall_postback_js_onRequestPost } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\offers\\nexowall-postback.js"
 import { onRequestGet as __api_offers_offery_feed_js_onRequestGet } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\offers\\offery-feed.js"
 import { onRequestGet as __api_offers_offery_postback_js_onRequestGet } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\offers\\offery-postback.js"
 import { onRequestPost as __api_offers_offery_postback_js_onRequestPost } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\offers\\offery-postback.js"
@@ -152,6 +156,20 @@ export const routes = [
       modules: [__api_offers_earnings_js_onRequestGet],
     },
   {
+      routePath: "/api/offers/gamwall-postback",
+      mountPath: "/api/offers",
+      method: "GET",
+      middlewares: [],
+      modules: [__api_offers_gamwall_postback_js_onRequestGet],
+    },
+  {
+      routePath: "/api/offers/gamwall-postback",
+      mountPath: "/api/offers",
+      method: "POST",
+      middlewares: [],
+      modules: [__api_offers_gamwall_postback_js_onRequestPost],
+    },
+  {
       routePath: "/api/offers/gemiad-postback",
       mountPath: "/api/offers",
       method: "GET",
@@ -164,6 +182,20 @@ export const routes = [
       method: "POST",
       middlewares: [],
       modules: [__api_offers_gemiad_postback_js_onRequestPost],
+    },
+  {
+      routePath: "/api/offers/nexowall-postback",
+      mountPath: "/api/offers",
+      method: "GET",
+      middlewares: [],
+      modules: [__api_offers_nexowall_postback_js_onRequestGet],
+    },
+  {
+      routePath: "/api/offers/nexowall-postback",
+      mountPath: "/api/offers",
+      method: "POST",
+      middlewares: [],
+      modules: [__api_offers_nexowall_postback_js_onRequestPost],
     },
   {
       routePath: "/api/offers/offery-feed",

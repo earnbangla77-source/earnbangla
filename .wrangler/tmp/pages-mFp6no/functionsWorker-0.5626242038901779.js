@@ -467,8 +467,8 @@ async function onRequestPost3({ request, env }) {
   if (!user) {
     return errorJson("Invalid email or password.", 401);
   }
-  const ok7 = await verifyPassword(password, user.salt, user.password_hash);
-  if (!ok7) {
+  const ok8 = await verifyPassword(password, user.salt, user.password_hash);
+  if (!ok8) {
     return errorJson("Invalid email or password.", 401);
   }
   const { id: sessionId, expiresAt } = await createSession(db, user.id);
@@ -589,8 +589,8 @@ async function onRequestPost6({ request, env }) {
   if (!reset) {
     return errorJson(GENERIC_ERROR);
   }
-  const ok7 = await verifyPassword(otp, reset.otp_salt, reset.otp_hash);
-  if (!ok7) {
+  const ok8 = await verifyPassword(otp, reset.otp_salt, reset.otp_hash);
+  if (!ok8) {
     return errorJson(GENERIC_ERROR);
   }
   const { hash, salt } = await hashPassword(newPassword);
@@ -1019,6 +1019,108 @@ async function onRequestGet8({ request, env }) {
 }
 __name(onRequestGet8, "onRequestGet");
 
+// api/offers/gamwall-postback.js
+function respond(success, message, status = 200) {
+  if (!success) console.error("gamwall-postback:", message);
+  return new Response(JSON.stringify({ success, message }), {
+    status,
+    headers: { "content-type": "application/json" }
+  });
+}
+__name(respond, "respond");
+async function handlePostback3(request, env) {
+  const url = new URL(request.url);
+  let params = Object.fromEntries(url.searchParams.entries());
+  if (request.method === "POST") {
+    const contentType = request.headers.get("content-type") || "";
+    let bodyParams = {};
+    if (contentType.includes("application/json")) {
+      bodyParams = await request.json();
+    } else {
+      const formData = await request.formData();
+      bodyParams = Object.fromEntries(formData.entries());
+    }
+    params = { ...params, ...bodyParams };
+  }
+  const get = /* @__PURE__ */ __name((name) => params[name] ?? params[name.toLowerCase()] ?? params[name.toUpperCase()], "get");
+  const subId = String(get("subid1") || "");
+  const conversionId = String(get("conversion_id") || "");
+  const offerId = String(get("offer_id") || "");
+  const offerName = String(get("offer_name") || "");
+  const currencyAmount = parseFloat(get("currency_amount"));
+  const payout = parseFloat(get("payout")) || 0;
+  const status = String(get("status") || "").toLowerCase();
+  const key = String(get("key") || "");
+  const expectedKey = env.GAMWALL_POSTBACK_KEY || "";
+  if (expectedKey && key !== expectedKey) {
+    return respond(false, "Invalid or missing key.", 403);
+  }
+  if (!subId || !conversionId || !Number.isFinite(currencyAmount)) {
+    return respond(false, "Missing or invalid parameters.", 400);
+  }
+  const userId = subId;
+  const coins = Math.round(Math.abs(currencyAmount));
+  console.log("gamwall-postback:", { userId, conversionId, offerId, offerName, coins, status });
+  if (status === "chargeback") {
+    const existing = await env.DB.prepare(
+      `SELECT id, coins_earned FROM offer_completions WHERE provider = 'gamwall' AND transaction_id = ? AND status = 'credited'`
+    ).bind(conversionId).first();
+    if (!existing) {
+      return respond(true, "No matching credited transaction to reverse.");
+    }
+    await env.DB.prepare(
+      `UPDATE users
+       SET coins = MAX(coins - ?, 0),
+           completed_offers = MAX(completed_offers - 1, 0),
+           total_earning = MAX(total_earning - ?, 0)
+       WHERE id = ?`
+    ).bind(existing.coins_earned, existing.coins_earned, userId).run();
+    await env.DB.prepare(`UPDATE offer_completions SET status = 'chargeback' WHERE id = ?`).bind(existing.id).run();
+    return respond(true, "Chargeback processed.");
+  }
+  if (status !== "approved") {
+    return respond(true, `Status "${status}" ignored (no credit).`);
+  }
+  const dup3 = await env.DB.prepare(
+    `SELECT id FROM offer_completions WHERE provider = 'gamwall' AND transaction_id = ?`
+  ).bind(conversionId).first();
+  if (dup3) {
+    return respond(false, "Duplicate transaction");
+  }
+  const update = await env.DB.prepare(
+    `UPDATE users
+     SET coins = coins + ?,
+         completed_offers = completed_offers + 1,
+         total_earning = total_earning + ?
+     WHERE id = ?`
+  ).bind(coins, coins, userId).run();
+  if (!update.success || update.meta.changes === 0) {
+    return respond(false, "User not found.", 404);
+  }
+  await env.DB.prepare(
+    `INSERT INTO offer_completions (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
+     VALUES ('gamwall', ?, ?, ?, ?, ?, 'credited', datetime('now'))`
+  ).bind(userId, offerId, conversionId, payout, coins).run();
+  return respond(true, "Reward added successfully");
+}
+__name(handlePostback3, "handlePostback");
+async function onRequestPost9(context) {
+  try {
+    return await handlePostback3(context.request, context.env);
+  } catch (err) {
+    return respond(false, err.message || "Server error", 500);
+  }
+}
+__name(onRequestPost9, "onRequestPost");
+async function onRequestGet9(context) {
+  try {
+    return await handlePostback3(context.request, context.env);
+  } catch (err) {
+    return respond(false, err.message || "Server error", 500);
+  }
+}
+__name(onRequestGet9, "onRequestGet");
+
 // api/offers/gemiad-postback.js
 function approved() {
   return new Response("Approved", { status: 200, headers: { "content-type": "text/plain" } });
@@ -1035,7 +1137,7 @@ async function sha256Hex(text) {
   return Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 __name(sha256Hex, "sha256Hex");
-async function handlePostback3(request, env) {
+async function handlePostback4(request, env) {
   const url = new URL(request.url);
   const params = Object.fromEntries(url.searchParams.entries());
   const userId = String(params.userId || "");
@@ -1107,27 +1209,127 @@ async function handlePostback3(request, env) {
   }
   return fail2(`Unknown status: ${status}`, 400);
 }
-__name(handlePostback3, "handlePostback");
-async function onRequestGet9(context) {
+__name(handlePostback4, "handlePostback");
+async function onRequestGet10(context) {
   try {
-    return await handlePostback3(context.request, context.env);
+    return await handlePostback4(context.request, context.env);
   } catch (err) {
     return fail2(err.message || "Server error", 500);
   }
 }
-__name(onRequestGet9, "onRequestGet");
-async function onRequestPost9(context) {
+__name(onRequestGet10, "onRequestGet");
+async function onRequestPost10(context) {
   try {
-    return await handlePostback3(context.request, context.env);
+    return await handlePostback4(context.request, context.env);
   } catch (err) {
     return fail2(err.message || "Server error", 500);
   }
 }
-__name(onRequestPost9, "onRequestPost");
+__name(onRequestPost10, "onRequestPost");
+
+// api/offers/nexowall-postback.js
+function ok2() {
+  return new Response("OK", { status: 200, headers: { "content-type": "text/plain" } });
+}
+__name(ok2, "ok");
+function fail3(message, status = 400) {
+  console.error("nexowall-postback:", message);
+  return new Response(message, { status, headers: { "content-type": "text/plain" } });
+}
+__name(fail3, "fail");
+async function readParams2(request) {
+  const url = new URL(request.url);
+  const params = Object.fromEntries(url.searchParams.entries());
+  if (Object.keys(params).length > 0) {
+    return params;
+  }
+  if (request.method === "POST") {
+    try {
+      const contentType = request.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        return await request.json();
+      }
+      if (contentType.includes("form")) {
+        const formData = await request.formData();
+        return Object.fromEntries(formData.entries());
+      }
+    } catch {
+    }
+  }
+  return params;
+}
+__name(readParams2, "readParams");
+async function handlePostback5(request, env) {
+  const debugRawBody = await request.clone().text().catch(() => "<unreadable>");
+  console.log("nexowall-postback: DEBUG incoming request", {
+    method: request.method,
+    contentType: request.headers.get("content-type"),
+    url: request.url,
+    rawBody: debugRawBody
+  });
+  const params = await readParams2(request);
+  const userId = String(params.userid || "");
+  const password = String(params.password || "");
+  const offerId = String(params.offer_id || "");
+  const offerName = String(params.offer_name || "");
+  const amount = parseFloat(params.user_amount);
+  const payout = parseFloat(params.payout) || 0;
+  const expectedPassword = env.NEXOWALL_POSTBACK_PASSWORD || "";
+  if (!expectedPassword) {
+    return fail3("Server not configured (missing NEXOWALL_POSTBACK_PASSWORD).", 500);
+  }
+  if (!password || password !== expectedPassword) {
+    return fail3("Invalid password.", 403);
+  }
+  if (!userId || !Number.isFinite(amount)) {
+    return fail3("Missing or invalid parameters.", 400);
+  }
+  const coins = Math.round(Math.abs(amount));
+  const transId = `nexowall-${userId}-${offerId}`;
+  console.log("nexowall-postback:", { userId, transId, offerId, offerName, coins, payout });
+  const dup3 = await env.DB.prepare(
+    `SELECT id FROM offer_completions WHERE provider = 'nexowall' AND transaction_id = ?`
+  ).bind(transId).first();
+  if (dup3) {
+    return ok2();
+  }
+  const update = await env.DB.prepare(
+    `UPDATE users
+     SET coins = coins + ?,
+         completed_offers = completed_offers + 1,
+         total_earning = total_earning + ?
+     WHERE id = ?`
+  ).bind(coins, coins, userId).run();
+  if (!update.success || update.meta.changes === 0) {
+    return fail3("User not found.", 404);
+  }
+  await env.DB.prepare(
+    `INSERT INTO offer_completions (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
+     VALUES ('nexowall', ?, ?, ?, ?, ?, 'credited', datetime('now'))`
+  ).bind(userId, offerId, transId, payout, coins).run();
+  return ok2();
+}
+__name(handlePostback5, "handlePostback");
+async function onRequestPost11(context) {
+  try {
+    return await handlePostback5(context.request, context.env);
+  } catch (err) {
+    return fail3(err.message || "Server error", 500);
+  }
+}
+__name(onRequestPost11, "onRequestPost");
+async function onRequestGet11(context) {
+  try {
+    return await handlePostback5(context.request, context.env);
+  } catch (err) {
+    return fail3(err.message || "Server error", 500);
+  }
+}
+__name(onRequestGet11, "onRequestGet");
 
 // api/offers/offery-feed.js
 var OFFERY_API_KEY = "8qb2kq6axoev42a70fz01b44chpx6q";
-async function onRequestGet10(context) {
+async function onRequestGet12(context) {
   const { request, env } = context;
   const me = await getUserFromRequest(request, env.DB);
   if (!me) {
@@ -1164,18 +1366,18 @@ async function onRequestGet10(context) {
     return errorJson("Could not reach Offery.", 502);
   }
 }
-__name(onRequestGet10, "onRequestGet");
+__name(onRequestGet12, "onRequestGet");
 
 // api/offers/offery-postback.js
-function ok2() {
+function ok3() {
   return new Response("ok", { status: 200, headers: { "content-type": "text/plain" } });
 }
-__name(ok2, "ok");
-function fail3(message, status = 400) {
+__name(ok3, "ok");
+function fail4(message, status = 400) {
   console.error("offery-postback:", message);
   return new Response(message, { status, headers: { "content-type": "text/plain" } });
 }
-__name(fail3, "fail");
+__name(fail4, "fail");
 function md52(input) {
   function rotl(x, c) {
     return x << c | x >>> 32 - c;
@@ -1298,7 +1500,7 @@ function md52(input) {
   return toHex2(a0) + toHex2(b0) + toHex2(c0) + toHex2(d0);
 }
 __name(md52, "md5");
-async function handlePostback4(request, env) {
+async function handlePostback6(request, env) {
   const url = new URL(request.url);
   let params = Object.fromEntries(url.searchParams.entries());
   if (request.method === "POST") {
@@ -1321,13 +1523,13 @@ async function handlePostback4(request, env) {
   const status = String(params.status || "1");
   const signature = String(params.signature || "");
   const secret = env.OFFERY_SECRET_KEY || "";
-  if (!secret) return fail3("Server not configured (missing OFFERY_SECRET_KEY).", 500);
+  if (!secret) return fail4("Server not configured (missing OFFERY_SECRET_KEY).", 500);
   const expected = md52(subId + transId + rewardRaw + secret);
   if (!signature || signature !== expected) {
-    return fail3("Signature doesn't match.", 403);
+    return fail4("Signature doesn't match.", 403);
   }
   if (!subId || !transId || !Number.isFinite(reward)) {
-    return fail3("Missing or invalid parameters.", 400);
+    return fail4("Missing or invalid parameters.", 400);
   }
   const userId = subId;
   const coins = Math.round(Math.abs(reward));
@@ -1337,7 +1539,7 @@ async function handlePostback4(request, env) {
       `SELECT id, coins_earned FROM offer_completions WHERE provider = 'offery' AND transaction_id = ? AND status = 'credited'`
     ).bind(transId).first();
     if (!existing) {
-      return ok2();
+      return ok3();
     }
     await env.DB.prepare(
       `UPDATE users
@@ -1347,13 +1549,13 @@ async function handlePostback4(request, env) {
        WHERE id = ?`
     ).bind(existing.coins_earned, existing.coins_earned, userId).run();
     await env.DB.prepare(`UPDATE offer_completions SET status = 'chargeback' WHERE id = ?`).bind(existing.id).run();
-    return ok2();
+    return ok3();
   }
   const dup3 = await env.DB.prepare(
     `SELECT id FROM offer_completions WHERE provider = 'offery' AND transaction_id = ?`
   ).bind(transId).first();
   if (dup3) {
-    return ok2();
+    return ok3();
   }
   const update = await env.DB.prepare(
     `UPDATE users
@@ -1363,46 +1565,46 @@ async function handlePostback4(request, env) {
      WHERE id = ?`
   ).bind(coins, coins, userId).run();
   if (!update.success || update.meta.changes === 0) {
-    return fail3("User not found.", 404);
+    return fail4("User not found.", 404);
   }
   await env.DB.prepare(
     `INSERT INTO offer_completions (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
      VALUES ('offery', ?, ?, ?, ?, ?, 'credited', datetime('now'))`
   ).bind(userId, offerId, transId, parseFloat(params.payout) || 0, coins).run();
-  return ok2();
+  return ok3();
 }
-__name(handlePostback4, "handlePostback");
-async function onRequestPost10(context) {
+__name(handlePostback6, "handlePostback");
+async function onRequestPost12(context) {
   try {
-    return await handlePostback4(context.request, context.env);
+    return await handlePostback6(context.request, context.env);
   } catch (err) {
-    return fail3(err.message || "Server error", 500);
+    return fail4(err.message || "Server error", 500);
   }
 }
-__name(onRequestPost10, "onRequestPost");
-async function onRequestGet11(context) {
+__name(onRequestPost12, "onRequestPost");
+async function onRequestGet13(context) {
   try {
-    return await handlePostback4(context.request, context.env);
+    return await handlePostback6(context.request, context.env);
   } catch (err) {
-    return fail3(err.message || "Server error", 500);
+    return fail4(err.message || "Server error", 500);
   }
 }
-__name(onRequestGet11, "onRequestGet");
+__name(onRequestGet13, "onRequestGet");
 
 // api/offers/paidbucksy-postback.js
-function ok3() {
+function ok4() {
   return new Response("OK", { status: 200, headers: { "content-type": "text/plain" } });
 }
-__name(ok3, "ok");
+__name(ok4, "ok");
 function dup() {
   return new Response("DUP", { status: 200, headers: { "content-type": "text/plain" } });
 }
 __name(dup, "dup");
-function fail4(message, status = 400) {
+function fail5(message, status = 400) {
   console.error("paidbucksy-postback:", message);
   return new Response(message, { status, headers: { "content-type": "text/plain" } });
 }
-__name(fail4, "fail");
+__name(fail5, "fail");
 function md53(input) {
   function rotl(x, c) {
     return x << c | x >>> 32 - c;
@@ -1525,7 +1727,7 @@ function md53(input) {
   return toHex2(a0) + toHex2(b0) + toHex2(c0) + toHex2(d0);
 }
 __name(md53, "md5");
-async function handlePostback5(request, env) {
+async function handlePostback7(request, env) {
   const url = new URL(request.url);
   const params = Object.fromEntries(url.searchParams.entries());
   const userId = String(params.user_id || "");
@@ -1537,13 +1739,13 @@ async function handlePostback5(request, env) {
   const status = String(params.status || "1");
   const signature = String(params.signature || "");
   const secret = env.PAIDBUCKSY_SECRET_KEY || "";
-  if (!secret) return fail4("Server not configured (missing PAIDBUCKSY_SECRET_KEY).", 500);
+  if (!secret) return fail5("Server not configured (missing PAIDBUCKSY_SECRET_KEY).", 500);
   const expected = md53(userId + transactionId + rewardRaw + secret);
   if (!signature || signature !== expected) {
-    return fail4("Signature doesn't match.", 403);
+    return fail5("Signature doesn't match.", 403);
   }
   if (!userId || !transactionId || !Number.isFinite(reward)) {
-    return fail4("Missing or invalid parameters.", 400);
+    return fail5("Missing or invalid parameters.", 400);
   }
   const coins = Math.round(Math.abs(reward));
   console.log("paidbucksy-postback:", { userId, transactionId, campaignId, offerName, coins, status });
@@ -1552,7 +1754,7 @@ async function handlePostback5(request, env) {
       `SELECT id, coins_earned FROM offer_completions WHERE provider = 'paidbucksy' AND transaction_id = ? AND status = 'credited'`
     ).bind(transactionId).first();
     if (!existing2) {
-      return ok3();
+      return ok4();
     }
     await env.DB.prepare(
       `UPDATE users
@@ -1562,7 +1764,7 @@ async function handlePostback5(request, env) {
        WHERE id = ?`
     ).bind(existing2.coins_earned, existing2.coins_earned, userId).run();
     await env.DB.prepare(`UPDATE offer_completions SET status = 'chargeback' WHERE id = ?`).bind(existing2.id).run();
-    return ok3();
+    return ok4();
   }
   const existing = await env.DB.prepare(
     `SELECT id FROM offer_completions WHERE provider = 'paidbucksy' AND transaction_id = ?`
@@ -1578,50 +1780,50 @@ async function handlePostback5(request, env) {
      WHERE id = ?`
   ).bind(coins, coins, userId).run();
   if (!update.success || update.meta.changes === 0) {
-    return fail4("User not found.", 404);
+    return fail5("User not found.", 404);
   }
   await env.DB.prepare(
     `INSERT INTO offer_completions (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
      VALUES ('paidbucksy', ?, ?, ?, ?, ?, 'credited', datetime('now'))`
   ).bind(userId, campaignId, transactionId, parseFloat(params.payout) || 0, coins).run();
-  return ok3();
+  return ok4();
 }
-__name(handlePostback5, "handlePostback");
-async function onRequestGet12(context) {
+__name(handlePostback7, "handlePostback");
+async function onRequestGet14(context) {
   try {
-    return await handlePostback5(context.request, context.env);
+    return await handlePostback7(context.request, context.env);
   } catch (err) {
-    return fail4(err.message || "Server error", 500);
+    return fail5(err.message || "Server error", 500);
   }
 }
-__name(onRequestGet12, "onRequestGet");
-async function onRequestPost11(context) {
+__name(onRequestGet14, "onRequestGet");
+async function onRequestPost13(context) {
   try {
-    return await handlePostback5(context.request, context.env);
+    return await handlePostback7(context.request, context.env);
   } catch (err) {
-    return fail4(err.message || "Server error", 500);
+    return fail5(err.message || "Server error", 500);
   }
 }
-__name(onRequestPost11, "onRequestPost");
+__name(onRequestPost13, "onRequestPost");
 
 // api/offers/radientwall-postback.js
 function textResponse(body, status = 200) {
   return new Response(body, { status, headers: { "content-type": "text/plain" } });
 }
 __name(textResponse, "textResponse");
-function ok4() {
+function ok5() {
   return textResponse("OK", 200);
 }
-__name(ok4, "ok");
+__name(ok5, "ok");
 function dup2() {
   return textResponse("DUP", 200);
 }
 __name(dup2, "dup");
-function fail5(message, status = 400) {
+function fail6(message, status = 400) {
   console.error("radientwall-postback:", message);
   return textResponse(message, status);
 }
-__name(fail5, "fail");
+__name(fail6, "fail");
 function md54(input) {
   function rotl(x, c) {
     return x << c | x >>> 32 - c;
@@ -1744,7 +1946,7 @@ function md54(input) {
   return toHex2(a0) + toHex2(b0) + toHex2(c0) + toHex2(d0);
 }
 __name(md54, "md5");
-async function handlePostback6(request, env) {
+async function handlePostback8(request, env) {
   const url = new URL(request.url);
   let params = Object.fromEntries(url.searchParams.entries());
   if (request.method === "POST") {
@@ -1768,13 +1970,13 @@ async function handlePostback6(request, env) {
   const status = String(params.status || "1");
   const signature = String(params.signature || "");
   const secret = env.RADIENTWALL_SECRET_KEY || "";
-  if (!secret) return fail5("Server not configured (missing RADIENTWALL_SECRET_KEY).", 500);
+  if (!secret) return fail6("Server not configured (missing RADIENTWALL_SECRET_KEY).", 500);
   const expected = md54(subId + transId + rewardRaw + secret);
   if (!signature || signature !== expected) {
-    return fail5("Signature doesn't match.", 403);
+    return fail6("Signature doesn't match.", 403);
   }
   if (!subId || !transId || !Number.isFinite(reward)) {
-    return fail5("Missing or invalid parameters.", 400);
+    return fail6("Missing or invalid parameters.", 400);
   }
   const userId = subId;
   const coins = Math.round(Math.abs(reward));
@@ -1794,7 +1996,7 @@ async function handlePostback6(request, env) {
        WHERE id = ?`
     ).bind(existing.coins_earned, existing.coins_earned, userId).run();
     await env.DB.prepare(`UPDATE offer_completions SET status = 'chargeback' WHERE id = ?`).bind(existing.id).run();
-    return ok4();
+    return ok5();
   }
   const dupRow = await env.DB.prepare(
     `SELECT id FROM offer_completions WHERE provider = 'radientwall' AND transaction_id = ?`
@@ -1810,35 +2012,35 @@ async function handlePostback6(request, env) {
      WHERE id = ?`
   ).bind(coins, coins, userId).run();
   if (!update.success || update.meta.changes === 0) {
-    return fail5("User not found.", 404);
+    return fail6("User not found.", 404);
   }
   await env.DB.prepare(
     `INSERT INTO offer_completions (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
      VALUES ('radientwall', ?, ?, ?, ?, ?, 'credited', datetime('now'))`
   ).bind(userId, offerName || null, transId, parseFloat(params.payout) || 0, coins).run();
-  return ok4();
+  return ok5();
 }
-__name(handlePostback6, "handlePostback");
-async function onRequestPost12(context) {
+__name(handlePostback8, "handlePostback");
+async function onRequestPost14(context) {
   try {
-    return await handlePostback6(context.request, context.env);
+    return await handlePostback8(context.request, context.env);
   } catch (err) {
-    return fail5(err.message || "Server error", 500);
+    return fail6(err.message || "Server error", 500);
   }
 }
-__name(onRequestPost12, "onRequestPost");
-async function onRequestGet13(context) {
+__name(onRequestPost14, "onRequestPost");
+async function onRequestGet15(context) {
   try {
-    return await handlePostback6(context.request, context.env);
+    return await handlePostback8(context.request, context.env);
   } catch (err) {
-    return fail5(err.message || "Server error", 500);
+    return fail6(err.message || "Server error", 500);
   }
 }
-__name(onRequestGet13, "onRequestGet");
+__name(onRequestGet15, "onRequestGet");
 
 // api/offers/revtoo-feed.js
 var REVTOO_API_KEY = "8euee083znhqu99d3y17gzed8fqxc8";
-async function onRequestGet14(context) {
+async function onRequestGet16(context) {
   const { request, env } = context;
   const me = await getUserFromRequest(request, env.DB);
   if (!me) {
@@ -1879,18 +2081,18 @@ async function onRequestGet14(context) {
     return errorJson("Could not reach Revtoo.", 502);
   }
 }
-__name(onRequestGet14, "onRequestGet");
+__name(onRequestGet16, "onRequestGet");
 
 // api/offers/revtoo-postback.js
-function ok5() {
+function ok6() {
   return new Response("ok", { status: 200, headers: { "content-type": "text/plain" } });
 }
-__name(ok5, "ok");
-function fail6(message, status = 400) {
+__name(ok6, "ok");
+function fail7(message, status = 400) {
   console.error("revtoo-postback:", message);
   return new Response(message, { status, headers: { "content-type": "text/plain" } });
 }
-__name(fail6, "fail");
+__name(fail7, "fail");
 function md55(input) {
   function rotl(x, c) {
     return x << c | x >>> 32 - c;
@@ -2013,7 +2215,7 @@ function md55(input) {
   return toHex2(a0) + toHex2(b0) + toHex2(c0) + toHex2(d0);
 }
 __name(md55, "md5");
-async function handlePostback7(request, env) {
+async function handlePostback9(request, env) {
   const url = new URL(request.url);
   let params = Object.fromEntries(url.searchParams.entries());
   if (request.method === "POST") {
@@ -2036,13 +2238,13 @@ async function handlePostback7(request, env) {
   const status = String(params.status || "1");
   const signature = String(params.signature || "");
   const secret = env.REVTOO_SECRET_KEY || "";
-  if (!secret) return fail6("Server not configured (missing REVTOO_SECRET_KEY).", 500);
+  if (!secret) return fail7("Server not configured (missing REVTOO_SECRET_KEY).", 500);
   const expected = md55(subId + transId + rewardRaw + secret);
   if (!signature || signature !== expected) {
-    return fail6("Signature doesn't match.", 403);
+    return fail7("Signature doesn't match.", 403);
   }
   if (!subId || !transId || !Number.isFinite(reward)) {
-    return fail6("Missing or invalid parameters.", 400);
+    return fail7("Missing or invalid parameters.", 400);
   }
   const userId = subId;
   const coins = Math.round(Math.abs(reward));
@@ -2052,7 +2254,7 @@ async function handlePostback7(request, env) {
       `SELECT id, coins_earned FROM offer_completions WHERE provider = 'revtoo' AND transaction_id = ? AND status = 'credited'`
     ).bind(transId).first();
     if (!existing) {
-      return ok5();
+      return ok6();
     }
     await env.DB.prepare(
       `UPDATE users
@@ -2062,13 +2264,13 @@ async function handlePostback7(request, env) {
        WHERE id = ?`
     ).bind(existing.coins_earned, existing.coins_earned, userId).run();
     await env.DB.prepare(`UPDATE offer_completions SET status = 'chargeback' WHERE id = ?`).bind(existing.id).run();
-    return ok5();
+    return ok6();
   }
   const dup3 = await env.DB.prepare(
     `SELECT id FROM offer_completions WHERE provider = 'revtoo' AND transaction_id = ?`
   ).bind(transId).first();
   if (dup3) {
-    return ok5();
+    return ok6();
   }
   const update = await env.DB.prepare(
     `UPDATE users
@@ -2078,35 +2280,35 @@ async function handlePostback7(request, env) {
      WHERE id = ?`
   ).bind(coins, coins, userId).run();
   if (!update.success || update.meta.changes === 0) {
-    return fail6("User not found.", 404);
+    return fail7("User not found.", 404);
   }
   await env.DB.prepare(
     `INSERT INTO offer_completions (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
      VALUES ('revtoo', ?, ?, ?, ?, ?, 'credited', datetime('now'))`
   ).bind(userId, offerId, transId, parseFloat(params.payout) || 0, coins).run();
-  return ok5();
+  return ok6();
 }
-__name(handlePostback7, "handlePostback");
-async function onRequestPost13(context) {
+__name(handlePostback9, "handlePostback");
+async function onRequestPost15(context) {
   try {
-    return await handlePostback7(context.request, context.env);
+    return await handlePostback9(context.request, context.env);
   } catch (err) {
-    return fail6(err.message || "Server error", 500);
+    return fail7(err.message || "Server error", 500);
   }
 }
-__name(onRequestPost13, "onRequestPost");
-async function onRequestGet15(context) {
+__name(onRequestPost15, "onRequestPost");
+async function onRequestGet17(context) {
   try {
-    return await handlePostback7(context.request, context.env);
+    return await handlePostback9(context.request, context.env);
   } catch (err) {
-    return fail6(err.message || "Server error", 500);
+    return fail7(err.message || "Server error", 500);
   }
 }
-__name(onRequestGet15, "onRequestGet");
+__name(onRequestGet17, "onRequestGet");
 
 // api/offers/taskwall-feed.js
 var TASKWALL_APP_KEY = "35e67766abe0e8b9a6aa0ae5ff0cd090";
-async function onRequestGet16(context) {
+async function onRequestGet18(context) {
   const { request, env } = context;
   const me = await getUserFromRequest(request, env.DB);
   if (!me) {
@@ -2144,7 +2346,7 @@ async function onRequestGet16(context) {
     return errorJson("Could not reach TaskWall.", 502);
   }
 }
-__name(onRequestGet16, "onRequestGet");
+__name(onRequestGet18, "onRequestGet");
 function normalizeTaskwallOffer(o) {
   const amount = o.user_amount != null && o.user_amount !== "" ? parseFloat(o.user_amount) : parseFloat(o.payout || 0) * 1e3;
   let description = o.description || "";
@@ -2170,16 +2372,16 @@ function detectOs(ua) {
 __name(detectOs, "detectOs");
 
 // api/offers/taskwall-postback.js
-function ok6() {
+function ok7() {
   return new Response("OK", { status: 200, headers: { "content-type": "text/plain" } });
 }
-__name(ok6, "ok");
-function fail7(message, status = 400) {
+__name(ok7, "ok");
+function fail8(message, status = 400) {
   console.error("taskwall-postback:", message);
   return new Response(message, { status, headers: { "content-type": "text/plain" } });
 }
-__name(fail7, "fail");
-async function readParams2(request) {
+__name(fail8, "fail");
+async function readParams3(request) {
   const url = new URL(request.url);
   const params = Object.fromEntries(url.searchParams.entries());
   if (Object.keys(params).length > 0) {
@@ -2200,8 +2402,8 @@ async function readParams2(request) {
   }
   return params;
 }
-__name(readParams2, "readParams");
-async function handlePostback8(request, env) {
+__name(readParams3, "readParams");
+async function handlePostback10(request, env) {
   const debugRawBody = await request.clone().text().catch(() => "<unreadable>");
   console.log("taskwall-postback: DEBUG incoming request", {
     method: request.method,
@@ -2209,7 +2411,7 @@ async function handlePostback8(request, env) {
     url: request.url,
     rawBody: debugRawBody
   });
-  const params = await readParams2(request);
+  const params = await readParams3(request);
   const userId = String(params.userid || "");
   const password = String(params.password || "");
   const offerId = String(params.offer_id || "");
@@ -2218,13 +2420,13 @@ async function handlePostback8(request, env) {
   const payout = parseFloat(params.payout) || 0;
   const expectedPassword = env.TASKWALL_POSTBACK_PASSWORD || "";
   if (!expectedPassword) {
-    return fail7("Server not configured (missing TASKWALL_POSTBACK_PASSWORD).", 500);
+    return fail8("Server not configured (missing TASKWALL_POSTBACK_PASSWORD).", 500);
   }
   if (!password || password !== expectedPassword) {
-    return fail7("Invalid password.", 403);
+    return fail8("Invalid password.", 403);
   }
   if (!userId || !Number.isFinite(amount)) {
-    return fail7("Missing or invalid parameters.", 400);
+    return fail8("Missing or invalid parameters.", 400);
   }
   const coins = Math.round(Math.abs(amount));
   const transId = `taskwall-${userId}-${offerId}`;
@@ -2233,7 +2435,7 @@ async function handlePostback8(request, env) {
     `SELECT id FROM offer_completions WHERE provider = 'taskwall' AND transaction_id = ?`
   ).bind(transId).first();
   if (dup3) {
-    return ok6();
+    return ok7();
   }
   const update = await env.DB.prepare(
     `UPDATE users
@@ -2243,31 +2445,31 @@ async function handlePostback8(request, env) {
      WHERE id = ?`
   ).bind(coins, coins, userId).run();
   if (!update.success || update.meta.changes === 0) {
-    return fail7("User not found.", 404);
+    return fail8("User not found.", 404);
   }
   await env.DB.prepare(
     `INSERT INTO offer_completions (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
      VALUES ('taskwall', ?, ?, ?, ?, ?, 'credited', datetime('now'))`
   ).bind(userId, offerId, transId, payout, coins).run();
-  return ok6();
+  return ok7();
 }
-__name(handlePostback8, "handlePostback");
-async function onRequestPost14(context) {
+__name(handlePostback10, "handlePostback");
+async function onRequestPost16(context) {
   try {
-    return await handlePostback8(context.request, context.env);
+    return await handlePostback10(context.request, context.env);
   } catch (err) {
-    return fail7(err.message || "Server error", 500);
+    return fail8(err.message || "Server error", 500);
   }
 }
-__name(onRequestPost14, "onRequestPost");
-async function onRequestGet17(context) {
+__name(onRequestPost16, "onRequestPost");
+async function onRequestGet19(context) {
   try {
-    return await handlePostback8(context.request, context.env);
+    return await handlePostback10(context.request, context.env);
   } catch (err) {
-    return fail7(err.message || "Server error", 500);
+    return fail8(err.message || "Server error", 500);
   }
 }
-__name(onRequestGet17, "onRequestGet");
+__name(onRequestGet19, "onRequestGet");
 
 // api/offers/vortexwall-postback.js
 var PROVIDER2 = "vortexwall";
@@ -2295,7 +2497,7 @@ function jsonResponse2(body, status = 200) {
   });
 }
 __name(jsonResponse2, "jsonResponse");
-function readParams3(request) {
+function readParams4(request) {
   const url = new URL(request.url);
   const q = url.searchParams;
   return {
@@ -2309,7 +2511,7 @@ function readParams3(request) {
     hash: q.get("hash") || ""
   };
 }
-__name(readParams3, "readParams");
+__name(readParams4, "readParams");
 async function handleCompleted(p, env) {
   const points = Math.max(0, Math.round(Number.parseFloat(p.points) || 0));
   const payout = Number.parseFloat(p.payout) || 0;
@@ -2376,8 +2578,8 @@ async function handleRejected(p, env) {
   return jsonResponse2({ status: "reversed" }, 200);
 }
 __name(handleRejected, "handleRejected");
-async function handlePostback9(request, env) {
-  const p = readParams3(request);
+async function handlePostback11(request, env) {
+  const p = readParams4(request);
   if (!p.userId || !p.campaignId || !p.txid) {
     return jsonResponse2(
       { status: "error", message: "Missing identity_id, campaign_id, or txid." },
@@ -2401,19 +2603,19 @@ async function handlePostback9(request, env) {
   console.log("VORTEXWALL unrecognized_result", JSON.stringify({ result: p.result, txid: p.txid }));
   return jsonResponse2({ status: "ignored", result: p.result }, 200);
 }
-__name(handlePostback9, "handlePostback");
-async function onRequestGet18(context) {
-  return handlePostback9(context.request, context.env);
+__name(handlePostback11, "handlePostback");
+async function onRequestGet20(context) {
+  return handlePostback11(context.request, context.env);
 }
-__name(onRequestGet18, "onRequestGet");
-async function onRequestPost15(context) {
-  return handlePostback9(context.request, context.env);
+__name(onRequestGet20, "onRequestGet");
+async function onRequestPost17(context) {
+  return handlePostback11(context.request, context.env);
 }
-__name(onRequestPost15, "onRequestPost");
+__name(onRequestPost17, "onRequestPost");
 
 // api/profile/update.js
 var VALID_AVATARS = ["avc1", "avc2", "avc3", "avc4", "avc5", "avc6"];
-async function onRequestPost16({ request, env }) {
+async function onRequestPost18({ request, env }) {
   const db = env.DB;
   const user = await getUserFromRequest(request, db);
   if (!user) {
@@ -2460,13 +2662,13 @@ async function onRequestPost16({ request, env }) {
   const updated = await db.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first();
   return json({ user: publicUser(updated) });
 }
-__name(onRequestPost16, "onRequestPost");
+__name(onRequestPost18, "onRequestPost");
 
 // api/withdraw/request.js
 var VALID_METHODS = ["litecoin", "binance"];
 var MIN_COINS = 200;
 var COINS_PER_DOLLAR3 = 1e3;
-async function onRequestPost17({ request, env }) {
+async function onRequestPost19({ request, env }) {
   try {
     const db = env.DB;
     const user = await getUserFromRequest(request, db);
@@ -2524,8 +2726,8 @@ async function onRequestPost17({ request, env }) {
     return errorJson("Server error: " + (err && err.message ? err.message : String(err)), 500);
   }
 }
-__name(onRequestPost17, "onRequestPost");
-async function onRequestGet19({ request, env }) {
+__name(onRequestPost19, "onRequestPost");
+async function onRequestGet21({ request, env }) {
   try {
     const db = env.DB;
     const user = await getUserFromRequest(request, db);
@@ -2550,7 +2752,7 @@ async function onRequestGet19({ request, env }) {
     return errorJson("Server error: " + (err && err.message ? err.message : String(err)), 500);
   }
 }
-__name(onRequestGet19, "onRequestGet");
+__name(onRequestGet21, "onRequestGet");
 
 // api/offers/primewall-postback.js
 var REQUIRE_SIGNATURE = false;
@@ -2638,7 +2840,7 @@ async function onRequest(context) {
 __name(onRequest, "onRequest");
 
 // api/activity.js
-async function onRequestGet20({ env }) {
+async function onRequestGet22({ env }) {
   const db = env.DB;
   if (!db) return errorJson("DB not bound", 500);
   const { results } = await db.prepare(
@@ -2651,7 +2853,7 @@ async function onRequestGet20({ env }) {
   ).all();
   return json({ activity: results || [] });
 }
-__name(onRequestGet20, "onRequestGet");
+__name(onRequestGet22, "onRequestGet");
 
 // api/leaderboard.js
 var RANK_PRIZES = {
@@ -2671,7 +2873,7 @@ function prizeFor(rank) {
   return RANK_PRIZES[rank] || 0;
 }
 __name(prizeFor, "prizeFor");
-async function onRequestGet21(context) {
+async function onRequestGet23(context) {
   const { env, request } = context;
   try {
     const { results } = await env.DB.prepare(
@@ -2704,9 +2906,9 @@ async function onRequestGet21(context) {
     return errorJson("Failed to load leaderboard", 500);
   }
 }
-__name(onRequestGet21, "onRequestGet");
+__name(onRequestGet23, "onRequestGet");
 
-// ../.wrangler/tmp/pages-pmwMGU/functionsRoutes-0.486344400020001.mjs
+// ../.wrangler/tmp/pages-mFp6no/functionsRoutes-0.6923457996492002.mjs
 var routes = [
   {
     routePath: "/api/admin/dashboard-stats",
@@ -2821,144 +3023,172 @@ var routes = [
     modules: [onRequestGet8]
   },
   {
-    routePath: "/api/offers/gemiad-postback",
+    routePath: "/api/offers/gamwall-postback",
     mountPath: "/api/offers",
     method: "GET",
     middlewares: [],
     modules: [onRequestGet9]
   },
   {
-    routePath: "/api/offers/gemiad-postback",
+    routePath: "/api/offers/gamwall-postback",
     mountPath: "/api/offers",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost9]
   },
   {
-    routePath: "/api/offers/offery-feed",
+    routePath: "/api/offers/gemiad-postback",
     mountPath: "/api/offers",
     method: "GET",
     middlewares: [],
     modules: [onRequestGet10]
   },
   {
-    routePath: "/api/offers/offery-postback",
-    mountPath: "/api/offers",
-    method: "GET",
-    middlewares: [],
-    modules: [onRequestGet11]
-  },
-  {
-    routePath: "/api/offers/offery-postback",
+    routePath: "/api/offers/gemiad-postback",
     mountPath: "/api/offers",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost10]
   },
   {
-    routePath: "/api/offers/paidbucksy-postback",
+    routePath: "/api/offers/nexowall-postback",
     mountPath: "/api/offers",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet12]
+    modules: [onRequestGet11]
   },
   {
-    routePath: "/api/offers/paidbucksy-postback",
+    routePath: "/api/offers/nexowall-postback",
     mountPath: "/api/offers",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost11]
   },
   {
-    routePath: "/api/offers/radientwall-postback",
+    routePath: "/api/offers/offery-feed",
+    mountPath: "/api/offers",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet12]
+  },
+  {
+    routePath: "/api/offers/offery-postback",
     mountPath: "/api/offers",
     method: "GET",
     middlewares: [],
     modules: [onRequestGet13]
   },
   {
-    routePath: "/api/offers/radientwall-postback",
+    routePath: "/api/offers/offery-postback",
     mountPath: "/api/offers",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost12]
   },
   {
-    routePath: "/api/offers/revtoo-feed",
+    routePath: "/api/offers/paidbucksy-postback",
     mountPath: "/api/offers",
     method: "GET",
     middlewares: [],
     modules: [onRequestGet14]
   },
   {
-    routePath: "/api/offers/revtoo-postback",
-    mountPath: "/api/offers",
-    method: "GET",
-    middlewares: [],
-    modules: [onRequestGet15]
-  },
-  {
-    routePath: "/api/offers/revtoo-postback",
+    routePath: "/api/offers/paidbucksy-postback",
     mountPath: "/api/offers",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost13]
   },
   {
-    routePath: "/api/offers/taskwall-feed",
+    routePath: "/api/offers/radientwall-postback",
     mountPath: "/api/offers",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet16]
+    modules: [onRequestGet15]
   },
   {
-    routePath: "/api/offers/taskwall-postback",
-    mountPath: "/api/offers",
-    method: "GET",
-    middlewares: [],
-    modules: [onRequestGet17]
-  },
-  {
-    routePath: "/api/offers/taskwall-postback",
+    routePath: "/api/offers/radientwall-postback",
     mountPath: "/api/offers",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost14]
   },
   {
-    routePath: "/api/offers/vortexwall-postback",
+    routePath: "/api/offers/revtoo-feed",
     mountPath: "/api/offers",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet18]
+    modules: [onRequestGet16]
   },
   {
-    routePath: "/api/offers/vortexwall-postback",
+    routePath: "/api/offers/revtoo-postback",
+    mountPath: "/api/offers",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet17]
+  },
+  {
+    routePath: "/api/offers/revtoo-postback",
     mountPath: "/api/offers",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost15]
   },
   {
+    routePath: "/api/offers/taskwall-feed",
+    mountPath: "/api/offers",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet18]
+  },
+  {
+    routePath: "/api/offers/taskwall-postback",
+    mountPath: "/api/offers",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet19]
+  },
+  {
+    routePath: "/api/offers/taskwall-postback",
+    mountPath: "/api/offers",
+    method: "POST",
+    middlewares: [],
+    modules: [onRequestPost16]
+  },
+  {
+    routePath: "/api/offers/vortexwall-postback",
+    mountPath: "/api/offers",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet20]
+  },
+  {
+    routePath: "/api/offers/vortexwall-postback",
+    mountPath: "/api/offers",
+    method: "POST",
+    middlewares: [],
+    modules: [onRequestPost17]
+  },
+  {
     routePath: "/api/profile/update",
     mountPath: "/api/profile",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost16]
+    modules: [onRequestPost18]
   },
   {
     routePath: "/api/withdraw/request",
     mountPath: "/api/withdraw",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet19]
+    modules: [onRequestGet21]
   },
   {
     routePath: "/api/withdraw/request",
     mountPath: "/api/withdraw",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost17]
+    modules: [onRequestPost19]
   },
   {
     routePath: "/api/offers/primewall-postback",
@@ -2972,14 +3202,14 @@ var routes = [
     mountPath: "/api",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet20]
+    modules: [onRequestGet22]
   },
   {
     routePath: "/api/leaderboard",
     mountPath: "/api",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet21]
+    modules: [onRequestGet23]
   }
 ];
 

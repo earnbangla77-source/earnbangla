@@ -129,6 +129,22 @@
       ]
     },
     {
+      "routePath": "/api/offers/gamwall-postback",
+      "mountPath": "/api/offers",
+      "method": "GET",
+      "module": [
+        "api/offers/gamwall-postback.js:onRequestGet"
+      ]
+    },
+    {
+      "routePath": "/api/offers/gamwall-postback",
+      "mountPath": "/api/offers",
+      "method": "POST",
+      "module": [
+        "api/offers/gamwall-postback.js:onRequestPost"
+      ]
+    },
+    {
       "routePath": "/api/offers/gemiad-postback",
       "mountPath": "/api/offers",
       "method": "GET",
@@ -142,6 +158,22 @@
       "method": "POST",
       "module": [
         "api/offers/gemiad-postback.js:onRequestPost"
+      ]
+    },
+    {
+      "routePath": "/api/offers/nexowall-postback",
+      "mountPath": "/api/offers",
+      "method": "GET",
+      "module": [
+        "api/offers/nexowall-postback.js:onRequestGet"
+      ]
+    },
+    {
+      "routePath": "/api/offers/nexowall-postback",
+      "mountPath": "/api/offers",
+      "method": "POST",
+      "module": [
+        "api/offers/nexowall-postback.js:onRequestPost"
       ]
     },
     {
