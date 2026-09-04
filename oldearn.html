@@ -1191,11 +1191,13 @@ const OFFERWALL_PARTNERS = [
   { name: 'Admantum',    slug: 'admantum',    wordmark: 'ADMANTUM',   bg: 'linear-gradient(160deg,#0f2a2a,#0a1a1a)' },
   { name: 'Taskwall',    slug: 'taskwall',    wordmark: 'TASKWALL',   bg: 'linear-gradient(160deg,#2a1810,#1a0f0a)' },
   { name: 'GemiAd',      slug: 'gemiad',      wordmark: 'GEMIAD',     bg: 'linear-gradient(160deg,#1a1f3a,#0d0f22)' },
+  { name: 'Nexowall',    slug: 'nexowall',    wordmark: 'NEXOWALL',   bg: 'linear-gradient(160deg,#1a2a3a,#0d1a22)' },
 ];
 
 const FEATURED_OFFERWALLS = [
-  // Example of what to add here later:
-  // { name: 'NewWall', slug: 'newwall', wordmark: 'NEWWALL', bg: 'linear-gradient(160deg,#2a1a33,#1a0f22)' },
+  { name: 'VortexWall', slug: 'vortexwall', wordmark: 'VORTEXWALL', bg: 'linear-gradient(160deg,#4a3268,#2e2148)' },
+  { name: 'CPAlead',    slug: 'cpalead',    wordmark: 'CPALEAD',    bg: 'linear-gradient(160deg,#0f2438,#0a1620)' },
+  { name: 'Gamwall',    slug: 'gamwall',    wordmark: 'GAMWALL',    bg: 'linear-gradient(160deg,#2a1a3a,#170d22)' },
 ];
 
 function partnerCardHTML(p){
@@ -1236,6 +1238,11 @@ function renderAllPartnerRows(){
 }
 
 function openOfferwall(partner){
+  // Reset iframe-only attributes some providers need (e.g. CPAlead's sandbox
+  // + referrerpolicy) so they don't leak into whichever wall opens next.
+  owIframe.removeAttribute('sandbox');
+  owIframe.removeAttribute('referrerpolicy');
+
   if(partner === 'Offery'){
     openOfferyOfferwall();
     return;
@@ -1266,6 +1273,22 @@ function openOfferwall(partner){
   }
   if(partner === 'GemiAd'){
     openGemiadOfferwall();
+    return;
+  }
+  if(partner === 'VortexWall'){
+    openVortexwallOfferwall();
+    return;
+  }
+  if(partner === 'Nexowall'){
+    openNexowallOfferwall();
+    return;
+  }
+  if(partner === 'CPAlead'){
+    openCpaleadOfferwall();
+    return;
+  }
+  if(partner === 'Gamwall'){
+    openGamwallOfferwall();
     return;
   }
 }
@@ -1631,11 +1654,120 @@ function openRadiantWallOfferwall(){
   owIframe.src = `https://radientwall.com/offer/${RADIANTWALL_PUBLIC_KEY}/${encodeURIComponent(currentUserId)}`;
 }
 
+// ---------- Nexowall — embedded via their offerwall iframe (Type B, no JSON feed API) ----------
+// Same pattern as RadiantWall/PaidBucksy: Nexowall's dashboard doesn't
+// expose a JSON offer feed either — it only gives a ready-made iframe
+// tracking link: https://nexowall.me/live-offers?app_id=APP_ID&user_id=USER_ID
+// Keep NEXOWALL_APP_ID in sync with the App ID shown on the Nexowall
+// dashboard (Placements page, "Earn bangla" row).
+// ⚠️ App ID has 'o' vs '0' ambiguity between the placements table screenshot
+// and the iframe URL you pasted — double-check against the dashboard before
+// treating this as final, a wrong char here will silently 404 like VortexWall.
+const NEXOWALL_APP_ID = 'v60h0rr3GtO6fUGg';
+
+function openNexowallOfferwall(){
+  owBrandName.textContent = 'Nexowall';
+  owOverlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+
+  if(!currentUserId){
+    // Not signed in — reuse the grid area just to show the same message Offery/Prime Wall use
+    setOfferwallMode('grid');
+    owGrid.innerHTML = '<div class="ow-empty">অফার দেখতে আগে সাইন ইন করুন।</div>';
+    return;
+  }
+
+  setOfferwallMode('iframe');
+  owIframe.src = `https://nexowall.me/live-offers?app_id=${NEXOWALL_APP_ID}&user_id=${encodeURIComponent(currentUserId)}`;
+}
+
+// ---------- VortexWall — embedded via their offerwall iframe (Type B, no JSON feed API) ----------
+// Confirmed iframe URL format: https://vortexwall.com/ow/PLACEMENT_ID/USER_ID
+// (the trailing path segment IS the identity_id — same value the postback
+// later receives back as {identity_id} in vortexwall-postback.js). Keep
+// VORTEXWALL_PLACEMENT_ID in sync with the placement id shown on
+// publisher.vortexwall.com/placement if you ever create a second placement.
+const VORTEXWALL_PLACEMENT_ID = '6a93fb313cdebdefe6803c77';
+
+function openVortexwallOfferwall(){
+  owBrandName.textContent = 'VortexWall';
+  owOverlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+
+  if(!currentUserId){
+    // Not signed in — reuse the grid area just to show the same message the other providers use
+    setOfferwallMode('grid');
+    owGrid.innerHTML = '<div class="ow-empty">অফার দেখতে আগে সাইন ইন করুন।</div>';
+    return;
+  }
+
+  setOfferwallMode('iframe');
+  owIframe.src = `https://vortexwall.com/ow/${VORTEXWALL_PLACEMENT_ID}/${encodeURIComponent(currentUserId)}`;
+}
+
+// ---------- CPAlead — embedded via their offerwall iframe (no JSON feed API uploaded) ----------
+// Real "Get Code" snippet from your own CPAlead offerwall (Reward Tools →
+// Offerwall → Create Offerwall → Get Code):
+//   <iframe sandbox='allow-popups allow-same-origin allow-scripts allow-forms
+//     allow-top-navigation-by-user-activation allow-popups-to-escape-sandbox'
+//     referrerpolicy='no-referrer' src='https://www.qckclk.com/wall/jYZJ' ...>
+// CPAlead actually serves this wall off their qckclk.com short-link/tracking
+// domain, not cpalead.com or cdnflair.com. CPALEAD_WALL_ID is your fixed
+// wall id; since "Ask visitors for a username" was left UNCHECKED when this
+// wall was created, we append ?subid=USER_ID ourselves (per CPAlead's own
+// note on that setting) so conversions match back to the right user via
+// {subid} in cpalead-postback.js.
+const CPALEAD_WALL_ID = 'jYZJ';
+
+function openCpaleadOfferwall(){
+  owBrandName.textContent = 'CPAlead';
+  owOverlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+
+  if(!currentUserId){
+    // Not signed in — reuse the grid area just to show the same message the other providers use
+    setOfferwallMode('grid');
+    owGrid.innerHTML = '<div class="ow-empty">অফার দেখতে আগে সাইন ইন করুন।</div>';
+    return;
+  }
+
+  setOfferwallMode('iframe');
+  // CPAlead's own Get Code snippet asks for this specific sandbox +
+  // referrerpolicy combination — keep them in sync with the dashboard.
+  owIframe.setAttribute('sandbox', 'allow-popups allow-same-origin allow-scripts allow-forms allow-top-navigation-by-user-activation allow-popups-to-escape-sandbox');
+  owIframe.setAttribute('referrerpolicy', 'no-referrer');
+  owIframe.src = `https://www.qckclk.com/wall/${CPALEAD_WALL_ID}?subid=${encodeURIComponent(currentUserId)}`;
+}
+
+// ---------- Gamwall — embedded via their offerwall iframe (no JSON feed API) ----------
+// Same pattern as RadiantWall/Nexowall: Gamwall's publisher panel doesn't
+// expose a JSON offer feed either — it only gives a ready-made offerwall
+// URL: https://gamwall.com/offerwall.php?placement_id=57&user_id=USER_ID
+// Keep GAMWALL_PLACEMENT_ID in sync with the placement id shown on the
+// Gamwall Publisher Panel (Placement → id 57, "Earn Bangla").
+const GAMWALL_PLACEMENT_ID = '57';
+
+function openGamwallOfferwall(){
+  owBrandName.textContent = 'Gamwall';
+  owOverlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+
+  if(!currentUserId){
+    // Not signed in — reuse the grid area just to show the same message the other providers use
+    setOfferwallMode('grid');
+    owGrid.innerHTML = '<div class="ow-empty">অফার দেখতে আগে সাইন ইন করুন।</div>';
+    return;
+  }
+
+  setOfferwallMode('iframe');
+  owIframe.src = `https://gamwall.com/offerwall.php?placement_id=${GAMWALL_PLACEMENT_ID}&user_id=${encodeURIComponent(currentUserId)}`;
+}
+
 function closeOfferwall(){
   owOverlay.classList.remove('show');
   document.body.style.overflow = '';
   closeOfferDetail();
-  owIframe.src = 'about:blank'; // stop the Prime Wall / RadiantWall / PaidBucksy / GemiAd iframe running in the background
+  owIframe.src = 'about:blank'; // stop the Prime Wall / RadiantWall / PaidBucksy / GemiAd / Nexowall / VortexWall / CPAlead / Gamwall iframe running in the background
 }
 
 owClose.addEventListener('click', closeOfferwall);

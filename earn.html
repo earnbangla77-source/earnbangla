@@ -400,6 +400,64 @@
   .offer-desc{font-size:12.5px;color:var(--text-faint);line-height:1.5;flex:1;}
   .offer-card .btn-primary{justify-content:center;width:100%;padding:9px;font-size:13px;}
 
+  /* hot offers row (Featured Offers) — small cards in a horizontally
+     scrollable row with left/right nav buttons + auto-advance, styled like
+     the EchoBucks "Hot Offers" reference. Each card's logo comes from
+     image/offercard/<slug>.png; the small platform badges on the thumbnail
+     come from image/icon/ios.png, image/icon/android.png, image/icon/pc.png,
+     image/icon/internet.png. Shares the .partners-grid scroll container. */
+  .hot-offer-card{
+    flex:0 0 168px;
+    scroll-snap-align:start;
+    display:block;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    border-radius:14px;
+    overflow:hidden;
+    box-shadow:var(--sh-sm);
+    transition:transform .3s ease, box-shadow .3s ease, border-color .3s ease;
+  }
+  .hot-offer-card:hover{
+    transform:translateY(-4px);
+    box-shadow:var(--sh-md);
+    border-color:rgba(255,122,26,.35);
+  }
+  .hot-offer-thumb{
+    position:relative;
+    width:100%;
+    aspect-ratio:1/1;
+    background:var(--panel);
+  }
+  .hot-offer-logo{width:100%;height:100%;object-fit:cover;display:block;}
+  .hot-offer-platforms{position:absolute;top:8px;left:8px;display:flex;gap:4px;}
+  .hot-offer-platforms img{
+    width:16px;height:16px;
+    border-radius:4px;
+    background:rgba(10,10,15,.6);
+    padding:2px;
+    box-shadow:0 2px 6px rgba(0,0,0,.35);
+  }
+  .hot-offer-info{padding:10px 12px 12px;display:flex;flex-direction:column;gap:4px;}
+  .hot-offer-title{
+    font-size:13.5px;font-weight:700;color:var(--text);line-height:1.3;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .hot-offer-desc{
+    font-size:11.5px;color:var(--text-faint);line-height:1.4;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .hot-offer-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:2px;}
+  .hot-offer-price{font-weight:800;font-size:14px;color:var(--text);}
+  .hot-offer-badge{
+    font-size:10px;font-weight:800;letter-spacing:.4px;
+    padding:3px 8px;border-radius:6px;color:#fff;text-transform:uppercase;
+    flex-shrink:0;
+  }
+  .hot-offer-badge.app{background:#7B4FFF;}
+  .hot-offer-badge.game{background:var(--green);}
+  .hot-offer-badge.task{background:var(--orange);}
+  .hot-offer-badge.web{background:var(--blue);}
+
   /* partners — horizontal auto-scrolling row (logo-first cards) */
   .partners-grid{
     position:relative;z-index:1;
@@ -708,6 +766,7 @@
     .offer-section,.partners-section{padding:20px 16px 24px;}
     .partner-card{flex-basis:136px;}
     .partner-tile{height:196px;padding:12px 10px 11px;}
+    .hot-offer-card{flex:0 0 142px;}
     .sidebar{width:82vw;max-width:300px;}
     .ow-grid{grid-template-columns:1fr;}
     .ow-modal{max-height:92vh;}
@@ -719,6 +778,8 @@
     .footer-inner{grid-template-columns:1fr;}
     .ticker-card{min-width:230px;}
     .ticker-meta{max-width:130px;}
+    .hot-offer-card{flex:0 0 124px;}
+    .hot-offer-desc{display:none;}
     .topbar-brand span.b2, .topbar-brand span.b1{font-size:15px;}
     .avatar-chip .chip-name{display:none;}
     .avatar-chip{padding:5px;}
@@ -868,9 +929,16 @@
               <span class="icon-wrap"><svg class="icon"><use href="#icon-plane"/></svg></span>
               Featured Offers
             </div>
-            <button class="btn-dark btn-sm">View All</button>
+            <div class="scroll-nav">
+              <button class="scroll-nav-btn" id="hotOffersPrev" aria-label="Scroll left" type="button">
+                <svg class="icon"><use href="#icon-back"/></svg>
+              </button>
+              <button class="scroll-nav-btn" id="hotOffersNext" aria-label="Scroll right" type="button">
+                <svg class="icon"><use href="#icon-chevron-right"/></svg>
+              </button>
+            </div>
           </div>
-          <div class="offers-grid" id="featuredOffers"></div>
+          <div class="partners-grid" id="hotOffersTrack"></div>
         </section>
 
         <section class="partners-section reveal">
@@ -1138,6 +1206,59 @@ async function loadOffers(type, containerId){
     // API না থাকলে বা এখনো কোনো অফার না থাকলে empty state দেখাবে
     renderOffers(containerId, []);
   }
+}
+
+// ---------- 3b) HOT OFFERS ROW (Featured Offers — auto-scrolling marquee) ----------
+// Each card's logo: image/offercard/<slug>.png  (drop the file, matching the slug below)
+// Platform badges: image/icon/ios.png, image/icon/android.png, image/icon/pc.png,
+// image/icon/internet.png — list whichever apply per offer in `platforms` (or [] to skip).
+// Just edit url/title/desc/price/type/slug/platforms per card below — rendering and the
+// slow, non-stop auto-scroll are already wired up.
+// type controls the badge color: 'app' (purple), 'game' (green), 'task' (orange), 'web' (blue).
+const HOT_OFFERS = [
+  { slug:'offer1',  title:'Sign in Play',  desc:'Install and register to start',   price:'$1.50', type:'app',  platforms:['ios','android'],      url:'https://redirect.gamwall.com/track.php?cid=19006&pid=161' },
+  { slug:'offer2',  title:'Offer Title 2',  desc:'Sign up with a valid email',      price:'$2.00', type:'game', platforms:['ios','android'],      url:'#' },
+  { slug:'offer3',  title:'Offer Title 3',  desc:'Prepare for something new',       price:'$1.50', type:'game', platforms:['pc','web'],           url:'#' },
+  { slug:'offer4',  title:'Offer Title 4',  desc:'Submit real and valid info',      price:'$0.90', type:'app',  platforms:['ios','android','pc'], url:'#' },
+  { slug:'offer5',  title:'Offer Title 5',  desc:'Quick registration required',     price:'$1.50', type:'app',  platforms:['android'],            url:'#' },
+  { slug:'offer6',  title:'Offer Title 6',  desc:'Download and install to begin',   price:'$3.75', type:'game', platforms:['pc'],                 url:'#' },
+  { slug:'offer7',  title:'Offer Title 7',  desc:'Upgrade to unlock your bonus',    price:'$3.00', type:'game', platforms:['ios','android'],      url:'#' },
+  { slug:'offer8',  title:'Offer Title 8',  desc:'Register with full details',      price:'$0.23', type:'task', platforms:['web'],                url:'#' },
+  { slug:'offer9',  title:'Offer Title 9',  desc:'Complete a quick survey',         price:'$0.60', type:'task', platforms:['web'],                url:'#' },
+  { slug:'offer10', title:'Offer Title 10', desc:'Reach level 5 to earn reward',    price:'$2.20', type:'game', platforms:['ios','android'],      url:'#' },
+];
+
+function hotOfferPlatformsHTML(o){
+  if(!o.platforms || !o.platforms.length) return '';
+  return `<div class="hot-offer-platforms">${
+    o.platforms.map(p => `<img src="image/icon/${p}.png" alt="${p}" loading="lazy" onerror="this.remove();">`).join('')
+  }</div>`;
+}
+
+function hotOfferCardHTML(o){
+  return `
+    <a class="hot-offer-card" href="${o.url || '#'}" target="_blank" rel="noopener">
+      <div class="hot-offer-thumb">
+        <img class="hot-offer-logo" src="image/offercard/${o.slug}.png" alt="${o.title}" loading="lazy" onerror="this.style.opacity='0';">
+        ${hotOfferPlatformsHTML(o)}
+      </div>
+      <div class="hot-offer-info">
+        <div class="hot-offer-title">${o.title}</div>
+        <div class="hot-offer-desc">${o.desc || ''}</div>
+        <div class="hot-offer-bottom">
+          <span class="hot-offer-price">${o.price || ''}</span>
+          <span class="hot-offer-badge ${o.type || 'app'}">${o.type || 'app'}</span>
+        </div>
+      </div>
+    </a>`;
+}
+
+// Renders HOT_OFFERS into the scrollable row (shares the .partners-grid
+// pattern — see initPartnersScroll for the auto-advance + prev/next wiring).
+function renderHotOffers(){
+  const track = document.getElementById('hotOffersTrack');
+  if(!track) return;
+  track.innerHTML = HOT_OFFERS.map(hotOfferCardHTML).join('');
 }
 
 // ---------- 4) OFFERWALL MODAL ----------
@@ -1913,7 +2034,7 @@ function initPartnersScroll(trackId, prevId, nextId){
   let autoTimer = null;
 
   function stepSize(){
-    const card = track.querySelector('.partner-card');
+    const card = track.firstElementChild;
     if(!card) return 200;
     const gap = parseFloat(getComputedStyle(track).columnGap || getComputedStyle(track).gap || 16);
     return card.getBoundingClientRect().width + gap;
@@ -1958,9 +2079,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   initTicker();
   loadOffers('premium',  'premiumOffers');
   loadOffers('top',      'topOffers');
-  loadOffers('featured', 'featuredOffers');
+  renderHotOffers();
   initReveal();
   renderAllPartnerRows();
+  initPartnersScroll('hotOffersTrack', 'hotOffersPrev', 'hotOffersNext');
   initPartnersScroll('featuredWallsGrid', 'featuredWallsPrev', 'featuredWallsNext');
   initPartnersScroll('partnersGrid', 'partnersPrev', 'partnersNext');
   checkSession();
