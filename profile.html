@@ -269,6 +269,10 @@
   .status-pill.st-pending{background:rgba(255,122,26,0.15);color:var(--orange);}
   .status-pill.st-completed{background:rgba(58,208,122,0.15);color:var(--green);}
   .status-pill.st-rejected{background:rgba(255,61,30,0.15);color:var(--orange-2);}
+  .status-pill.st-chargeback{background:rgba(255,61,30,0.15);color:var(--orange-2);}
+  .act-row.act-chargeback td{background:rgba(255,61,30,0.05);}
+  .act-row.act-chargeback .act-primary{color:var(--orange-2);}
+  .coins-reversed{color:var(--orange-2);font-weight:700;}
 
   /* Footer */
   footer{background:var(--bg-elev);border-top:1px solid var(--border);padding:48px 0 24px;position:relative;z-index:1;}
@@ -584,6 +588,7 @@
             <button class="tab-btn active" data-tab="earnings"><svg class="icon"><use href="#i-wallet"></use></svg> Earnings <span class="badge" id="earningsBadge">0</span></button>
             <button class="tab-btn" data-tab="withdrawals"><svg class="icon"><use href="#i-swap"></use></svg> Withdrawals <span class="badge" id="withdrawalsBadge">0</span></button>
             <button class="tab-btn" data-tab="pending"><svg class="icon"><use href="#i-clock"></use></svg> Pending <span class="badge" id="pendingBadge">0</span></button>
+            <button class="tab-btn" data-tab="chargebacks"><svg class="icon"><use href="#i-alert"></use></svg> Chargebacks <span class="badge" id="chargebacksBadge">0</span></button>
           </div>
           <div class="table-wrap">
             <table>
@@ -758,6 +763,7 @@
     renderUser(user);
     loadWithdrawals(null); // quietly fetch so both tab badges show real counts right away
     loadEarnings(null); // same, for the Earnings tab badge
+    loadChargebacks(null); // same, for the Chargebacks tab badge
   }
 
   function showAuthGate(){
@@ -971,12 +977,14 @@
   const tabMessages = {
     earnings: 'No activity found',
     withdrawals: 'No completed withdrawals yet',
-    pending: 'No pending withdrawals'
+    pending: 'No pending withdrawals',
+    chargebacks: 'No chargebacks — all your earnings are intact'
   };
   const tabHeaders = {
     earnings: { name: 'Name', value: 'Points' },
     withdrawals: { name: 'Method', value: 'Amount' },
-    pending: { name: 'Method', value: 'Amount' }
+    pending: { name: 'Method', value: 'Amount' },
+    chargebacks: { name: 'Name', value: 'Coins Reversed' }
   };
   const activityBody = document.getElementById('activityBody');
   const colName = document.getElementById('colName');
@@ -984,10 +992,13 @@
   const withdrawalsBadge = document.getElementById('withdrawalsBadge');
   const pendingBadge = document.getElementById('pendingBadge');
   const earningsBadge = document.getElementById('earningsBadge');
+  const chargebacksBadge = document.getElementById('chargebacksBadge');
   let withdrawalsData = [];
   let withdrawalsLoaded = false;
   let earningsData = [];
   let earningsLoaded = false;
+  let chargebacksData = [];
+  let chargebacksLoaded = false;
 
   const pendingWithdrawals = () => withdrawalsData.filter(w => w.status === 'pending');
   const resolvedWithdrawals = () => withdrawalsData.filter(w => w.status !== 'pending');
@@ -1077,6 +1088,39 @@
     }
   }
 
+  // Chargebacks: an offer that was credited and later reversed by the
+  // provider. Shown with a red "Reversed" pill and a -N coins amount so
+  // it reads clearly as a deduction, not a normal earning row.
+  function renderChargebacks(list, emptyMsg){
+    if(!list.length){ renderEmptyRow(emptyMsg); return; }
+    activityBody.innerHTML = list.map(c => (
+      '<tr class="act-row act-chargeback">' +
+        '<td><div class="act-primary">' + c.name + '</div>' +
+          '<div class="act-secondary">Reversed by provider</div></td>' +
+        '<td>' + formatWhen(c.createdAt) + '</td>' +
+        '<td style="text-align:right;"><div class="act-primary coins-reversed">&minus;' + c.coins + ' coins</div>' +
+          '<span class="status-pill st-chargeback">Reversed</span></td>' +
+      '</tr>'
+    )).join('');
+  }
+
+  // renderTab: 'chargebacks' to render the tab after loading, or null/false
+  // to just refresh the badge count quietly without touching what's on screen.
+  async function loadChargebacks(renderTab){
+    if(renderTab) renderEmptyRow('Loading…');
+    try{
+      const res = await fetch('/api/offers/earnings?view=chargebacks');
+      const body = await res.json().catch(() => ({}));
+      if(!res.ok) throw new Error(body.error || 'Could not load chargebacks.');
+      chargebacksData = body.chargebacks || [];
+      chargebacksLoaded = true;
+      chargebacksBadge.textContent = chargebacksData.length;
+      if(renderTab === 'chargebacks') renderChargebacks(chargebacksData, tabMessages.chargebacks);
+    }catch(ex){
+      if(renderTab) renderEmptyRow('Could not load chargebacks. Please try again.');
+    }
+  }
+
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -1096,6 +1140,12 @@
           renderEarnings(earningsData, tabMessages.earnings);
         } else {
           loadEarnings('earnings');
+        }
+      } else if(tab === 'chargebacks'){
+        if(chargebacksLoaded){
+          renderChargebacks(chargebacksData, tabMessages.chargebacks);
+        } else {
+          loadChargebacks('chargebacks');
         }
       } else {
         renderEmptyRow(tabMessages[tab]);
