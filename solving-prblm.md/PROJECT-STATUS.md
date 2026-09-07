@@ -120,6 +120,36 @@ Cloudflare D1 (SQLite) ব্যবহার করা হয়েছে।
     সেট করাই সবচেয়ে নির্ভরযোগ্য)।
   - CPAGrip ড্যাশবোর্ডে Global Postback ফর্মে Postback URL আর password
     বসানো আছে। ⚠️ **Enabled টগল অন আছে কিনা মাঝে মাঝে যাচাই করে নেবেন।**
+- [x] **আরও অনেকগুলো অফারওয়াল প্রোভাইডার ইন্টিগ্রেশন করা হয়েছে** — `functions/api/offers/`
+      ফোল্ডারে UpWall/CPAGrip-এর মতোই feed.js + postback.js প্যাটার্নে (JSON feed proxy +
+      postback ভেরিফাই + duplicate-guard) নিচের প্রোভাইডারগুলো যোগ করা হয়েছে:
+  - **Admantum, CPAlead, GamWall, NexoWall, Offery, PaidBucksy, PrimeWall** — কোড আছে
+    (`*-feed.js` / `*-postback.js`), তবে এই কয়েকটার live-test/deploy status আলাদাভাবে
+    এই ডকুমেন্টে ট্র্যাক করা হয়নি — কাজ শুরুর আগে postback secret env var (Production +
+    Preview) সেট আছে কিনা আর প্রোভাইডারের নিজের ড্যাশবোর্ডে Postback URL বসানো আছে
+    কিনা চেক করে নেবেন।
+  - **Revtoo** — placement approval-এর অপেক্ষায় ছিল (তারপর API Key/Secret Key বসানোর
+    কথা), আর ড্যাশবোর্ডে Placement URL/Postback URL ফিল্ড ফিক্স করার দরকার ছিল — সর্বশেষ
+    exact status কনফার্ম করা হয়নি।
+  - **TaskWall** — একটা persistent 502 বাগ পাওয়া গিয়েছিল (আসল কারণ: রেসপন্সে ডকুমেন্টেড
+    string `status` ফিল্ডের বদলে আসল বুলিয়ান `success` ফিল্ড আসছিল) — ফিক্সড
+    taskwall-feed.js দেওয়া হয়েছে; ডিপ্লয় + `TASKWALL_POSTBACK_PASSWORD` সেট +
+    লাইভ postback টেস্ট বাকি ছিল সর্বশেষ আপডেটের সময়।
+  - **GemiAd** — GemiWall iframe (`https://gemiwall.com/{placementId}/{userId}/`) দিয়ে
+    ইন্টিগ্রেট করা হয়েছে, লাইভ টেস্ট করে কনফার্ম করা হয়েছে আসল অফার লোড হচ্ছে
+    (Sky Plunger, Coin Dozer ইত্যাদি)। gemiad-postback.js (SHA-256 হ্যাশ) এখনো
+    `GEMIAD_SECRET_KEY` সেট + লাইভ postback টেস্ট বাকি ছিল।
+  - **VortexWall** — postback-এর ফাইনাল ভার্সন ডেলিভার করা হয়েছে (completed → credit,
+    rejected → মূল credited row থেকে amount নিয়ে reverse করে, security-র জন্য
+    ইনকামিং rejected postback-এর payout/points বিশ্বাস করে না) — ডিপ্লয় + শেষ
+    completed→rejected same-txid টেস্ট বাকি ছিল।
+  - **RadiantWall** — ⚠️ পরিচিত সমস্যা: অফার কমপ্লিট করার পর কোনো postback/chargeback
+    আসছে না; সন্দেহ করা হচ্ছে RadiantWall-কে ভুল site id/key দেওয়া হয়েছে —
+    ইনভেস্টিগেশন চলছিল, এখনো সমাধান হয়নি।
+- [x] `functions/api/offers/earnings.js` ফাইল তৈরি হয়ে গেছে — Earnings ট্যাবের ব্যাকএন্ড
+      সম্ভবত এর মধ্যে বানানো হয়েছে, তবে `profile.html`-এর Earnings ট্যাব আসলেই এই
+      এন্ডপয়েন্ট কল করছে কিনা (frontend wiring) এই ডকুমেন্টে আলাদাভাবে কনফার্ম করা নেই —
+      নিচে সেকশন ৫-এ নোট দেখুন।
 - [x] **ডুপ্লিকেট-অ্যাকাউন্ট বাগ তদন্ত করা হয়েছে — বাগ নেই** — `register.js`/
       `login.js` দুটোতেই email `.trim().toLowerCase()` করে normalize করা
       আছে, আর `schema.sql`-এ `users.email UNIQUE`। D1-এ কোয়েরি চালিয়ে কনফার্ম
@@ -215,8 +245,10 @@ incm website/
 - [x] **UpWall** — সম্পূর্ণ, লাইভ কাজ করছে (উপরে ২নং সেকশন দেখুন)।
 - [x] **CPAGrip** — সম্পূর্ণ, লাইভ কাজ করছে (postback + earn.html টাইল
       দুটোই টেস্ট করে কনফার্ম করা হয়েছে, উপরে ২নং সেকশন দেখুন)।
-- [ ] অন্য আরও অফারওয়াল প্রোভাইডার (যেমন OfferToro, AdGate) যোগ করার
-      দরকার হলে একই প্যাটার্নে (postback.js এর মতো) নতুন ফাইল বানানো যাবে।
+- [x] **অনেক নতুন অফারওয়াল প্রোভাইডার যোগ হয়ে গেছে** — Admantum, CPAlead, GamWall,
+      GemiAd, NexoWall, Offery, PaidBucksy, PrimeWall, RadiantWall, Revtoo, TaskWall,
+      VortexWall — বিস্তারিত স্ট্যাটাস/caveat উপরে ২নং সেকশনে দেখুন। **RadiantWall-এর
+      postback না-আসার সমস্যাটা এখনো খোলা আছে (উপরে দেখুন)।**
 - [ ] **রেফারেল সিস্টেম** — `users_referred` ফিল্ড ডেটাবেসে আছে, কিন্তু কেউ
       রেফার করলে সেটা count হওয়ার কোনো লজিক এখনো নেই।
 - [ ] **Withdraw সিস্টেম — বাকি কাজ:**
@@ -233,11 +265,11 @@ incm website/
       একই হেল্পার রিইউজ করা যাবে — নতুন করে Resend সেটাপ লাগবে না।)
 - [ ] **Level সিস্টেম** — `level` ফিল্ড আছে কিন্তু কখন/কীভাবে বাড়বে তার লজিক
       এখনো নেই।
-- [ ] **প্রোফাইল পেজের "Earnings" ট্যাব** — এখনো শুধু "কিছু নেই" মেসেজ দেখায়।
-      Withdrawals ও Pending ট্যাব লাইভ হয়ে গেছে, কিন্তু Earnings ট্যাবের জন্য
-      আলাদা একটা endpoint লাগবে (offer সম্পূর্ণ হওয়া, রেফারেল বোনাস ইত্যাদি
-      কয়েন-আয়ের ঘটনাগুলোর লগ) — এটা Earn পেজের অফারওয়াল ইন্টিগ্রেশনের সাথেই
-      একসাথে করা যেতে পারে।
+- [ ] **প্রোফাইল পেজের "Earnings" ট্যাব** — `functions/api/offers/earnings.js` ফাইল
+      কোডবেসে পাওয়া গেছে (সম্ভবত offer সম্পূর্ণ হওয়ার কয়েন-আয়ের লগের জন্য), কিন্তু
+      `profile.html`-এর Earnings ট্যাব সত্যিই এই endpoint কল করে লাইভ ডেটা দেখাচ্ছে
+      কিনা, নাকি এখনো "কিছু নেই" প্লেসহোল্ডার দেখাচ্ছে — এটা যাচাই করে এই স্ট্যাটাস
+      আপডেট করা দরকার।
 
 ---
 
