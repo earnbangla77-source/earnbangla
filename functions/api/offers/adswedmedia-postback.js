@@ -251,13 +251,31 @@ async function readParams(request) {
 async function handlePostback(request, env) {
   const params = await readParams(request);
 
-  const subId = String(params.subId || "");
-  const transId = String(params.transId || "");
+  // --- TEMP DEBUG: the dashboard's live postback preview shows different
+  // param names (user_id/transid/userip/type) than the written docs
+  // (subId/transId/userIp, no `type`, signature not shown at all). Log
+  // everything raw on the first real test so we can confirm the exact
+  // field names and whether/how `signature` actually arrives. Remove once
+  // confirmed. ---
+  console.log("adswedmedia-postback: DEBUG raw params", params);
+  // --- END TEMP DEBUG ---
+
+  // Accept both the documented names and the names shown in the live
+  // dashboard preview, until confirmed which one AdswedMedia actually
+  // sends in production.
+  const subId = String(params.subId || params.user_id || "");
+  const transId = String(params.transId || params.transid || "");
   const rewardRaw = params.reward;
   const reward = parseFloat(rewardRaw);
   const payout = parseFloat(params.payout) || 0;
-  const signature = String(params.signature || "");
-  const status = String(params.status || "");
+  const signature = String(params.signature || params.sign || params.hash || "");
+  let status = String(params.status || "");
+  const type = String(params.type || "").toLowerCase();
+  if (!status && type) {
+    // Fallback if AdswedMedia sends `type=reversal`/`type=conversion`
+    // instead of a numeric `status` in some flows.
+    status = type === "reversal" || type === "chargeback" ? "2" : "1";
+  }
   const offerId = String(params.offer_id || "");
   const offerName = String(params.offer_name || "");
 
@@ -275,7 +293,16 @@ async function handlePostback(request, env) {
   //    exactly as received (a string), so we sign against rewardRaw, not
   //    the parsed float, to avoid formatting mismatches (e.g. "5.0" vs "5").
   const expectedSignature = md5(String(subId) + String(transId) + String(rewardRaw) + secret);
-  if (expectedSignature !== signature.toLowerCase()) {
+  if (!signature || expectedSignature !== signature.toLowerCase()) {
+    // --- TEMP DEBUG: log what we expected vs what (if anything) arrived,
+    // so a mismatch can be diagnosed instead of just failing blind. Remove
+    // once the real signature param name/formula is confirmed live. ---
+    console.log("adswedmedia-postback: DEBUG signature mismatch", {
+      received: signature || "(none)",
+      expected: expectedSignature,
+      signedString: `${subId}${transId}${rewardRaw}<secret>`,
+    });
+    // --- END TEMP DEBUG ---
     return fail("Invalid signature.", 403);
   }
 
