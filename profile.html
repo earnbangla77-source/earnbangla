@@ -399,9 +399,91 @@
   }
   .form-error.show{display:block;}
   #loadingGate{display:flex;min-height:60vh;align-items:center;justify-content:center;color:var(--text-faint);font-weight:600;font-size:14px;position:relative;z-index:1;}
+
+  /* ---------- PRELOADER ---------- */
+  #preloader{
+    position:fixed;
+    inset:0;
+    z-index:99999;
+    background:var(--bg);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    gap:22px;
+    transition:opacity .5s ease, visibility .5s ease;
+  }
+  #preloader.hide{
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+  }
+  .pl-mark{
+    width:58px;height:58px;
+    border-radius:16px;
+    background:var(--grad-orange);
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:var(--sh-orange);
+    position:relative;
+    animation:pl-pulse 1.6s ease-in-out infinite;
+  }
+  .pl-mark svg{width:28px;height:28px;fill:#fff;}
+  @keyframes pl-pulse{
+    0%,100%{transform:scale(1);box-shadow:0 10px 26px rgba(255,61,30,.28);}
+    50%{transform:scale(1.08);box-shadow:0 14px 34px rgba(255,61,30,.42);}
+  }
+  .pl-ring{
+    position:absolute;
+    inset:-9px;
+    border-radius:22px;
+    border:2px solid transparent;
+    border-top-color:var(--orange);
+    border-right-color:var(--orange-2);
+    animation:pl-spin .9s linear infinite;
+  }
+  @keyframes pl-spin{to{transform:rotate(360deg);}}
+  .pl-brand{
+    font-family:'Sora',sans-serif;
+    font-size:18px;
+    font-weight:800;
+    color:var(--text);
+    letter-spacing:.2px;
+  }
+  .pl-brand .b2{
+    background:var(--grad-orange);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .pl-bar{
+    width:150px;height:4px;
+    border-radius:999px;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    overflow:hidden;
+  }
+  .pl-bar-fill{
+    height:100%;
+    width:40%;
+    border-radius:999px;
+    background:var(--grad-orange);
+    animation:pl-load 1.1s ease-in-out infinite;
+  }
+  @keyframes pl-load{
+    0%{transform:translateX(-100%);}
+    100%{transform:translateX(350%);}
+  }
+  body.pl-lock{overflow:hidden;}
 </style>
 </head>
-<body>
+<body class="pl-lock">
+<div id="preloader">
+  <div class="pl-mark">
+    <div class="pl-ring"></div>
+    <svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 11-13h-7l0-7z"/></svg>
+  </div>
+  <div class="pl-brand">earn<span class="b2">bangla</span></div>
+  <div class="pl-bar"><div class="pl-bar-fill"></div></div>
+</div>
+
 <div class="stars"></div>
 
 <!-- ICON SPRITE -->
@@ -1226,8 +1308,27 @@
     }catch(ex){
       // API not deployed yet — fall back to the sign-in gate
       showAuthGate();
+    }finally{
+      hidePreloader();
     }
   })();
+
+  // ---------- PRELOADER HIDE ----------
+  // Holds briefly so it never just flashes, then fades out and unlocks
+  // scroll once the auth-gate/dashboard decision above has been made.
+  const PL_MIN_VISIBLE = 700; // ms
+  const plStartedAt = performance.now();
+  function hidePreloader(){
+    const elapsed = performance.now() - plStartedAt;
+    const wait = Math.max(0, PL_MIN_VISIBLE - elapsed);
+    setTimeout(() => {
+      const pl = document.getElementById('preloader');
+      if(!pl) return;
+      pl.classList.add('hide');
+      document.body.classList.remove('pl-lock');
+      setTimeout(() => pl.remove(), 550);
+    }, wait);
+  }
 </script>
 
 </body>
