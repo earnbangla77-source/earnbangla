@@ -1397,6 +1397,7 @@ const FEATURED_OFFERWALLS = [
   { name: 'CPAlead',    slug: 'cpalead',    wordmark: 'CPALEAD',    bg: 'linear-gradient(160deg,#0f2438,#0a1620)' },
   { name: 'Gamwall',    slug: 'gamwall',    wordmark: 'GAMWALL',    bg: 'linear-gradient(160deg,#2a1a3a,#170d22)' },
   { name: 'BuckWall',   slug: 'buckswall',  wordmark: 'BUCKWALL',   bg: 'linear-gradient(160deg,#1a3a2e,#0d1f18)' },
+  { name: 'AdswedMedia', slug: 'adswedmedia', wordmark: 'ADSWEDMEDIA', bg: 'linear-gradient(160deg,#1a2a3a,#0a1420)' },
 ];
 
 function partnerCardHTML(p){
@@ -1492,6 +1493,10 @@ function openOfferwall(partner){
   }
   if(partner === 'BuckWall'){
     openBuckswallOfferwall();
+    return;
+  }
+  if(partner === 'AdswedMedia'){
+    openAdswedmediaOfferwall();
     return;
   }
 }
@@ -1840,6 +1845,7 @@ function openPaidBucksyOfferwall(){
 // Keep RADIANTWALL_PUBLIC_KEY in sync with the Public Key shown on the
 // RadiantWall dashboard (Sites page).
 const RADIANTWALL_PUBLIC_KEY = 'Sn2Ld6';
+const ADSWEDMEDIA_PUBLIC_KEY = 'Kb0Vm9';
 
 function openRadiantWallOfferwall(){
   owBrandName.textContent = 'RadiantWall';
@@ -1855,6 +1861,22 @@ function openRadiantWallOfferwall(){
 
   setOfferwallMode('iframe');
   owIframe.src = `https://radientwall.com/offer/${RADIANTWALL_PUBLIC_KEY}/${encodeURIComponent(currentUserId)}`;
+}
+
+function openAdswedmediaOfferwall(){
+  owBrandName.textContent = 'AdswedMedia';
+  owOverlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+
+  if(!currentUserId){
+    // Not signed in — reuse the grid area just to show the same message Offery/Prime Wall/RadiantWall use
+    setOfferwallMode('grid');
+    owGrid.innerHTML = '<div class="ow-empty">অফার দেখতে আগে সাইন ইন করুন।</div>';
+    return;
+  }
+
+  setOfferwallMode('iframe');
+  owIframe.src = `https://adswedmedia.com/offer/${ADSWEDMEDIA_PUBLIC_KEY}/${encodeURIComponent(currentUserId)}`;
 }
 
 // ---------- Nexowall — embedded via their offerwall iframe (Type B, no JSON feed API) ----------
