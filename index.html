@@ -1369,25 +1369,32 @@
   function escHTML(t){ return String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function tickerItemHTML(entry){
     const name = escHTML(entry.username || 'Earner');
+    const prov = escHTML(String(entry.provider || '').replace(/^./, c => c.toUpperCase()));
     return '<div class="ticker-item">'
       + '<span class="ticker-avatar">' + escHTML(initialsOf(name)) + '</span>'
       + '<div><span class="ticker-name">' + name + '</span>'
-      + '<span class="ticker-time">30d &middot; lifetime ' + Number(entry.lifetimeCoins || entry.coinsEarned).toLocaleString() + '</span></div>'
+      + '<span class="ticker-time">' + prov + ' &middot; ' + escHTML(entry.date || '') + '</span></div>'
       + '<span class="ticker-coin"><svg class="icon"><use href="#i-coin"></use></svg> ' + Number(entry.coinsEarned).toLocaleString() + '</span>'
       + '</div>';
   }
 
   async function loadActivityTicker(){
+    const wrap = document.getElementById('tickerWrap');
     try{
       const res = await fetch('/api/activity');
       if(!res.ok) return;
       const { activity } = await res.json();
-      if(!Array.isArray(activity) || activity.length === 0) return; // no real earners yet -> ticker stays hidden
+      if(!Array.isArray(activity) || activity.length === 0){
+        // nothing completed today yet (e.g. just after midnight) -> hide ticker
+        wrap.style.visibility = 'hidden';
+        document.getElementById('ticker').innerHTML = '';
+        return;
+      }
       const html = activity.map(tickerItemHTML).join('');
       // duplicate once so the scroll animation (translateX -50%) loops seamlessly
       document.getElementById('ticker').innerHTML = html + html;
-      document.getElementById('tickerWrap').style.visibility = 'visible';
-    }catch(ex){ /* keep ticker hidden on any error */ }
+      wrap.style.visibility = 'visible';
+    }catch(ex){ /* keep current state on any error */ }
   }
   loadActivityTicker();
   setInterval(loadActivityTicker, 60000);
