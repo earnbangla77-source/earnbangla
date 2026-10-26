@@ -1,4 +1,7 @@
 import { onRequestGet as __api_admin_dashboard_stats_js_onRequestGet } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\admin\\dashboard-stats.js"
+import { onRequestPost as __api_admin_login_js_onRequestPost } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\admin\\login.js"
+import { onRequestPost as __api_admin_logout_js_onRequestPost } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\admin\\logout.js"
+import { onRequestGet as __api_admin_me_js_onRequestGet } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\admin\\me.js"
 import { onRequestGet as __api_admin_users_js_onRequestGet } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\admin\\users.js"
 import { onRequestGet as __api_admin_withdrawals_js_onRequestGet } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\admin\\withdrawals.js"
 import { onRequestPost as __api_admin_withdrawals_update_js_onRequestPost } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\admin\\withdrawals-update.js"
@@ -11,6 +14,10 @@ import { onRequestPost as __api_auth_reset_password_js_onRequestPost } from "C:\
 import { onRequestGet as __api_offers_admantum_feed_js_onRequestGet } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\offers\\admantum-feed.js"
 import { onRequestGet as __api_offers_admantum_postback_js_onRequestGet } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\offers\\admantum-postback.js"
 import { onRequestPost as __api_offers_admantum_postback_js_onRequestPost } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\offers\\admantum-postback.js"
+import { onRequestGet as __api_offers_adswedmedia_postback_js_onRequestGet } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\offers\\adswedmedia-postback.js"
+import { onRequestPost as __api_offers_adswedmedia_postback_js_onRequestPost } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\offers\\adswedmedia-postback.js"
+import { onRequestGet as __api_offers_buckswall_postback_js_onRequestGet } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\offers\\buckswall-postback.js"
+import { onRequestPost as __api_offers_buckswall_postback_js_onRequestPost } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\offers\\buckswall-postback.js"
 import { onRequestGet as __api_offers_cpalead_postback_js_onRequestGet } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\offers\\cpalead-postback.js"
 import { onRequestPost as __api_offers_cpalead_postback_js_onRequestPost } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\offers\\cpalead-postback.js"
 import { onRequestGet as __api_offers_earnings_js_onRequestGet } from "C:\\Users\\AC\\OneDrive\\Documents\\incm website\\functions\\api\\offers\\earnings.js"
@@ -49,6 +56,27 @@ export const routes = [
       method: "GET",
       middlewares: [],
       modules: [__api_admin_dashboard_stats_js_onRequestGet],
+    },
+  {
+      routePath: "/api/admin/login",
+      mountPath: "/api/admin",
+      method: "POST",
+      middlewares: [],
+      modules: [__api_admin_login_js_onRequestPost],
+    },
+  {
+      routePath: "/api/admin/logout",
+      mountPath: "/api/admin",
+      method: "POST",
+      middlewares: [],
+      modules: [__api_admin_logout_js_onRequestPost],
+    },
+  {
+      routePath: "/api/admin/me",
+      mountPath: "/api/admin",
+      method: "GET",
+      middlewares: [],
+      modules: [__api_admin_me_js_onRequestGet],
     },
   {
       routePath: "/api/admin/users",
@@ -133,6 +161,34 @@ export const routes = [
       method: "POST",
       middlewares: [],
       modules: [__api_offers_admantum_postback_js_onRequestPost],
+    },
+  {
+      routePath: "/api/offers/adswedmedia-postback",
+      mountPath: "/api/offers",
+      method: "GET",
+      middlewares: [],
+      modules: [__api_offers_adswedmedia_postback_js_onRequestGet],
+    },
+  {
+      routePath: "/api/offers/adswedmedia-postback",
+      mountPath: "/api/offers",
+      method: "POST",
+      middlewares: [],
+      modules: [__api_offers_adswedmedia_postback_js_onRequestPost],
+    },
+  {
+      routePath: "/api/offers/buckswall-postback",
+      mountPath: "/api/offers",
+      method: "GET",
+      middlewares: [],
+      modules: [__api_offers_buckswall_postback_js_onRequestGet],
+    },
+  {
+      routePath: "/api/offers/buckswall-postback",
+      mountPath: "/api/offers",
+      method: "POST",
+      middlewares: [],
+      modules: [__api_offers_buckswall_postback_js_onRequestPost],
     },
   {
       routePath: "/api/offers/cpalead-postback",

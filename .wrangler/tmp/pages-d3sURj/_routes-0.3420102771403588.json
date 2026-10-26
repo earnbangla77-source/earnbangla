@@ -21,6 +21,8 @@
     "/api/offers/gamwall-postback",
     "/api/offers/earnings",
     "/api/offers/cpalead-postback",
+    "/api/offers/buckswall-postback",
+    "/api/offers/adswedmedia-postback",
     "/api/offers/admantum-postback",
     "/api/offers/admantum-feed",
     "/api/auth/reset-password",
@@ -32,6 +34,9 @@
     "/api/admin/withdrawals-update",
     "/api/admin/withdrawals",
     "/api/admin/users",
+    "/api/admin/me",
+    "/api/admin/logout",
+    "/api/admin/login",
     "/api/admin/dashboard-stats"
   ],
   "exclude": []

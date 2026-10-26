@@ -9,6 +9,30 @@
       ]
     },
     {
+      "routePath": "/api/admin/login",
+      "mountPath": "/api/admin",
+      "method": "POST",
+      "module": [
+        "api/admin/login.js:onRequestPost"
+      ]
+    },
+    {
+      "routePath": "/api/admin/logout",
+      "mountPath": "/api/admin",
+      "method": "POST",
+      "module": [
+        "api/admin/logout.js:onRequestPost"
+      ]
+    },
+    {
+      "routePath": "/api/admin/me",
+      "mountPath": "/api/admin",
+      "method": "GET",
+      "module": [
+        "api/admin/me.js:onRequestGet"
+      ]
+    },
+    {
       "routePath": "/api/admin/users",
       "mountPath": "/api/admin",
       "method": "GET",
@@ -102,6 +126,38 @@
       "method": "POST",
       "module": [
         "api/offers/admantum-postback.js:onRequestPost"
+      ]
+    },
+    {
+      "routePath": "/api/offers/adswedmedia-postback",
+      "mountPath": "/api/offers",
+      "method": "GET",
+      "module": [
+        "api/offers/adswedmedia-postback.js:onRequestGet"
+      ]
+    },
+    {
+      "routePath": "/api/offers/adswedmedia-postback",
+      "mountPath": "/api/offers",
+      "method": "POST",
+      "module": [
+        "api/offers/adswedmedia-postback.js:onRequestPost"
+      ]
+    },
+    {
+      "routePath": "/api/offers/buckswall-postback",
+      "mountPath": "/api/offers",
+      "method": "GET",
+      "module": [
+        "api/offers/buckswall-postback.js:onRequestGet"
+      ]
+    },
+    {
+      "routePath": "/api/offers/buckswall-postback",
+      "mountPath": "/api/offers",
+      "method": "POST",
+      "module": [
+        "api/offers/buckswall-postback.js:onRequestPost"
       ]
     },
     {

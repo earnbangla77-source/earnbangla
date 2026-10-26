@@ -22,10 +22,10 @@ function fromHex(hex) {
 }
 __name(fromHex, "fromHex");
 async function pbkdf2(password, saltBytes, iterations = PBKDF2_ITERATIONS) {
-  const enc = new TextEncoder();
+  const enc2 = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
-    enc.encode(password),
+    enc2.encode(password),
     { name: "PBKDF2" },
     false,
     ["deriveBits"]
@@ -198,8 +198,120 @@ async function onRequestGet({ env }) {
 }
 __name(onRequestGet, "onRequestGet");
 
+// _lib/admin-auth.js
+var enc = new TextEncoder();
+var ADMIN_EMAIL = "support@earn-bangla.com";
+var COOKIE_NAME = "admin_session";
+var SESSION_SECONDS = 60 * 60 * 24;
+async function hmacHex(key, msg) {
+  const k = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(key),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", k, enc.encode(msg));
+  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+__name(hmacHex, "hmacHex");
+function safeEqual(a, b) {
+  if (a.length !== b.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+}
+__name(safeEqual, "safeEqual");
+function getCookie(request, name) {
+  const header = request.headers.get("Cookie") || "";
+  for (const part of header.split(";")) {
+    const i = part.indexOf("=");
+    if (i === -1) continue;
+    if (part.slice(0, i).trim() === name) return part.slice(i + 1).trim();
+  }
+  return "";
+}
+__name(getCookie, "getCookie");
+function json2(data, status = 200, extraHeaders = {}) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...extraHeaders }
+  });
+}
+__name(json2, "json");
+async function checkPassword(env, input) {
+  const secret = String(env.ADMIN_PASSWORD || "");
+  if (!secret) return false;
+  const a = await hmacHex("admin-pw-check", String(input || ""));
+  const b = await hmacHex("admin-pw-check", secret);
+  return safeEqual(a, b);
+}
+__name(checkPassword, "checkPassword");
+async function makeToken(env) {
+  const exp = Math.floor(Date.now() / 1e3) + SESSION_SECONDS;
+  const sig = await hmacHex(String(env.ADMIN_PASSWORD), "admin|" + exp);
+  return exp + "." + sig;
+}
+__name(makeToken, "makeToken");
+function sessionCookie(token, maxAge = SESSION_SECONDS) {
+  return `${COOKIE_NAME}=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${maxAge}`;
+}
+__name(sessionCookie, "sessionCookie");
+async function isAdmin(request, env) {
+  if (!env.ADMIN_PASSWORD) return false;
+  const token = getCookie(request, COOKIE_NAME);
+  if (!token) return false;
+  const [expStr, sig] = token.split(".");
+  const exp = parseInt(expStr, 10);
+  if (!exp || !sig || exp < Math.floor(Date.now() / 1e3)) return false;
+  const expected = await hmacHex(String(env.ADMIN_PASSWORD), "admin|" + exp);
+  return safeEqual(sig, expected);
+}
+__name(isAdmin, "isAdmin");
+
+// api/admin/login.js
+async function onRequestPost(context) {
+  const { request, env } = context;
+  try {
+    if (!env.ADMIN_PASSWORD) {
+      return json2({ error: "ADMIN_PASSWORD is not set in Cloudflare variables." }, 500);
+    }
+    let body = {};
+    try {
+      body = await request.json();
+    } catch (e) {
+    }
+    const email = String(body.email || "").trim().toLowerCase();
+    const okPass = await checkPassword(env, body.password);
+    const okEmail = email === ADMIN_EMAIL;
+    if (!(okPass && okEmail)) {
+      await new Promise((r) => setTimeout(r, 1e3));
+      return json2({ error: "Wrong email or password." }, 401);
+    }
+    const token = await makeToken(env);
+    return json2({ ok: true }, 200, { "Set-Cookie": sessionCookie(token) });
+  } catch (e) {
+    console.log("admin login error", e && e.message);
+    return json2({ error: "Server error." }, 500);
+  }
+}
+__name(onRequestPost, "onRequestPost");
+
+// api/admin/logout.js
+async function onRequestPost2() {
+  return json2({ ok: true }, 200, { "Set-Cookie": sessionCookie("", 0) });
+}
+__name(onRequestPost2, "onRequestPost");
+
+// api/admin/me.js
+async function onRequestGet2(context) {
+  if (await isAdmin(context.request, context.env)) return json2({ ok: true, email: ADMIN_EMAIL });
+  return json2({ error: "Unauthorized" }, 401);
+}
+__name(onRequestGet2, "onRequestGet");
+
 // api/admin/users.js
-async function onRequestGet2({ request, env }) {
+async function onRequestGet3({ request, env }) {
   try {
     const db = env.DB;
     const url = new URL(request.url);
@@ -222,11 +334,11 @@ async function onRequestGet2({ request, env }) {
     return errorJson("Server error: " + (err && err.message ? err.message : String(err)), 500);
   }
 }
-__name(onRequestGet2, "onRequestGet");
+__name(onRequestGet3, "onRequestGet");
 
 // api/admin/withdrawals.js
 var VALID_STATUSES = ["pending", "completed", "rejected"];
-async function onRequestGet3({ request, env }) {
+async function onRequestGet4({ request, env }) {
   try {
     const db = env.DB;
     const url = new URL(request.url);
@@ -278,11 +390,11 @@ async function onRequestGet3({ request, env }) {
     return errorJson("Server error: " + (err && err.message ? err.message : String(err)), 500);
   }
 }
-__name(onRequestGet3, "onRequestGet");
+__name(onRequestGet4, "onRequestGet");
 
 // api/admin/withdrawals-update.js
 var VALID_STATUSES2 = ["completed", "rejected"];
-async function onRequestPost({ request, env }) {
+async function onRequestPost3({ request, env }) {
   try {
     const db = env.DB;
     let body;
@@ -336,7 +448,7 @@ async function onRequestPost({ request, env }) {
     return errorJson("Server error: " + (err && err.message ? err.message : String(err)), 500);
   }
 }
-__name(onRequestPost, "onRequestPost");
+__name(onRequestPost3, "onRequestPost");
 
 // _lib/email.js
 async function sendEmail(env, { to, subject, html }) {
@@ -404,7 +516,7 @@ function generateOtp() {
   return String(num);
 }
 __name(generateOtp, "generateOtp");
-async function onRequestPost2({ request, env }) {
+async function onRequestPost4({ request, env }) {
   const db = env.DB;
   let body;
   try {
@@ -447,10 +559,10 @@ async function onRequestPost2({ request, env }) {
   }
   return json(GENERIC_SUCCESS);
 }
-__name(onRequestPost2, "onRequestPost");
+__name(onRequestPost4, "onRequestPost");
 
 // api/auth/login.js
-async function onRequestPost3({ request, env }) {
+async function onRequestPost5({ request, env }) {
   const db = env.DB;
   let body;
   try {
@@ -467,8 +579,8 @@ async function onRequestPost3({ request, env }) {
   if (!user) {
     return errorJson("Invalid email or password.", 401);
   }
-  const ok8 = await verifyPassword(password, user.salt, user.password_hash);
-  if (!ok8) {
+  const ok9 = await verifyPassword(password, user.salt, user.password_hash);
+  if (!ok9) {
     return errorJson("Invalid email or password.", 401);
   }
   const { id: sessionId, expiresAt } = await createSession(db, user.id);
@@ -478,10 +590,10 @@ async function onRequestPost3({ request, env }) {
     { "Set-Cookie": sessionCookieHeader(sessionId, expiresAt) }
   );
 }
-__name(onRequestPost3, "onRequestPost");
+__name(onRequestPost5, "onRequestPost");
 
 // api/auth/logout.js
-async function onRequestPost4({ request, env }) {
+async function onRequestPost6({ request, env }) {
   const db = env.DB;
   const cookies = parseCookies(request);
   const sessionId = cookies[SESSION_COOKIE];
@@ -490,10 +602,10 @@ async function onRequestPost4({ request, env }) {
   }
   return json({ ok: true }, 200, { "Set-Cookie": clearSessionCookieHeader() });
 }
-__name(onRequestPost4, "onRequestPost");
+__name(onRequestPost6, "onRequestPost");
 
 // api/auth/me.js
-async function onRequestGet4({ request, env }) {
+async function onRequestGet5({ request, env }) {
   const db = env.DB;
   const user = await getUserFromRequest(request, db);
   if (!user) {
@@ -510,10 +622,10 @@ async function onRequestGet4({ request, env }) {
   shaped.earnings30d = row ? row.total : 0;
   return json({ user: shaped });
 }
-__name(onRequestGet4, "onRequestGet");
+__name(onRequestGet5, "onRequestGet");
 
 // api/auth/register.js
-async function onRequestPost5({ request, env }) {
+async function onRequestPost7({ request, env }) {
   const db = env.DB;
   let body;
   try {
@@ -555,11 +667,11 @@ async function onRequestPost5({ request, env }) {
     { "Set-Cookie": sessionCookieHeader(sessionId, expiresAt) }
   );
 }
-__name(onRequestPost5, "onRequestPost");
+__name(onRequestPost7, "onRequestPost");
 
 // api/auth/reset-password.js
 var GENERIC_ERROR = "Invalid or expired code.";
-async function onRequestPost6({ request, env }) {
+async function onRequestPost8({ request, env }) {
   const db = env.DB;
   let body;
   try {
@@ -589,8 +701,8 @@ async function onRequestPost6({ request, env }) {
   if (!reset) {
     return errorJson(GENERIC_ERROR);
   }
-  const ok8 = await verifyPassword(otp, reset.otp_salt, reset.otp_hash);
-  if (!ok8) {
+  const ok9 = await verifyPassword(otp, reset.otp_salt, reset.otp_hash);
+  if (!ok9) {
     return errorJson(GENERIC_ERROR);
   }
   const { hash, salt } = await hashPassword(newPassword);
@@ -599,11 +711,11 @@ async function onRequestPost6({ request, env }) {
   await db.prepare("DELETE FROM sessions WHERE user_id = ?").bind(user.id).run();
   return json({ message: "Password reset. Please sign in with your new password." });
 }
-__name(onRequestPost6, "onRequestPost");
+__name(onRequestPost8, "onRequestPost");
 
 // api/offers/admantum-feed.js
 var ADMANTUM_APP_ID = "52189";
-async function onRequestGet5(context) {
+async function onRequestGet6(context) {
   const { request, env } = context;
   const me = await getUserFromRequest(request, env.DB);
   if (!me) {
@@ -641,7 +753,7 @@ async function onRequestGet5(context) {
     return errorJson("Could not reach Admantum.", 502);
   }
 }
-__name(onRequestGet5, "onRequestGet");
+__name(onRequestGet6, "onRequestGet");
 function normalizeAdmantumOffer(o) {
   return {
     id: o.offer_id,
@@ -869,22 +981,488 @@ async function handlePostback(request, env) {
   return ok();
 }
 __name(handlePostback, "handlePostback");
-async function onRequestPost7(context) {
+async function onRequestPost9(context) {
   try {
     return await handlePostback(context.request, context.env);
   } catch (err) {
     return fail(err.message || "Server error", 500);
   }
 }
-__name(onRequestPost7, "onRequestPost");
-async function onRequestGet6(context) {
+__name(onRequestPost9, "onRequestPost");
+async function onRequestGet7(context) {
   try {
     return await handlePostback(context.request, context.env);
   } catch (err) {
     return fail(err.message || "Server error", 500);
   }
 }
-__name(onRequestGet6, "onRequestGet");
+__name(onRequestGet7, "onRequestGet");
+
+// api/offers/adswedmedia-postback.js
+function md52(input) {
+  function rotateLeft(x2, c2) {
+    return x2 << c2 | x2 >>> 32 - c2;
+  }
+  __name(rotateLeft, "rotateLeft");
+  function addUnsigned(x2, y) {
+    const x4 = x2 & 1073741824, y4 = y & 1073741824;
+    const x8 = x2 & 2147483648, y8 = y & 2147483648;
+    const result = (x2 & 1073741823) + (y & 1073741823);
+    if (x4 & y4) return result ^ 2147483648 ^ x8 ^ y8;
+    if (x4 | y4) {
+      if (result & 1073741824) return result ^ 3221225472 ^ x8 ^ y8;
+      return result ^ 1073741824 ^ x8 ^ y8;
+    }
+    return result ^ x8 ^ y8;
+  }
+  __name(addUnsigned, "addUnsigned");
+  function F(x2, y, z) {
+    return x2 & y | ~x2 & z;
+  }
+  __name(F, "F");
+  function G(x2, y, z) {
+    return x2 & z | y & ~z;
+  }
+  __name(G, "G");
+  function H(x2, y, z) {
+    return x2 ^ y ^ z;
+  }
+  __name(H, "H");
+  function I(x2, y, z) {
+    return y ^ (x2 | ~z);
+  }
+  __name(I, "I");
+  function FF(a2, b2, c2, d2, x2, s, ac) {
+    a2 = addUnsigned(a2, addUnsigned(addUnsigned(F(b2, c2, d2), x2), ac));
+    return addUnsigned(rotateLeft(a2, s), b2);
+  }
+  __name(FF, "FF");
+  function GG(a2, b2, c2, d2, x2, s, ac) {
+    a2 = addUnsigned(a2, addUnsigned(addUnsigned(G(b2, c2, d2), x2), ac));
+    return addUnsigned(rotateLeft(a2, s), b2);
+  }
+  __name(GG, "GG");
+  function HH(a2, b2, c2, d2, x2, s, ac) {
+    a2 = addUnsigned(a2, addUnsigned(addUnsigned(H(b2, c2, d2), x2), ac));
+    return addUnsigned(rotateLeft(a2, s), b2);
+  }
+  __name(HH, "HH");
+  function II(a2, b2, c2, d2, x2, s, ac) {
+    a2 = addUnsigned(a2, addUnsigned(addUnsigned(I(b2, c2, d2), x2), ac));
+    return addUnsigned(rotateLeft(a2, s), b2);
+  }
+  __name(II, "II");
+  function convertToWordArray(str) {
+    let wordCount;
+    const messageLength = str.length;
+    const numberOfWordsTemp1 = messageLength + 8;
+    const numberOfWordsTemp2 = (numberOfWordsTemp1 - numberOfWordsTemp1 % 64) / 64;
+    const numberOfWords = (numberOfWordsTemp2 + 1) * 16;
+    const wordArray = new Array(numberOfWords - 1);
+    let bytePosition = 0, byteCount = 0;
+    while (byteCount < messageLength) {
+      wordCount = (byteCount - byteCount % 4) / 4;
+      bytePosition = byteCount % 4 * 8;
+      wordArray[wordCount] = wordArray[wordCount] | str.charCodeAt(byteCount) << bytePosition;
+      byteCount++;
+    }
+    wordCount = (byteCount - byteCount % 4) / 4;
+    bytePosition = byteCount % 4 * 8;
+    wordArray[wordCount] = wordArray[wordCount] | 128 << bytePosition;
+    wordArray[numberOfWords - 2] = messageLength << 3;
+    wordArray[numberOfWords - 1] = messageLength >>> 29;
+    return wordArray;
+  }
+  __name(convertToWordArray, "convertToWordArray");
+  function wordToHex(value) {
+    let hex = "", byte, count;
+    for (count = 0; count <= 3; count++) {
+      byte = value >>> count * 8 & 255;
+      hex += ("0" + byte.toString(16)).slice(-2);
+    }
+    return hex;
+  }
+  __name(wordToHex, "wordToHex");
+  function utf8Encode(str) {
+    return unescape(encodeURIComponent(str));
+  }
+  __name(utf8Encode, "utf8Encode");
+  let x = [];
+  let k, AA, BB, CC, DD, a, b, c, d;
+  const S11 = 7, S12 = 12, S13 = 17, S14 = 22;
+  const S21 = 5, S22 = 9, S23 = 14, S24 = 20;
+  const S31 = 4, S32 = 11, S33 = 16, S34 = 23;
+  const S41 = 6, S42 = 10, S43 = 15, S44 = 21;
+  const utfInput = utf8Encode(input);
+  x = convertToWordArray(utfInput);
+  a = 1732584193;
+  b = 4023233417;
+  c = 2562383102;
+  d = 271733878;
+  for (k = 0; k < x.length; k += 16) {
+    AA = a;
+    BB = b;
+    CC = c;
+    DD = d;
+    a = FF(a, b, c, d, x[k + 0], S11, 3614090360);
+    d = FF(d, a, b, c, x[k + 1], S12, 3905402710);
+    c = FF(c, d, a, b, x[k + 2], S13, 606105819);
+    b = FF(b, c, d, a, x[k + 3], S14, 3250441966);
+    a = FF(a, b, c, d, x[k + 4], S11, 4118548399);
+    d = FF(d, a, b, c, x[k + 5], S12, 1200080426);
+    c = FF(c, d, a, b, x[k + 6], S13, 2821735955);
+    b = FF(b, c, d, a, x[k + 7], S14, 4249261313);
+    a = FF(a, b, c, d, x[k + 8], S11, 1770035416);
+    d = FF(d, a, b, c, x[k + 9], S12, 2336552879);
+    c = FF(c, d, a, b, x[k + 10], S13, 4294925233);
+    b = FF(b, c, d, a, x[k + 11], S14, 2304563134);
+    a = FF(a, b, c, d, x[k + 12], S11, 1804603682);
+    d = FF(d, a, b, c, x[k + 13], S12, 4254626195);
+    c = FF(c, d, a, b, x[k + 14], S13, 2792965006);
+    b = FF(b, c, d, a, x[k + 15], S14, 1236535329);
+    a = GG(a, b, c, d, x[k + 1], S21, 4129170786);
+    d = GG(d, a, b, c, x[k + 6], S22, 3225465664);
+    c = GG(c, d, a, b, x[k + 11], S23, 643717713);
+    b = GG(b, c, d, a, x[k + 0], S24, 3921069994);
+    a = GG(a, b, c, d, x[k + 5], S21, 3593408605);
+    d = GG(d, a, b, c, x[k + 10], S22, 38016083);
+    c = GG(c, d, a, b, x[k + 15], S23, 3634488961);
+    b = GG(b, c, d, a, x[k + 4], S24, 3889429448);
+    a = GG(a, b, c, d, x[k + 9], S21, 568446438);
+    d = GG(d, a, b, c, x[k + 14], S22, 3275163606);
+    c = GG(c, d, a, b, x[k + 3], S23, 4107603335);
+    b = GG(b, c, d, a, x[k + 8], S24, 1163531501);
+    a = GG(a, b, c, d, x[k + 13], S21, 2850285829);
+    d = GG(d, a, b, c, x[k + 2], S22, 4243563512);
+    c = GG(c, d, a, b, x[k + 7], S23, 1735328473);
+    b = GG(b, c, d, a, x[k + 12], S24, 2368359562);
+    a = HH(a, b, c, d, x[k + 5], S31, 4294588738);
+    d = HH(d, a, b, c, x[k + 8], S32, 2272392833);
+    c = HH(c, d, a, b, x[k + 11], S33, 1839030562);
+    b = HH(b, c, d, a, x[k + 14], S34, 4259657740);
+    a = HH(a, b, c, d, x[k + 1], S31, 2763975236);
+    d = HH(d, a, b, c, x[k + 4], S32, 1272893353);
+    c = HH(c, d, a, b, x[k + 7], S33, 4139469664);
+    b = HH(b, c, d, a, x[k + 10], S34, 3200236656);
+    a = HH(a, b, c, d, x[k + 13], S31, 681279174);
+    d = HH(d, a, b, c, x[k + 0], S32, 3936430074);
+    c = HH(c, d, a, b, x[k + 3], S33, 3572445317);
+    b = HH(b, c, d, a, x[k + 6], S34, 76029189);
+    a = HH(a, b, c, d, x[k + 9], S31, 3654602809);
+    d = HH(d, a, b, c, x[k + 12], S32, 3873151461);
+    c = HH(c, d, a, b, x[k + 15], S33, 530742520);
+    b = HH(b, c, d, a, x[k + 2], S34, 3299628645);
+    a = II(a, b, c, d, x[k + 0], S41, 4096336452);
+    d = II(d, a, b, c, x[k + 7], S42, 1126891415);
+    c = II(c, d, a, b, x[k + 14], S43, 2878612391);
+    b = II(b, c, d, a, x[k + 5], S44, 4237533241);
+    a = II(a, b, c, d, x[k + 12], S41, 1700485571);
+    d = II(d, a, b, c, x[k + 3], S42, 2399980690);
+    c = II(c, d, a, b, x[k + 10], S43, 4293915773);
+    b = II(b, c, d, a, x[k + 1], S44, 2240044497);
+    a = II(a, b, c, d, x[k + 8], S41, 1873313359);
+    d = II(d, a, b, c, x[k + 15], S42, 4264355552);
+    c = II(c, d, a, b, x[k + 6], S43, 2734768916);
+    b = II(b, c, d, a, x[k + 13], S44, 1309151649);
+    a = II(a, b, c, d, x[k + 4], S41, 4149444226);
+    d = II(d, a, b, c, x[k + 11], S42, 3174756917);
+    c = II(c, d, a, b, x[k + 2], S43, 718787259);
+    b = II(b, c, d, a, x[k + 9], S44, 3951481745);
+    a = addUnsigned(a, AA);
+    b = addUnsigned(b, BB);
+    c = addUnsigned(c, CC);
+    d = addUnsigned(d, DD);
+  }
+  return (wordToHex(a) + wordToHex(b) + wordToHex(c) + wordToHex(d)).toLowerCase();
+}
+__name(md52, "md5");
+function respond(text, status = 200) {
+  return new Response(text, { status, headers: { "content-type": "text/plain" } });
+}
+__name(respond, "respond");
+function fail2(message, status = 400) {
+  console.error("adswedmedia-postback:", message);
+  return new Response(message, { status, headers: { "content-type": "text/plain" } });
+}
+__name(fail2, "fail");
+async function readParams(request) {
+  const url = new URL(request.url);
+  const params = Object.fromEntries(url.searchParams.entries());
+  if (Object.keys(params).length > 0) {
+    return params;
+  }
+  if (request.method === "POST") {
+    try {
+      const contentType = request.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        return await request.json();
+      }
+      if (contentType.includes("form")) {
+        const formData = await request.formData();
+        return Object.fromEntries(formData.entries());
+      }
+    } catch {
+    }
+  }
+  return params;
+}
+__name(readParams, "readParams");
+async function handlePostback2(request, env) {
+  const params = await readParams(request);
+  console.log("adswedmedia-postback: DEBUG raw params", params);
+  const subId = String(params.subId || params.user_id || "");
+  const transId = String(params.transId || params.transid || "");
+  const rewardRaw = params.reward;
+  const reward = parseFloat(rewardRaw);
+  const payout = parseFloat(params.payout) || 0;
+  const signature = String(params.signature || params.sign || params.hash || "");
+  let status = String(params.status || "");
+  const type = String(params.type || "").toLowerCase();
+  if (!status && type) {
+    status = type === "reversal" || type === "chargeback" ? "2" : "1";
+  }
+  const offerId = String(params.offer_id || "");
+  const offerName = String(params.offer_name || "");
+  const secret = env.ADSWEDMEDIA_SECRET_KEY || "";
+  if (!secret) {
+    return fail2("Server not configured (missing ADSWEDMEDIA_SECRET_KEY).", 500);
+  }
+  if (!subId || !transId || !Number.isFinite(reward) || !signature) {
+    return fail2("Missing or invalid parameters.", 400);
+  }
+  const expectedSignature = md52(String(subId) + String(transId) + String(rewardRaw) + secret);
+  if (!signature || expectedSignature !== signature.toLowerCase()) {
+    console.log("adswedmedia-postback: DEBUG signature mismatch", {
+      received: signature || "(none)",
+      expected: expectedSignature,
+      signedString: `${subId}${transId}${rewardRaw}<secret>`
+    });
+    return fail2("Invalid signature.", 403);
+  }
+  const coins = Math.round(Math.abs(reward));
+  const dup3 = await env.DB.prepare(
+    `SELECT id FROM offer_completions WHERE provider = 'adswedmedia' AND transaction_id = ?`
+  ).bind(transId).first();
+  if (dup3) {
+    return respond("DUP");
+  }
+  if (status === "2") {
+    await env.DB.prepare(
+      `UPDATE users
+       SET coins = MAX(coins - ?, 0),
+           completed_offers = MAX(completed_offers - 1, 0),
+           total_earning = MAX(total_earning - ?, 0)
+       WHERE id = ?`
+    ).bind(coins, coins, subId).run();
+    await env.DB.prepare(
+      `INSERT INTO offer_completions (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
+       VALUES ('adswedmedia', ?, ?, ?, ?, ?, 'reversed', datetime('now'))`
+    ).bind(subId, offerId, transId, payout, coins).run();
+    return respond("OK");
+  }
+  if (status !== "1") {
+    console.error("adswedmedia-postback: unexpected status value", { status, subId, transId, offerId, offerName });
+    return fail2("Unexpected status value.", 400);
+  }
+  const update = await env.DB.prepare(
+    `UPDATE users
+     SET coins = coins + ?,
+         completed_offers = completed_offers + 1,
+         total_earning = total_earning + ?
+     WHERE id = ?`
+  ).bind(coins, coins, subId).run();
+  if (!update.success || update.meta.changes === 0) {
+    return fail2("User not found.", 404);
+  }
+  await env.DB.prepare(
+    `INSERT INTO offer_completions (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
+     VALUES ('adswedmedia', ?, ?, ?, ?, ?, 'credited', datetime('now'))`
+  ).bind(subId, offerId, transId, payout, coins).run();
+  return respond("OK");
+}
+__name(handlePostback2, "handlePostback");
+async function onRequestGet8(context) {
+  try {
+    return await handlePostback2(context.request, context.env);
+  } catch (err) {
+    return fail2(err.message || "Server error", 500);
+  }
+}
+__name(onRequestGet8, "onRequestGet");
+async function onRequestPost10(context) {
+  try {
+    return await handlePostback2(context.request, context.env);
+  } catch (err) {
+    return fail2(err.message || "Server error", 500);
+  }
+}
+__name(onRequestPost10, "onRequestPost");
+
+// api/offers/buckswall-postback.js
+function ok2() {
+  return new Response("OK", { status: 200, headers: { "content-type": "text/plain" } });
+}
+__name(ok2, "ok");
+function fail3(message, status = 400) {
+  console.error("buckswall-postback:", message);
+  return new Response(message, { status, headers: { "content-type": "text/plain" } });
+}
+__name(fail3, "fail");
+async function readParams2(request) {
+  const url = new URL(request.url);
+  const params = Object.fromEntries(url.searchParams.entries());
+  if (Object.keys(params).length > 0) {
+    return params;
+  }
+  if (request.method === "POST") {
+    try {
+      const contentType = request.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        return await request.json();
+      }
+      if (contentType.includes("form")) {
+        const formData = await request.formData();
+        return Object.fromEntries(formData.entries());
+      }
+    } catch {
+    }
+  }
+  return params;
+}
+__name(readParams2, "readParams");
+async function handleApproved(env, { userId, transId, offerLabel, coins, payout }) {
+  const dup3 = await env.DB.prepare(
+    `SELECT id FROM offer_completions WHERE provider = 'buckswall' AND transaction_id = ? AND status = 'credited'`
+  ).bind(transId).first();
+  if (dup3) {
+    return ok2();
+  }
+  const update = await env.DB.prepare(
+    `UPDATE users
+     SET coins = coins + ?,
+         completed_offers = completed_offers + 1,
+         total_earning = total_earning + ?
+     WHERE id = ?`
+  ).bind(coins, coins, userId).run();
+  if (!update.success || update.meta.changes === 0) {
+    return fail3("User not found.", 404);
+  }
+  await env.DB.prepare(
+    `INSERT INTO offer_completions (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
+     VALUES ('buckswall', ?, ?, ?, ?, ?, 'credited', datetime('now'))`
+  ).bind(userId, offerLabel, transId, payout, coins).run();
+  return ok2();
+}
+__name(handleApproved, "handleApproved");
+async function handleReversal(env, { userId, transId, status }) {
+  const original = await env.DB.prepare(
+    `SELECT user_id, coins_earned, payout FROM offer_completions
+     WHERE provider = 'buckswall' AND transaction_id = ? AND status = 'credited'`
+  ).bind(transId).first();
+  if (!original) {
+    console.log(`buckswall-postback: reversal ignored, no matching credit for transId=${transId} (status="${status}")`);
+    return ok2();
+  }
+  if (String(original.user_id) !== userId) {
+    console.error(`buckswall-postback: reversal user mismatch \u2014 credited row user_id=${original.user_id}, postback userId=${userId}, transId=${transId}`);
+    return ok2();
+  }
+  const alreadyReversed = await env.DB.prepare(
+    `SELECT id FROM offer_completions WHERE provider = 'buckswall' AND transaction_id = ? AND status = 'reversed'`
+  ).bind(transId).first();
+  if (alreadyReversed) {
+    return ok2();
+  }
+  const coins = Math.abs(original.coins_earned);
+  await env.DB.prepare(
+    `UPDATE users
+     SET coins = MAX(coins - ?, 0),
+         completed_offers = MAX(completed_offers - 1, 0),
+         total_earning = MAX(total_earning - ?, 0)
+     WHERE id = ?`
+  ).bind(coins, coins, userId).run();
+  await env.DB.prepare(
+    `INSERT INTO offer_completions (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
+     VALUES ('buckswall', ?, '', ?, ?, ?, 'reversed', datetime('now'))`
+  ).bind(userId, transId, original.payout, -coins).run();
+  console.log(`buckswall-postback: reversed transId=${transId} coins=${coins} (status="${status}")`);
+  return ok2();
+}
+__name(handleReversal, "handleReversal");
+async function handlePostback3(request, env) {
+  const debugRawBody = await request.clone().text().catch(() => "<unreadable>");
+  console.log("buckswall-postback: DEBUG incoming request", {
+    method: request.method,
+    contentType: request.headers.get("content-type"),
+    url: request.url,
+    rawBody: debugRawBody
+  });
+  const params = await readParams2(request);
+  const secret = String(params.secret || "");
+  const userId = String(params.subid1 || "");
+  const offerName = String(params.offer_name || "").trim();
+  const eventId = String(params.event_id || "").trim();
+  const eventName = String(params.event_name || "").trim();
+  const status = String(params.status || "").trim().toLowerCase();
+  const currencyAmount = parseFloat(params.currency_amount);
+  const payout = parseFloat(params.payout) || 0;
+  const ipAddress = String(params.ip_address || "");
+  const currencyName = String(params.currency_name || "");
+  const placementId = String(params.subid2 || "");
+  const expectedSecret = env.BUCKSWALL_POSTBACK_SECRET || "";
+  if (!expectedSecret) {
+    return fail3("Server not configured (missing BUCKSWALL_POSTBACK_SECRET).", 500);
+  }
+  if (!secret || secret !== expectedSecret) {
+    return fail3("Invalid or missing secret.", 403);
+  }
+  if (!userId || !offerName) {
+    return fail3("Missing or invalid parameters.", 400);
+  }
+  console.log("buckswall-postback:", {
+    userId,
+    offerName,
+    eventId,
+    eventName,
+    status,
+    currencyAmount,
+    payout,
+    ipAddress,
+    currencyName,
+    placementId
+  });
+  const transId = `buckswall-${userId}-${offerName}-${eventId || "single"}`;
+  if (status === "approved") {
+    if (!Number.isFinite(currencyAmount)) {
+      return fail3("Missing or invalid currency_amount.", 400);
+    }
+    const coins = Math.round(Math.abs(currencyAmount));
+    const offerLabel = eventName ? `${offerName} [${eventName}]` : offerName;
+    return handleApproved(env, { userId, transId, offerLabel, coins, payout });
+  }
+  if (status) {
+    return handleReversal(env, { userId, transId, status });
+  }
+  console.log(`buckswall-postback: ignored (status is empty/missing)`);
+  return ok2();
+}
+__name(handlePostback3, "handlePostback");
+async function onRequestPost11(context) {
+  try {
+    return await handlePostback3(context.request, context.env);
+  } catch (err) {
+    return fail3(err.message || "Server error", 500);
+  }
+}
+__name(onRequestPost11, "onRequestPost");
+async function onRequestGet9(context) {
+  try {
+    return await handlePostback3(context.request, context.env);
+  } catch (err) {
+    return fail3(err.message || "Server error", 500);
+  }
+}
+__name(onRequestGet9, "onRequestGet");
 
 // api/offers/cpalead-postback.js
 var PROVIDER = "cpalead";
@@ -907,7 +1485,7 @@ function jsonResponse(body, status = 200) {
   });
 }
 __name(jsonResponse, "jsonResponse");
-async function readParams(request) {
+async function readParams3(request) {
   const url = new URL(request.url);
   const q = url.searchParams;
   const params = {
@@ -937,9 +1515,9 @@ async function readParams(request) {
   }
   return params;
 }
-__name(readParams, "readParams");
-async function handlePostback2(request, env) {
-  const params = await readParams(request);
+__name(readParams3, "readParams");
+async function handlePostback4(request, env) {
+  const params = await readParams3(request);
   const expected = env.CPALEAD_POSTBACK_PASSWORD || "";
   if (!expected || !timingSafeEqual(params.password, expected)) {
     return jsonResponse({ status: "error", message: "Invalid password." }, 403);
@@ -977,15 +1555,15 @@ async function handlePostback2(request, env) {
   ).bind(PROVIDER, userId, params.campaignId || null, leadId, payout, coinsEarned).run();
   return jsonResponse({ status: "credited", coins: coinsEarned }, 200);
 }
-__name(handlePostback2, "handlePostback");
-async function onRequestGet7(context) {
-  return handlePostback2(context.request, context.env);
+__name(handlePostback4, "handlePostback");
+async function onRequestGet10(context) {
+  return handlePostback4(context.request, context.env);
 }
-__name(onRequestGet7, "onRequestGet");
-async function onRequestPost8(context) {
-  return handlePostback2(context.request, context.env);
+__name(onRequestGet10, "onRequestGet");
+async function onRequestPost12(context) {
+  return handlePostback4(context.request, context.env);
 }
-__name(onRequestPost8, "onRequestPost");
+__name(onRequestPost12, "onRequestPost");
 
 // api/offers/earnings.js
 var PROVIDER_LABELS = {
@@ -1008,7 +1586,7 @@ function labelFor(row) {
   return row.offer_id ? `${provider} Offer #${row.offer_id}` : provider;
 }
 __name(labelFor, "labelFor");
-async function onRequestGet8({ request, env }) {
+async function onRequestGet11({ request, env }) {
   const db = env.DB;
   const user = await getUserFromRequest(request, db);
   if (!user) {
@@ -1032,18 +1610,18 @@ async function onRequestGet8({ request, env }) {
   }));
   return json({ [key]: items });
 }
-__name(onRequestGet8, "onRequestGet");
+__name(onRequestGet11, "onRequestGet");
 
 // api/offers/gamwall-postback.js
-function respond(success, message, status = 200) {
+function respond2(success, message, status = 200) {
   if (!success) console.error("gamwall-postback:", message);
   return new Response(JSON.stringify({ success, message }), {
     status,
     headers: { "content-type": "application/json" }
   });
 }
-__name(respond, "respond");
-async function handlePostback3(request, env) {
+__name(respond2, "respond");
+async function handlePostback5(request, env) {
   const url = new URL(request.url);
   let params = Object.fromEntries(url.searchParams.entries());
   if (request.method === "POST") {
@@ -1068,10 +1646,10 @@ async function handlePostback3(request, env) {
   const key = String(get("key") || "");
   const expectedKey = env.GAMWALL_POSTBACK_KEY || "";
   if (expectedKey && key !== expectedKey) {
-    return respond(false, "Invalid or missing key.", 403);
+    return respond2(false, "Invalid or missing key.", 403);
   }
   if (!subId || !conversionId || !Number.isFinite(currencyAmount)) {
-    return respond(false, "Missing or invalid parameters.", 400);
+    return respond2(false, "Missing or invalid parameters.", 400);
   }
   const userId = subId;
   const coins = Math.round(Math.abs(currencyAmount));
@@ -1081,7 +1659,7 @@ async function handlePostback3(request, env) {
       `SELECT id, coins_earned FROM offer_completions WHERE provider = 'gamwall' AND transaction_id = ? AND status = 'credited'`
     ).bind(conversionId).first();
     if (!existing) {
-      return respond(true, "No matching credited transaction to reverse.");
+      return respond2(true, "No matching credited transaction to reverse.");
     }
     await env.DB.prepare(
       `UPDATE users
@@ -1091,16 +1669,16 @@ async function handlePostback3(request, env) {
        WHERE id = ?`
     ).bind(existing.coins_earned, existing.coins_earned, userId).run();
     await env.DB.prepare(`UPDATE offer_completions SET status = 'chargeback' WHERE id = ?`).bind(existing.id).run();
-    return respond(true, "Chargeback processed.");
+    return respond2(true, "Chargeback processed.");
   }
   if (status !== "approved") {
-    return respond(true, `Status "${status}" ignored (no credit).`);
+    return respond2(true, `Status "${status}" ignored (no credit).`);
   }
   const dup3 = await env.DB.prepare(
     `SELECT id FROM offer_completions WHERE provider = 'gamwall' AND transaction_id = ?`
   ).bind(conversionId).first();
   if (dup3) {
-    return respond(false, "Duplicate transaction");
+    return respond2(false, "Duplicate transaction");
   }
   const update = await env.DB.prepare(
     `UPDATE users
@@ -1110,49 +1688,49 @@ async function handlePostback3(request, env) {
      WHERE id = ?`
   ).bind(coins, coins, userId).run();
   if (!update.success || update.meta.changes === 0) {
-    return respond(false, "User not found.", 404);
+    return respond2(false, "User not found.", 404);
   }
   await env.DB.prepare(
     `INSERT INTO offer_completions (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
      VALUES ('gamwall', ?, ?, ?, ?, ?, 'credited', datetime('now'))`
   ).bind(userId, offerId, conversionId, payout, coins).run();
-  return respond(true, "Reward added successfully");
+  return respond2(true, "Reward added successfully");
 }
-__name(handlePostback3, "handlePostback");
-async function onRequestPost9(context) {
+__name(handlePostback5, "handlePostback");
+async function onRequestPost13(context) {
   try {
-    return await handlePostback3(context.request, context.env);
+    return await handlePostback5(context.request, context.env);
   } catch (err) {
-    return respond(false, err.message || "Server error", 500);
+    return respond2(false, err.message || "Server error", 500);
   }
 }
-__name(onRequestPost9, "onRequestPost");
-async function onRequestGet9(context) {
+__name(onRequestPost13, "onRequestPost");
+async function onRequestGet12(context) {
   try {
-    return await handlePostback3(context.request, context.env);
+    return await handlePostback5(context.request, context.env);
   } catch (err) {
-    return respond(false, err.message || "Server error", 500);
+    return respond2(false, err.message || "Server error", 500);
   }
 }
-__name(onRequestGet9, "onRequestGet");
+__name(onRequestGet12, "onRequestGet");
 
 // api/offers/gemiad-postback.js
 function approved() {
   return new Response("Approved", { status: 200, headers: { "content-type": "text/plain" } });
 }
 __name(approved, "approved");
-function fail2(message, status = 400) {
+function fail4(message, status = 400) {
   console.error("gemiad-postback:", message);
   return new Response(message, { status, headers: { "content-type": "text/plain" } });
 }
-__name(fail2, "fail");
+__name(fail4, "fail");
 async function sha256Hex(text) {
   const data = new TextEncoder().encode(text);
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
   return Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 __name(sha256Hex, "sha256Hex");
-async function handlePostback4(request, env) {
+async function handlePostback6(request, env) {
   const url = new URL(request.url);
   const params = Object.fromEntries(url.searchParams.entries());
   const userId = String(params.userId || "");
@@ -1167,17 +1745,17 @@ async function handlePostback4(request, env) {
   const hash = String(params.hash || "");
   const secretKey = env.GEMIAD_SECRET_KEY || "";
   if (!secretKey) {
-    return fail2("Server not configured (missing GEMIAD_SECRET_KEY).", 500);
+    return fail4("Server not configured (missing GEMIAD_SECRET_KEY).", 500);
   }
   if (!hash || !userId || !offerId || !txId) {
-    return fail2("Missing required parameters.", 400);
+    return fail4("Missing required parameters.", 400);
   }
   if (!Number.isFinite(reward)) {
-    return fail2("Missing or invalid parameters.", 400);
+    return fail4("Missing or invalid parameters.", 400);
   }
   const expectedHash = await sha256Hex(userId + offerId + txId + secretKey);
   if (hash !== expectedHash) {
-    return fail2("Invalid hash.", 403);
+    return fail4("Invalid hash.", 403);
   }
   const coins = Math.round(reward);
   console.log("gemiad-postback:", { userId, txId, offerId, offerName, eventId, eventName, status, coins, payout });
@@ -1196,7 +1774,7 @@ async function handlePostback4(request, env) {
        WHERE id = ?`
     ).bind(coins, coins, userId).run();
     if (!update.success || update.meta.changes === 0) {
-      return fail2("User not found.", 404);
+      return fail4("User not found.", 404);
     }
     await env.DB.prepare(
       `INSERT INTO offer_completions (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
@@ -1222,37 +1800,37 @@ async function handlePostback4(request, env) {
     await env.DB.prepare(`UPDATE offer_completions SET status = 'reversed' WHERE id = ?`).bind(original.id).run();
     return approved();
   }
-  return fail2(`Unknown status: ${status}`, 400);
+  return fail4(`Unknown status: ${status}`, 400);
 }
-__name(handlePostback4, "handlePostback");
-async function onRequestGet10(context) {
+__name(handlePostback6, "handlePostback");
+async function onRequestGet13(context) {
   try {
-    return await handlePostback4(context.request, context.env);
+    return await handlePostback6(context.request, context.env);
   } catch (err) {
-    return fail2(err.message || "Server error", 500);
+    return fail4(err.message || "Server error", 500);
   }
 }
-__name(onRequestGet10, "onRequestGet");
-async function onRequestPost10(context) {
+__name(onRequestGet13, "onRequestGet");
+async function onRequestPost14(context) {
   try {
-    return await handlePostback4(context.request, context.env);
+    return await handlePostback6(context.request, context.env);
   } catch (err) {
-    return fail2(err.message || "Server error", 500);
+    return fail4(err.message || "Server error", 500);
   }
 }
-__name(onRequestPost10, "onRequestPost");
+__name(onRequestPost14, "onRequestPost");
 
 // api/offers/nexowall-postback.js
-function ok2() {
+function ok3() {
   return new Response("OK", { status: 200, headers: { "content-type": "text/plain" } });
 }
-__name(ok2, "ok");
-function fail3(message, status = 400) {
+__name(ok3, "ok");
+function fail5(message, status = 400) {
   console.error("nexowall-postback:", message);
   return new Response(message, { status, headers: { "content-type": "text/plain" } });
 }
-__name(fail3, "fail");
-async function readParams2(request) {
+__name(fail5, "fail");
+async function readParams4(request) {
   const url = new URL(request.url);
   const params = Object.fromEntries(url.searchParams.entries());
   if (Object.keys(params).length > 0) {
@@ -1273,8 +1851,8 @@ async function readParams2(request) {
   }
   return params;
 }
-__name(readParams2, "readParams");
-async function handlePostback5(request, env) {
+__name(readParams4, "readParams");
+async function handlePostback7(request, env) {
   const debugRawBody = await request.clone().text().catch(() => "<unreadable>");
   console.log("nexowall-postback: DEBUG incoming request", {
     method: request.method,
@@ -1282,7 +1860,7 @@ async function handlePostback5(request, env) {
     url: request.url,
     rawBody: debugRawBody
   });
-  const params = await readParams2(request);
+  const params = await readParams4(request);
   const userId = String(params.userid || "");
   const password = String(params.password || "");
   const offerId = String(params.offer_id || "");
@@ -1291,13 +1869,13 @@ async function handlePostback5(request, env) {
   const payout = parseFloat(params.payout) || 0;
   const expectedPassword = env.NEXOWALL_POSTBACK_PASSWORD || "";
   if (!expectedPassword) {
-    return fail3("Server not configured (missing NEXOWALL_POSTBACK_PASSWORD).", 500);
+    return fail5("Server not configured (missing NEXOWALL_POSTBACK_PASSWORD).", 500);
   }
   if (!password || password !== expectedPassword) {
-    return fail3("Invalid password.", 403);
+    return fail5("Invalid password.", 403);
   }
   if (!userId || !Number.isFinite(amount)) {
-    return fail3("Missing or invalid parameters.", 400);
+    return fail5("Missing or invalid parameters.", 400);
   }
   const coins = Math.round(Math.abs(amount));
   const transId = `nexowall-${userId}-${offerId}`;
@@ -1306,7 +1884,7 @@ async function handlePostback5(request, env) {
     `SELECT id FROM offer_completions WHERE provider = 'nexowall' AND transaction_id = ?`
   ).bind(transId).first();
   if (dup3) {
-    return ok2();
+    return ok3();
   }
   const update = await env.DB.prepare(
     `UPDATE users
@@ -1316,35 +1894,35 @@ async function handlePostback5(request, env) {
      WHERE id = ?`
   ).bind(coins, coins, userId).run();
   if (!update.success || update.meta.changes === 0) {
-    return fail3("User not found.", 404);
+    return fail5("User not found.", 404);
   }
   await env.DB.prepare(
     `INSERT INTO offer_completions (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
      VALUES ('nexowall', ?, ?, ?, ?, ?, 'credited', datetime('now'))`
   ).bind(userId, offerId, transId, payout, coins).run();
-  return ok2();
+  return ok3();
 }
-__name(handlePostback5, "handlePostback");
-async function onRequestPost11(context) {
+__name(handlePostback7, "handlePostback");
+async function onRequestPost15(context) {
   try {
-    return await handlePostback5(context.request, context.env);
+    return await handlePostback7(context.request, context.env);
   } catch (err) {
-    return fail3(err.message || "Server error", 500);
+    return fail5(err.message || "Server error", 500);
   }
 }
-__name(onRequestPost11, "onRequestPost");
-async function onRequestGet11(context) {
+__name(onRequestPost15, "onRequestPost");
+async function onRequestGet14(context) {
   try {
-    return await handlePostback5(context.request, context.env);
+    return await handlePostback7(context.request, context.env);
   } catch (err) {
-    return fail3(err.message || "Server error", 500);
+    return fail5(err.message || "Server error", 500);
   }
 }
-__name(onRequestGet11, "onRequestGet");
+__name(onRequestGet14, "onRequestGet");
 
 // api/offers/offery-feed.js
 var OFFERY_API_KEY = "8qb2kq6axoev42a70fz01b44chpx6q";
-async function onRequestGet12(context) {
+async function onRequestGet15(context) {
   const { request, env } = context;
   const me = await getUserFromRequest(request, env.DB);
   if (!me) {
@@ -1381,245 +1959,18 @@ async function onRequestGet12(context) {
     return errorJson("Could not reach Offery.", 502);
   }
 }
-__name(onRequestGet12, "onRequestGet");
+__name(onRequestGet15, "onRequestGet");
 
 // api/offers/offery-postback.js
-function ok3() {
+function ok4() {
   return new Response("ok", { status: 200, headers: { "content-type": "text/plain" } });
 }
-__name(ok3, "ok");
-function fail4(message, status = 400) {
+__name(ok4, "ok");
+function fail6(message, status = 400) {
   console.error("offery-postback:", message);
   return new Response(message, { status, headers: { "content-type": "text/plain" } });
 }
-__name(fail4, "fail");
-function md52(input) {
-  function rotl(x, c) {
-    return x << c | x >>> 32 - c;
-  }
-  __name(rotl, "rotl");
-  function toHex2(num) {
-    let s = "";
-    for (let i = 0; i < 4; i++) s += (num >> i * 8 & 255).toString(16).padStart(2, "0");
-    return s;
-  }
-  __name(toHex2, "toHex");
-  const K = new Array(64);
-  for (let i = 0; i < 64; i++) K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296) | 0;
-  const S = [
-    7,
-    12,
-    17,
-    22,
-    7,
-    12,
-    17,
-    22,
-    7,
-    12,
-    17,
-    22,
-    7,
-    12,
-    17,
-    22,
-    5,
-    9,
-    14,
-    20,
-    5,
-    9,
-    14,
-    20,
-    5,
-    9,
-    14,
-    20,
-    5,
-    9,
-    14,
-    20,
-    4,
-    11,
-    16,
-    23,
-    4,
-    11,
-    16,
-    23,
-    4,
-    11,
-    16,
-    23,
-    4,
-    11,
-    16,
-    23,
-    6,
-    10,
-    15,
-    21,
-    6,
-    10,
-    15,
-    21,
-    6,
-    10,
-    15,
-    21,
-    6,
-    10,
-    15,
-    21
-  ];
-  const utf8 = new TextEncoder().encode(input);
-  const bitLen = utf8.length * 8;
-  const bytes = Array.from(utf8);
-  bytes.push(128);
-  while (bytes.length % 64 !== 56) bytes.push(0);
-  for (let i = 0; i < 8; i++) bytes.push(Math.floor(bitLen / Math.pow(2, i * 8)) & 255);
-  let a0 = 1732584193, b0 = 4023233417, c0 = 2562383102, d0 = 271733878;
-  for (let chunk = 0; chunk < bytes.length; chunk += 64) {
-    const M = new Array(16);
-    for (let j = 0; j < 16; j++) {
-      const o = chunk + j * 4;
-      M[j] = bytes[o] | bytes[o + 1] << 8 | bytes[o + 2] << 16 | bytes[o + 3] << 24;
-    }
-    let A = a0, B = b0, C = c0, D = d0;
-    for (let i = 0; i < 64; i++) {
-      let F, g;
-      if (i < 16) {
-        F = B & C | ~B & D;
-        g = i;
-      } else if (i < 32) {
-        F = D & B | ~D & C;
-        g = (5 * i + 1) % 16;
-      } else if (i < 48) {
-        F = B ^ C ^ D;
-        g = (3 * i + 5) % 16;
-      } else {
-        F = C ^ (B | ~D);
-        g = 7 * i % 16;
-      }
-      F = F + A + K[i] + M[g] | 0;
-      A = D;
-      D = C;
-      C = B;
-      B = B + rotl(F, S[i]) | 0;
-    }
-    a0 = a0 + A | 0;
-    b0 = b0 + B | 0;
-    c0 = c0 + C | 0;
-    d0 = d0 + D | 0;
-  }
-  return toHex2(a0) + toHex2(b0) + toHex2(c0) + toHex2(d0);
-}
-__name(md52, "md5");
-async function handlePostback6(request, env) {
-  const url = new URL(request.url);
-  let params = Object.fromEntries(url.searchParams.entries());
-  if (request.method === "POST") {
-    const contentType = request.headers.get("content-type") || "";
-    let bodyParams = {};
-    if (contentType.includes("application/json")) {
-      bodyParams = await request.json();
-    } else {
-      const formData = await request.formData();
-      bodyParams = Object.fromEntries(formData.entries());
-    }
-    params = { ...params, ...bodyParams };
-  }
-  const subId = String(params.subId || "");
-  const transId = String(params.transId || "");
-  const offerId = String(params.offer_id || "");
-  const offerName = String(params.offer_name || "");
-  const rewardRaw = params.reward;
-  const reward = parseFloat(rewardRaw);
-  const status = String(params.status || "1");
-  const signature = String(params.signature || "");
-  const secret = env.OFFERY_SECRET_KEY || "";
-  if (!secret) return fail4("Server not configured (missing OFFERY_SECRET_KEY).", 500);
-  const expected = md52(subId + transId + rewardRaw + secret);
-  if (!signature || signature !== expected) {
-    return fail4("Signature doesn't match.", 403);
-  }
-  if (!subId || !transId || !Number.isFinite(reward)) {
-    return fail4("Missing or invalid parameters.", 400);
-  }
-  const userId = subId;
-  const coins = Math.round(Math.abs(reward));
-  console.log("offery-postback:", { userId, transId, offerId, offerName, coins, status });
-  if (status === "2") {
-    const existing = await env.DB.prepare(
-      `SELECT id, coins_earned FROM offer_completions WHERE provider = 'offery' AND transaction_id = ? AND status = 'credited'`
-    ).bind(transId).first();
-    if (!existing) {
-      return ok3();
-    }
-    await env.DB.prepare(
-      `UPDATE users
-       SET coins = MAX(coins - ?, 0),
-           completed_offers = MAX(completed_offers - 1, 0),
-           total_earning = MAX(total_earning - ?, 0)
-       WHERE id = ?`
-    ).bind(existing.coins_earned, existing.coins_earned, userId).run();
-    await env.DB.prepare(`UPDATE offer_completions SET status = 'chargeback' WHERE id = ?`).bind(existing.id).run();
-    return ok3();
-  }
-  const dup3 = await env.DB.prepare(
-    `SELECT id FROM offer_completions WHERE provider = 'offery' AND transaction_id = ?`
-  ).bind(transId).first();
-  if (dup3) {
-    return ok3();
-  }
-  const update = await env.DB.prepare(
-    `UPDATE users
-     SET coins = coins + ?,
-         completed_offers = completed_offers + 1,
-         total_earning = total_earning + ?
-     WHERE id = ?`
-  ).bind(coins, coins, userId).run();
-  if (!update.success || update.meta.changes === 0) {
-    return fail4("User not found.", 404);
-  }
-  await env.DB.prepare(
-    `INSERT INTO offer_completions (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
-     VALUES ('offery', ?, ?, ?, ?, ?, 'credited', datetime('now'))`
-  ).bind(userId, offerId, transId, parseFloat(params.payout) || 0, coins).run();
-  return ok3();
-}
-__name(handlePostback6, "handlePostback");
-async function onRequestPost12(context) {
-  try {
-    return await handlePostback6(context.request, context.env);
-  } catch (err) {
-    return fail4(err.message || "Server error", 500);
-  }
-}
-__name(onRequestPost12, "onRequestPost");
-async function onRequestGet13(context) {
-  try {
-    return await handlePostback6(context.request, context.env);
-  } catch (err) {
-    return fail4(err.message || "Server error", 500);
-  }
-}
-__name(onRequestGet13, "onRequestGet");
-
-// api/offers/paidbucksy-postback.js
-function ok4() {
-  return new Response("OK", { status: 200, headers: { "content-type": "text/plain" } });
-}
-__name(ok4, "ok");
-function dup() {
-  return new Response("DUP", { status: 200, headers: { "content-type": "text/plain" } });
-}
-__name(dup, "dup");
-function fail5(message, status = 400) {
-  console.error("paidbucksy-postback:", message);
-  return new Response(message, { status, headers: { "content-type": "text/plain" } });
-}
-__name(fail5, "fail");
+__name(fail6, "fail");
 function md53(input) {
   function rotl(x, c) {
     return x << c | x >>> 32 - c;
@@ -1742,33 +2093,45 @@ function md53(input) {
   return toHex2(a0) + toHex2(b0) + toHex2(c0) + toHex2(d0);
 }
 __name(md53, "md5");
-async function handlePostback7(request, env) {
+async function handlePostback8(request, env) {
   const url = new URL(request.url);
-  const params = Object.fromEntries(url.searchParams.entries());
-  const userId = String(params.user_id || "");
-  const transactionId = String(params.transaction_id || "");
-  const campaignId = String(params.campaign_id || "");
+  let params = Object.fromEntries(url.searchParams.entries());
+  if (request.method === "POST") {
+    const contentType = request.headers.get("content-type") || "";
+    let bodyParams = {};
+    if (contentType.includes("application/json")) {
+      bodyParams = await request.json();
+    } else {
+      const formData = await request.formData();
+      bodyParams = Object.fromEntries(formData.entries());
+    }
+    params = { ...params, ...bodyParams };
+  }
+  const subId = String(params.subId || "");
+  const transId = String(params.transId || "");
+  const offerId = String(params.offer_id || "");
   const offerName = String(params.offer_name || "");
   const rewardRaw = params.reward;
   const reward = parseFloat(rewardRaw);
   const status = String(params.status || "1");
   const signature = String(params.signature || "");
-  const secret = env.PAIDBUCKSY_SECRET_KEY || "";
-  if (!secret) return fail5("Server not configured (missing PAIDBUCKSY_SECRET_KEY).", 500);
-  const expected = md53(userId + transactionId + rewardRaw + secret);
+  const secret = env.OFFERY_SECRET_KEY || "";
+  if (!secret) return fail6("Server not configured (missing OFFERY_SECRET_KEY).", 500);
+  const expected = md53(subId + transId + rewardRaw + secret);
   if (!signature || signature !== expected) {
-    return fail5("Signature doesn't match.", 403);
+    return fail6("Signature doesn't match.", 403);
   }
-  if (!userId || !transactionId || !Number.isFinite(reward)) {
-    return fail5("Missing or invalid parameters.", 400);
+  if (!subId || !transId || !Number.isFinite(reward)) {
+    return fail6("Missing or invalid parameters.", 400);
   }
+  const userId = subId;
   const coins = Math.round(Math.abs(reward));
-  console.log("paidbucksy-postback:", { userId, transactionId, campaignId, offerName, coins, status });
+  console.log("offery-postback:", { userId, transId, offerId, offerName, coins, status });
   if (status === "2") {
-    const existing2 = await env.DB.prepare(
-      `SELECT id, coins_earned FROM offer_completions WHERE provider = 'paidbucksy' AND transaction_id = ? AND status = 'credited'`
-    ).bind(transactionId).first();
-    if (!existing2) {
+    const existing = await env.DB.prepare(
+      `SELECT id, coins_earned FROM offer_completions WHERE provider = 'offery' AND transaction_id = ? AND status = 'credited'`
+    ).bind(transId).first();
+    if (!existing) {
       return ok4();
     }
     await env.DB.prepare(
@@ -1777,15 +2140,15 @@ async function handlePostback7(request, env) {
            completed_offers = MAX(completed_offers - 1, 0),
            total_earning = MAX(total_earning - ?, 0)
        WHERE id = ?`
-    ).bind(existing2.coins_earned, existing2.coins_earned, userId).run();
-    await env.DB.prepare(`UPDATE offer_completions SET status = 'chargeback' WHERE id = ?`).bind(existing2.id).run();
+    ).bind(existing.coins_earned, existing.coins_earned, userId).run();
+    await env.DB.prepare(`UPDATE offer_completions SET status = 'chargeback' WHERE id = ?`).bind(existing.id).run();
     return ok4();
   }
-  const existing = await env.DB.prepare(
-    `SELECT id FROM offer_completions WHERE provider = 'paidbucksy' AND transaction_id = ?`
-  ).bind(transactionId).first();
-  if (existing) {
-    return dup();
+  const dup3 = await env.DB.prepare(
+    `SELECT id FROM offer_completions WHERE provider = 'offery' AND transaction_id = ?`
+  ).bind(transId).first();
+  if (dup3) {
+    return ok4();
   }
   const update = await env.DB.prepare(
     `UPDATE users
@@ -1795,50 +2158,46 @@ async function handlePostback7(request, env) {
      WHERE id = ?`
   ).bind(coins, coins, userId).run();
   if (!update.success || update.meta.changes === 0) {
-    return fail5("User not found.", 404);
+    return fail6("User not found.", 404);
   }
   await env.DB.prepare(
     `INSERT INTO offer_completions (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
-     VALUES ('paidbucksy', ?, ?, ?, ?, ?, 'credited', datetime('now'))`
-  ).bind(userId, campaignId, transactionId, parseFloat(params.payout) || 0, coins).run();
+     VALUES ('offery', ?, ?, ?, ?, ?, 'credited', datetime('now'))`
+  ).bind(userId, offerId, transId, parseFloat(params.payout) || 0, coins).run();
   return ok4();
 }
-__name(handlePostback7, "handlePostback");
-async function onRequestGet14(context) {
+__name(handlePostback8, "handlePostback");
+async function onRequestPost16(context) {
   try {
-    return await handlePostback7(context.request, context.env);
+    return await handlePostback8(context.request, context.env);
   } catch (err) {
-    return fail5(err.message || "Server error", 500);
+    return fail6(err.message || "Server error", 500);
   }
 }
-__name(onRequestGet14, "onRequestGet");
-async function onRequestPost13(context) {
+__name(onRequestPost16, "onRequestPost");
+async function onRequestGet16(context) {
   try {
-    return await handlePostback7(context.request, context.env);
+    return await handlePostback8(context.request, context.env);
   } catch (err) {
-    return fail5(err.message || "Server error", 500);
+    return fail6(err.message || "Server error", 500);
   }
 }
-__name(onRequestPost13, "onRequestPost");
+__name(onRequestGet16, "onRequestGet");
 
-// api/offers/radientwall-postback.js
-function textResponse(body, status = 200) {
-  return new Response(body, { status, headers: { "content-type": "text/plain" } });
-}
-__name(textResponse, "textResponse");
+// api/offers/paidbucksy-postback.js
 function ok5() {
-  return textResponse("OK", 200);
+  return new Response("OK", { status: 200, headers: { "content-type": "text/plain" } });
 }
 __name(ok5, "ok");
-function dup2() {
-  return textResponse("DUP", 200);
+function dup() {
+  return new Response("DUP", { status: 200, headers: { "content-type": "text/plain" } });
 }
-__name(dup2, "dup");
-function fail6(message, status = 400) {
-  console.error("radientwall-postback:", message);
-  return textResponse(message, status);
+__name(dup, "dup");
+function fail7(message, status = 400) {
+  console.error("paidbucksy-postback:", message);
+  return new Response(message, { status, headers: { "content-type": "text/plain" } });
 }
-__name(fail6, "fail");
+__name(fail7, "fail");
 function md54(input) {
   function rotl(x, c) {
     return x << c | x >>> 32 - c;
@@ -1961,47 +2320,34 @@ function md54(input) {
   return toHex2(a0) + toHex2(b0) + toHex2(c0) + toHex2(d0);
 }
 __name(md54, "md5");
-async function handlePostback8(request, env) {
+async function handlePostback9(request, env) {
   const url = new URL(request.url);
-  let params = Object.fromEntries(url.searchParams.entries());
-  if (request.method === "POST") {
-    const contentType = request.headers.get("content-type") || "";
-    let bodyParams = {};
-    if (contentType.includes("application/json")) {
-      bodyParams = await request.json();
-    } else {
-      const formData = await request.formData();
-      bodyParams = Object.fromEntries(formData.entries());
-    }
-    params = { ...params, ...bodyParams };
-  }
-  const subId = String(params.subId || "");
-  const transId = String(params.transId || "");
+  const params = Object.fromEntries(url.searchParams.entries());
+  const userId = String(params.user_id || "");
+  const transactionId = String(params.transaction_id || "");
+  const campaignId = String(params.campaign_id || "");
   const offerName = String(params.offer_name || "");
-  const userIp = String(params.userIp || "");
-  const country = String(params.country || "");
   const rewardRaw = params.reward;
   const reward = parseFloat(rewardRaw);
   const status = String(params.status || "1");
   const signature = String(params.signature || "");
-  const secret = env.RADIENTWALL_SECRET_KEY || "";
-  if (!secret) return fail6("Server not configured (missing RADIENTWALL_SECRET_KEY).", 500);
-  const expected = md54(subId + transId + rewardRaw + secret);
+  const secret = env.PAIDBUCKSY_SECRET_KEY || "";
+  if (!secret) return fail7("Server not configured (missing PAIDBUCKSY_SECRET_KEY).", 500);
+  const expected = md54(userId + transactionId + rewardRaw + secret);
   if (!signature || signature !== expected) {
-    return fail6("Signature doesn't match.", 403);
+    return fail7("Signature doesn't match.", 403);
   }
-  if (!subId || !transId || !Number.isFinite(reward)) {
-    return fail6("Missing or invalid parameters.", 400);
+  if (!userId || !transactionId || !Number.isFinite(reward)) {
+    return fail7("Missing or invalid parameters.", 400);
   }
-  const userId = subId;
   const coins = Math.round(Math.abs(reward));
-  console.log("radientwall-postback:", { userId, transId, offerName, userIp, country, coins, status });
+  console.log("paidbucksy-postback:", { userId, transactionId, campaignId, offerName, coins, status });
   if (status === "2") {
-    const existing = await env.DB.prepare(
-      `SELECT id, coins_earned FROM offer_completions WHERE provider = 'radientwall' AND transaction_id = ? AND status = 'credited'`
-    ).bind(transId).first();
-    if (!existing) {
-      return dup2();
+    const existing2 = await env.DB.prepare(
+      `SELECT id, coins_earned FROM offer_completions WHERE provider = 'paidbucksy' AND transaction_id = ? AND status = 'credited'`
+    ).bind(transactionId).first();
+    if (!existing2) {
+      return ok5();
     }
     await env.DB.prepare(
       `UPDATE users
@@ -2009,15 +2355,15 @@ async function handlePostback8(request, env) {
            completed_offers = MAX(completed_offers - 1, 0),
            total_earning = MAX(total_earning - ?, 0)
        WHERE id = ?`
-    ).bind(existing.coins_earned, existing.coins_earned, userId).run();
-    await env.DB.prepare(`UPDATE offer_completions SET status = 'chargeback' WHERE id = ?`).bind(existing.id).run();
+    ).bind(existing2.coins_earned, existing2.coins_earned, userId).run();
+    await env.DB.prepare(`UPDATE offer_completions SET status = 'chargeback' WHERE id = ?`).bind(existing2.id).run();
     return ok5();
   }
-  const dupRow = await env.DB.prepare(
-    `SELECT id FROM offer_completions WHERE provider = 'radientwall' AND transaction_id = ?`
-  ).bind(transId).first();
-  if (dupRow) {
-    return dup2();
+  const existing = await env.DB.prepare(
+    `SELECT id FROM offer_completions WHERE provider = 'paidbucksy' AND transaction_id = ?`
+  ).bind(transactionId).first();
+  if (existing) {
+    return dup();
   }
   const update = await env.DB.prepare(
     `UPDATE users
@@ -2027,87 +2373,50 @@ async function handlePostback8(request, env) {
      WHERE id = ?`
   ).bind(coins, coins, userId).run();
   if (!update.success || update.meta.changes === 0) {
-    return fail6("User not found.", 404);
+    return fail7("User not found.", 404);
   }
   await env.DB.prepare(
     `INSERT INTO offer_completions (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
-     VALUES ('radientwall', ?, ?, ?, ?, ?, 'credited', datetime('now'))`
-  ).bind(userId, offerName || null, transId, parseFloat(params.payout) || 0, coins).run();
+     VALUES ('paidbucksy', ?, ?, ?, ?, ?, 'credited', datetime('now'))`
+  ).bind(userId, campaignId, transactionId, parseFloat(params.payout) || 0, coins).run();
   return ok5();
 }
-__name(handlePostback8, "handlePostback");
-async function onRequestPost14(context) {
+__name(handlePostback9, "handlePostback");
+async function onRequestGet17(context) {
   try {
-    return await handlePostback8(context.request, context.env);
+    return await handlePostback9(context.request, context.env);
   } catch (err) {
-    return fail6(err.message || "Server error", 500);
+    return fail7(err.message || "Server error", 500);
   }
 }
-__name(onRequestPost14, "onRequestPost");
-async function onRequestGet15(context) {
+__name(onRequestGet17, "onRequestGet");
+async function onRequestPost17(context) {
   try {
-    return await handlePostback8(context.request, context.env);
+    return await handlePostback9(context.request, context.env);
   } catch (err) {
-    return fail6(err.message || "Server error", 500);
+    return fail7(err.message || "Server error", 500);
   }
 }
-__name(onRequestGet15, "onRequestGet");
+__name(onRequestPost17, "onRequestPost");
 
-// api/offers/revtoo-feed.js
-var REVTOO_API_KEY = "8euee083znhqu99d3y17gzed8fqxc8";
-async function onRequestGet16(context) {
-  const { request, env } = context;
-  const me = await getUserFromRequest(request, env.DB);
-  if (!me) {
-    return errorJson("Not signed in.", 401);
-  }
-  const feedUrl = `https://revtoo.com/api/offers/?api_key=${encodeURIComponent(REVTOO_API_KEY)}&user_id=${encodeURIComponent(me.id)}`;
-  try {
-    const res = await fetch(feedUrl, {
-      headers: {
-        // Some offerwall feeds reject requests with no browser-like UA.
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 earnbangla-offerwall-proxy"
-      }
-    });
-    if (!res.ok) {
-      console.error("revtoo-feed: upstream status", res.status);
-      return errorJson("Revtoo feed request failed.", 502);
-    }
-    const raw = await res.text();
-    let data;
-    try {
-      data = JSON.parse(raw);
-    } catch {
-      console.error("revtoo-feed: non-JSON response:", raw.slice(0, 300));
-      return errorJson("Revtoo returned an unexpected response.", 502);
-    }
-    if (data.success === false) {
-      console.error("revtoo-feed: API error", data.status, data.message);
-      return errorJson(data.message || "Revtoo API error.", 502);
-    }
-    const rows = Array.isArray(data.offers) ? data.offers : [];
-    const offers = rows.map((row) => ({
-      ...row,
-      url: String(row.url || "").replace(/\[?USER_ID\]?/g, encodeURIComponent(me.id))
-    }));
-    return json({ offers, raw: data });
-  } catch (err) {
-    console.error("revtoo-feed error:", err);
-    return errorJson("Could not reach Revtoo.", 502);
-  }
+// api/offers/radientwall-postback.js
+function textResponse(body, status = 200) {
+  return new Response(body, { status, headers: { "content-type": "text/plain" } });
 }
-__name(onRequestGet16, "onRequestGet");
-
-// api/offers/revtoo-postback.js
+__name(textResponse, "textResponse");
 function ok6() {
-  return new Response("ok", { status: 200, headers: { "content-type": "text/plain" } });
+  return textResponse("OK", 200);
 }
 __name(ok6, "ok");
-function fail7(message, status = 400) {
-  console.error("revtoo-postback:", message);
-  return new Response(message, { status, headers: { "content-type": "text/plain" } });
+function dup2() {
+  return textResponse("DUP", 200);
 }
-__name(fail7, "fail");
+__name(dup2, "dup");
+function fail8(message, status = 400) {
+  console.error("radientwall-postback:", message);
+  return textResponse(message, status);
+}
+__name(fail8, "fail");
 function md55(input) {
   function rotl(x, c) {
     return x << c | x >>> 32 - c;
@@ -2230,7 +2539,276 @@ function md55(input) {
   return toHex2(a0) + toHex2(b0) + toHex2(c0) + toHex2(d0);
 }
 __name(md55, "md5");
-async function handlePostback9(request, env) {
+async function handlePostback10(request, env) {
+  const url = new URL(request.url);
+  let params = Object.fromEntries(url.searchParams.entries());
+  if (request.method === "POST") {
+    const contentType = request.headers.get("content-type") || "";
+    let bodyParams = {};
+    if (contentType.includes("application/json")) {
+      bodyParams = await request.json();
+    } else {
+      const formData = await request.formData();
+      bodyParams = Object.fromEntries(formData.entries());
+    }
+    params = { ...params, ...bodyParams };
+  }
+  const subId = String(params.subId || "");
+  const transId = String(params.transId || "");
+  const offerName = String(params.offer_name || "");
+  const userIp = String(params.userIp || "");
+  const country = String(params.country || "");
+  const rewardRaw = params.reward;
+  const reward = parseFloat(rewardRaw);
+  const status = String(params.status || "1");
+  const signature = String(params.signature || "");
+  const secret = env.RADIENTWALL_SECRET_KEY || "";
+  if (!secret) return fail8("Server not configured (missing RADIENTWALL_SECRET_KEY).", 500);
+  const expected = md55(subId + transId + rewardRaw + secret);
+  if (!signature || signature !== expected) {
+    return fail8("Signature doesn't match.", 403);
+  }
+  if (!subId || !transId || !Number.isFinite(reward)) {
+    return fail8("Missing or invalid parameters.", 400);
+  }
+  const userId = subId;
+  const coins = Math.round(Math.abs(reward));
+  console.log("radientwall-postback:", { userId, transId, offerName, userIp, country, coins, status });
+  if (status === "2") {
+    const existing = await env.DB.prepare(
+      `SELECT id, coins_earned FROM offer_completions WHERE provider = 'radientwall' AND transaction_id = ? AND status = 'credited'`
+    ).bind(transId).first();
+    if (!existing) {
+      return dup2();
+    }
+    await env.DB.prepare(
+      `UPDATE users
+       SET coins = MAX(coins - ?, 0),
+           completed_offers = MAX(completed_offers - 1, 0),
+           total_earning = MAX(total_earning - ?, 0)
+       WHERE id = ?`
+    ).bind(existing.coins_earned, existing.coins_earned, userId).run();
+    await env.DB.prepare(`UPDATE offer_completions SET status = 'chargeback' WHERE id = ?`).bind(existing.id).run();
+    return ok6();
+  }
+  const dupRow = await env.DB.prepare(
+    `SELECT id FROM offer_completions WHERE provider = 'radientwall' AND transaction_id = ?`
+  ).bind(transId).first();
+  if (dupRow) {
+    return dup2();
+  }
+  const update = await env.DB.prepare(
+    `UPDATE users
+     SET coins = coins + ?,
+         completed_offers = completed_offers + 1,
+         total_earning = total_earning + ?
+     WHERE id = ?`
+  ).bind(coins, coins, userId).run();
+  if (!update.success || update.meta.changes === 0) {
+    return fail8("User not found.", 404);
+  }
+  await env.DB.prepare(
+    `INSERT INTO offer_completions (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
+     VALUES ('radientwall', ?, ?, ?, ?, ?, 'credited', datetime('now'))`
+  ).bind(userId, offerName || null, transId, parseFloat(params.payout) || 0, coins).run();
+  return ok6();
+}
+__name(handlePostback10, "handlePostback");
+async function onRequestPost18(context) {
+  try {
+    return await handlePostback10(context.request, context.env);
+  } catch (err) {
+    return fail8(err.message || "Server error", 500);
+  }
+}
+__name(onRequestPost18, "onRequestPost");
+async function onRequestGet18(context) {
+  try {
+    return await handlePostback10(context.request, context.env);
+  } catch (err) {
+    return fail8(err.message || "Server error", 500);
+  }
+}
+__name(onRequestGet18, "onRequestGet");
+
+// api/offers/revtoo-feed.js
+var REVTOO_API_KEY = "8euee083znhqu99d3y17gzed8fqxc8";
+async function onRequestGet19(context) {
+  const { request, env } = context;
+  const me = await getUserFromRequest(request, env.DB);
+  if (!me) {
+    return errorJson("Not signed in.", 401);
+  }
+  const feedUrl = `https://revtoo.com/api/offers/?api_key=${encodeURIComponent(REVTOO_API_KEY)}&user_id=${encodeURIComponent(me.id)}`;
+  try {
+    const res = await fetch(feedUrl, {
+      headers: {
+        // Some offerwall feeds reject requests with no browser-like UA.
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 earnbangla-offerwall-proxy"
+      }
+    });
+    if (!res.ok) {
+      console.error("revtoo-feed: upstream status", res.status);
+      return errorJson("Revtoo feed request failed.", 502);
+    }
+    const raw = await res.text();
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      console.error("revtoo-feed: non-JSON response:", raw.slice(0, 300));
+      return errorJson("Revtoo returned an unexpected response.", 502);
+    }
+    if (data.success === false) {
+      console.error("revtoo-feed: API error", data.status, data.message);
+      return errorJson(data.message || "Revtoo API error.", 502);
+    }
+    const rows = Array.isArray(data.offers) ? data.offers : [];
+    const offers = rows.map((row) => ({
+      ...row,
+      url: String(row.url || "").replace(/\[?USER_ID\]?/g, encodeURIComponent(me.id))
+    }));
+    return json({ offers, raw: data });
+  } catch (err) {
+    console.error("revtoo-feed error:", err);
+    return errorJson("Could not reach Revtoo.", 502);
+  }
+}
+__name(onRequestGet19, "onRequestGet");
+
+// api/offers/revtoo-postback.js
+function ok7() {
+  return new Response("ok", { status: 200, headers: { "content-type": "text/plain" } });
+}
+__name(ok7, "ok");
+function fail9(message, status = 400) {
+  console.error("revtoo-postback:", message);
+  return new Response(message, { status, headers: { "content-type": "text/plain" } });
+}
+__name(fail9, "fail");
+function md56(input) {
+  function rotl(x, c) {
+    return x << c | x >>> 32 - c;
+  }
+  __name(rotl, "rotl");
+  function toHex2(num) {
+    let s = "";
+    for (let i = 0; i < 4; i++) s += (num >> i * 8 & 255).toString(16).padStart(2, "0");
+    return s;
+  }
+  __name(toHex2, "toHex");
+  const K = new Array(64);
+  for (let i = 0; i < 64; i++) K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296) | 0;
+  const S = [
+    7,
+    12,
+    17,
+    22,
+    7,
+    12,
+    17,
+    22,
+    7,
+    12,
+    17,
+    22,
+    7,
+    12,
+    17,
+    22,
+    5,
+    9,
+    14,
+    20,
+    5,
+    9,
+    14,
+    20,
+    5,
+    9,
+    14,
+    20,
+    5,
+    9,
+    14,
+    20,
+    4,
+    11,
+    16,
+    23,
+    4,
+    11,
+    16,
+    23,
+    4,
+    11,
+    16,
+    23,
+    4,
+    11,
+    16,
+    23,
+    6,
+    10,
+    15,
+    21,
+    6,
+    10,
+    15,
+    21,
+    6,
+    10,
+    15,
+    21,
+    6,
+    10,
+    15,
+    21
+  ];
+  const utf8 = new TextEncoder().encode(input);
+  const bitLen = utf8.length * 8;
+  const bytes = Array.from(utf8);
+  bytes.push(128);
+  while (bytes.length % 64 !== 56) bytes.push(0);
+  for (let i = 0; i < 8; i++) bytes.push(Math.floor(bitLen / Math.pow(2, i * 8)) & 255);
+  let a0 = 1732584193, b0 = 4023233417, c0 = 2562383102, d0 = 271733878;
+  for (let chunk = 0; chunk < bytes.length; chunk += 64) {
+    const M = new Array(16);
+    for (let j = 0; j < 16; j++) {
+      const o = chunk + j * 4;
+      M[j] = bytes[o] | bytes[o + 1] << 8 | bytes[o + 2] << 16 | bytes[o + 3] << 24;
+    }
+    let A = a0, B = b0, C = c0, D = d0;
+    for (let i = 0; i < 64; i++) {
+      let F, g;
+      if (i < 16) {
+        F = B & C | ~B & D;
+        g = i;
+      } else if (i < 32) {
+        F = D & B | ~D & C;
+        g = (5 * i + 1) % 16;
+      } else if (i < 48) {
+        F = B ^ C ^ D;
+        g = (3 * i + 5) % 16;
+      } else {
+        F = C ^ (B | ~D);
+        g = 7 * i % 16;
+      }
+      F = F + A + K[i] + M[g] | 0;
+      A = D;
+      D = C;
+      C = B;
+      B = B + rotl(F, S[i]) | 0;
+    }
+    a0 = a0 + A | 0;
+    b0 = b0 + B | 0;
+    c0 = c0 + C | 0;
+    d0 = d0 + D | 0;
+  }
+  return toHex2(a0) + toHex2(b0) + toHex2(c0) + toHex2(d0);
+}
+__name(md56, "md5");
+async function handlePostback11(request, env) {
   const url = new URL(request.url);
   let params = Object.fromEntries(url.searchParams.entries());
   if (request.method === "POST") {
@@ -2253,13 +2831,13 @@ async function handlePostback9(request, env) {
   const status = String(params.status || "1");
   const signature = String(params.signature || "");
   const secret = env.REVTOO_SECRET_KEY || "";
-  if (!secret) return fail7("Server not configured (missing REVTOO_SECRET_KEY).", 500);
-  const expected = md55(subId + transId + rewardRaw + secret);
+  if (!secret) return fail9("Server not configured (missing REVTOO_SECRET_KEY).", 500);
+  const expected = md56(subId + transId + rewardRaw + secret);
   if (!signature || signature !== expected) {
-    return fail7("Signature doesn't match.", 403);
+    return fail9("Signature doesn't match.", 403);
   }
   if (!subId || !transId || !Number.isFinite(reward)) {
-    return fail7("Missing or invalid parameters.", 400);
+    return fail9("Missing or invalid parameters.", 400);
   }
   const userId = subId;
   const coins = Math.round(Math.abs(reward));
@@ -2269,7 +2847,7 @@ async function handlePostback9(request, env) {
       `SELECT id, coins_earned FROM offer_completions WHERE provider = 'revtoo' AND transaction_id = ? AND status = 'credited'`
     ).bind(transId).first();
     if (!existing) {
-      return ok6();
+      return ok7();
     }
     await env.DB.prepare(
       `UPDATE users
@@ -2279,13 +2857,13 @@ async function handlePostback9(request, env) {
        WHERE id = ?`
     ).bind(existing.coins_earned, existing.coins_earned, userId).run();
     await env.DB.prepare(`UPDATE offer_completions SET status = 'chargeback' WHERE id = ?`).bind(existing.id).run();
-    return ok6();
+    return ok7();
   }
   const dup3 = await env.DB.prepare(
     `SELECT id FROM offer_completions WHERE provider = 'revtoo' AND transaction_id = ?`
   ).bind(transId).first();
   if (dup3) {
-    return ok6();
+    return ok7();
   }
   const update = await env.DB.prepare(
     `UPDATE users
@@ -2295,35 +2873,35 @@ async function handlePostback9(request, env) {
      WHERE id = ?`
   ).bind(coins, coins, userId).run();
   if (!update.success || update.meta.changes === 0) {
-    return fail7("User not found.", 404);
+    return fail9("User not found.", 404);
   }
   await env.DB.prepare(
     `INSERT INTO offer_completions (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
      VALUES ('revtoo', ?, ?, ?, ?, ?, 'credited', datetime('now'))`
   ).bind(userId, offerId, transId, parseFloat(params.payout) || 0, coins).run();
-  return ok6();
+  return ok7();
 }
-__name(handlePostback9, "handlePostback");
-async function onRequestPost15(context) {
+__name(handlePostback11, "handlePostback");
+async function onRequestPost19(context) {
   try {
-    return await handlePostback9(context.request, context.env);
+    return await handlePostback11(context.request, context.env);
   } catch (err) {
-    return fail7(err.message || "Server error", 500);
+    return fail9(err.message || "Server error", 500);
   }
 }
-__name(onRequestPost15, "onRequestPost");
-async function onRequestGet17(context) {
+__name(onRequestPost19, "onRequestPost");
+async function onRequestGet20(context) {
   try {
-    return await handlePostback9(context.request, context.env);
+    return await handlePostback11(context.request, context.env);
   } catch (err) {
-    return fail7(err.message || "Server error", 500);
+    return fail9(err.message || "Server error", 500);
   }
 }
-__name(onRequestGet17, "onRequestGet");
+__name(onRequestGet20, "onRequestGet");
 
 // api/offers/taskwall-feed.js
 var TASKWALL_APP_KEY = "35e67766abe0e8b9a6aa0ae5ff0cd090";
-async function onRequestGet18(context) {
+async function onRequestGet21(context) {
   const { request, env } = context;
   const me = await getUserFromRequest(request, env.DB);
   if (!me) {
@@ -2361,7 +2939,7 @@ async function onRequestGet18(context) {
     return errorJson("Could not reach TaskWall.", 502);
   }
 }
-__name(onRequestGet18, "onRequestGet");
+__name(onRequestGet21, "onRequestGet");
 function normalizeTaskwallOffer(o) {
   const amount = o.user_amount != null && o.user_amount !== "" ? parseFloat(o.user_amount) : parseFloat(o.payout || 0) * 1e3;
   let description = o.description || "";
@@ -2387,16 +2965,16 @@ function detectOs(ua) {
 __name(detectOs, "detectOs");
 
 // api/offers/taskwall-postback.js
-function ok7() {
+function ok8() {
   return new Response("OK", { status: 200, headers: { "content-type": "text/plain" } });
 }
-__name(ok7, "ok");
-function fail8(message, status = 400) {
+__name(ok8, "ok");
+function fail10(message, status = 400) {
   console.error("taskwall-postback:", message);
   return new Response(message, { status, headers: { "content-type": "text/plain" } });
 }
-__name(fail8, "fail");
-async function readParams3(request) {
+__name(fail10, "fail");
+async function readParams5(request) {
   const url = new URL(request.url);
   const params = Object.fromEntries(url.searchParams.entries());
   if (Object.keys(params).length > 0) {
@@ -2417,8 +2995,8 @@ async function readParams3(request) {
   }
   return params;
 }
-__name(readParams3, "readParams");
-async function handlePostback10(request, env) {
+__name(readParams5, "readParams");
+async function handlePostback12(request, env) {
   const debugRawBody = await request.clone().text().catch(() => "<unreadable>");
   console.log("taskwall-postback: DEBUG incoming request", {
     method: request.method,
@@ -2426,7 +3004,7 @@ async function handlePostback10(request, env) {
     url: request.url,
     rawBody: debugRawBody
   });
-  const params = await readParams3(request);
+  const params = await readParams5(request);
   const userId = String(params.userid || "");
   const password = String(params.password || "");
   const offerId = String(params.offer_id || "");
@@ -2435,13 +3013,13 @@ async function handlePostback10(request, env) {
   const payout = parseFloat(params.payout) || 0;
   const expectedPassword = env.TASKWALL_POSTBACK_PASSWORD || "";
   if (!expectedPassword) {
-    return fail8("Server not configured (missing TASKWALL_POSTBACK_PASSWORD).", 500);
+    return fail10("Server not configured (missing TASKWALL_POSTBACK_PASSWORD).", 500);
   }
   if (!password || password !== expectedPassword) {
-    return fail8("Invalid password.", 403);
+    return fail10("Invalid password.", 403);
   }
   if (!userId || !Number.isFinite(amount)) {
-    return fail8("Missing or invalid parameters.", 400);
+    return fail10("Missing or invalid parameters.", 400);
   }
   const coins = Math.round(Math.abs(amount));
   const transId = `taskwall-${userId}-${offerId}`;
@@ -2450,7 +3028,7 @@ async function handlePostback10(request, env) {
     `SELECT id FROM offer_completions WHERE provider = 'taskwall' AND transaction_id = ?`
   ).bind(transId).first();
   if (dup3) {
-    return ok7();
+    return ok8();
   }
   const update = await env.DB.prepare(
     `UPDATE users
@@ -2460,31 +3038,31 @@ async function handlePostback10(request, env) {
      WHERE id = ?`
   ).bind(coins, coins, userId).run();
   if (!update.success || update.meta.changes === 0) {
-    return fail8("User not found.", 404);
+    return fail10("User not found.", 404);
   }
   await env.DB.prepare(
     `INSERT INTO offer_completions (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
      VALUES ('taskwall', ?, ?, ?, ?, ?, 'credited', datetime('now'))`
   ).bind(userId, offerId, transId, payout, coins).run();
-  return ok7();
+  return ok8();
 }
-__name(handlePostback10, "handlePostback");
-async function onRequestPost16(context) {
+__name(handlePostback12, "handlePostback");
+async function onRequestPost20(context) {
   try {
-    return await handlePostback10(context.request, context.env);
+    return await handlePostback12(context.request, context.env);
   } catch (err) {
-    return fail8(err.message || "Server error", 500);
+    return fail10(err.message || "Server error", 500);
   }
 }
-__name(onRequestPost16, "onRequestPost");
-async function onRequestGet19(context) {
+__name(onRequestPost20, "onRequestPost");
+async function onRequestGet22(context) {
   try {
-    return await handlePostback10(context.request, context.env);
+    return await handlePostback12(context.request, context.env);
   } catch (err) {
-    return fail8(err.message || "Server error", 500);
+    return fail10(err.message || "Server error", 500);
   }
 }
-__name(onRequestGet19, "onRequestGet");
+__name(onRequestGet22, "onRequestGet");
 
 // api/offers/vortexwall-postback.js
 var PROVIDER2 = "vortexwall";
@@ -2512,7 +3090,7 @@ function jsonResponse2(body, status = 200) {
   });
 }
 __name(jsonResponse2, "jsonResponse");
-function readParams4(request) {
+function readParams6(request) {
   const url = new URL(request.url);
   const q = url.searchParams;
   return {
@@ -2526,7 +3104,7 @@ function readParams4(request) {
     hash: q.get("hash") || ""
   };
 }
-__name(readParams4, "readParams");
+__name(readParams6, "readParams");
 async function handleCompleted(p, env) {
   const points = Math.max(0, Math.round(Number.parseFloat(p.points) || 0));
   const payout = Number.parseFloat(p.payout) || 0;
@@ -2593,8 +3171,8 @@ async function handleRejected(p, env) {
   return jsonResponse2({ status: "reversed" }, 200);
 }
 __name(handleRejected, "handleRejected");
-async function handlePostback11(request, env) {
-  const p = readParams4(request);
+async function handlePostback13(request, env) {
+  const p = readParams6(request);
   if (!p.userId || !p.campaignId || !p.txid) {
     return jsonResponse2(
       { status: "error", message: "Missing identity_id, campaign_id, or txid." },
@@ -2618,19 +3196,19 @@ async function handlePostback11(request, env) {
   console.log("VORTEXWALL unrecognized_result", JSON.stringify({ result: p.result, txid: p.txid }));
   return jsonResponse2({ status: "ignored", result: p.result }, 200);
 }
-__name(handlePostback11, "handlePostback");
-async function onRequestGet20(context) {
-  return handlePostback11(context.request, context.env);
+__name(handlePostback13, "handlePostback");
+async function onRequestGet23(context) {
+  return handlePostback13(context.request, context.env);
 }
-__name(onRequestGet20, "onRequestGet");
-async function onRequestPost17(context) {
-  return handlePostback11(context.request, context.env);
+__name(onRequestGet23, "onRequestGet");
+async function onRequestPost21(context) {
+  return handlePostback13(context.request, context.env);
 }
-__name(onRequestPost17, "onRequestPost");
+__name(onRequestPost21, "onRequestPost");
 
 // api/profile/update.js
 var VALID_AVATARS = ["avc1", "avc2", "avc3", "avc4", "avc5", "avc6"];
-async function onRequestPost18({ request, env }) {
+async function onRequestPost22({ request, env }) {
   const db = env.DB;
   const user = await getUserFromRequest(request, db);
   if (!user) {
@@ -2677,13 +3255,13 @@ async function onRequestPost18({ request, env }) {
   const updated = await db.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first();
   return json({ user: publicUser(updated) });
 }
-__name(onRequestPost18, "onRequestPost");
+__name(onRequestPost22, "onRequestPost");
 
 // api/withdraw/request.js
 var VALID_METHODS = ["litecoin", "binance"];
 var MIN_COINS = 200;
 var COINS_PER_DOLLAR3 = 1e3;
-async function onRequestPost19({ request, env }) {
+async function onRequestPost23({ request, env }) {
   try {
     const db = env.DB;
     const user = await getUserFromRequest(request, db);
@@ -2741,8 +3319,8 @@ async function onRequestPost19({ request, env }) {
     return errorJson("Server error: " + (err && err.message ? err.message : String(err)), 500);
   }
 }
-__name(onRequestPost19, "onRequestPost");
-async function onRequestGet21({ request, env }) {
+__name(onRequestPost23, "onRequestPost");
+async function onRequestGet24({ request, env }) {
   try {
     const db = env.DB;
     const user = await getUserFromRequest(request, db);
@@ -2767,7 +3345,7 @@ async function onRequestGet21({ request, env }) {
     return errorJson("Server error: " + (err && err.message ? err.message : String(err)), 500);
   }
 }
-__name(onRequestGet21, "onRequestGet");
+__name(onRequestGet24, "onRequestGet");
 
 // api/offers/primewall-postback.js
 var REQUIRE_SIGNATURE = false;
@@ -2855,20 +3433,48 @@ async function onRequest(context) {
 __name(onRequest, "onRequest");
 
 // api/activity.js
-async function onRequestGet22({ env }) {
-  const db = env.DB;
-  if (!db) return errorJson("DB not bound", 500);
-  const { results } = await db.prepare(
-    `SELECT u.username AS username, u.avatar AS avatar,
-              a.coins_earned AS coinsEarned, a.created_at AS createdAt
-       FROM activity_log a
-       JOIN users u ON u.id = a.user_id
-       ORDER BY a.created_at DESC
-       LIMIT 12`
-  ).all();
-  return json({ activity: results || [] });
+var LIMIT = 30;
+var TZ = "+6 hours";
+async function onRequestGet25(context) {
+  const { env } = context;
+  try {
+    const { results } = await env.DB.prepare(
+      `SELECT u.username AS username,
+              oc.user_id AS user_id,
+              oc.provider AS provider,
+              oc.coins_earned AS coins,
+              strftime('%m/%d/%Y', oc.created_at, '${TZ}') AS day
+         FROM offer_completions oc
+         LEFT JOIN users u ON u.id = oc.user_id
+        WHERE oc.status = 'credited'
+          AND oc.coins_earned > 0
+          AND date(oc.created_at, '${TZ}') = date('now', '${TZ}')
+        ORDER BY oc.id DESC
+        LIMIT ?`
+    ).bind(LIMIT).all();
+    const activity = (results || []).map((r) => ({
+      username: r.username || String(r.user_id || "User"),
+      // username না মিললে offer_completions-এর user_id দেখাবে
+      provider: r.provider,
+      coinsEarned: Math.round(r.coins),
+      date: r.day
+      // MM/DD/YYYY
+    }));
+    return new Response(JSON.stringify({ activity }), {
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store"
+      }
+    });
+  } catch (e) {
+    console.log("activity error", e && e.message);
+    return new Response(
+      JSON.stringify({ activity: [], error: String(e && e.message || e) }),
+      { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } }
+    );
+  }
 }
-__name(onRequestGet22, "onRequestGet");
+__name(onRequestGet25, "onRequestGet");
 
 // api/leaderboard.js
 var RANK_PRIZES = {
@@ -2883,12 +3489,12 @@ var RANK_PRIZES = {
   9: 300,
   10: 100
 };
-var LIMIT = 50;
+var LIMIT2 = 50;
 function prizeFor(rank) {
   return RANK_PRIZES[rank] || 0;
 }
 __name(prizeFor, "prizeFor");
-async function onRequestGet23(context) {
+async function onRequestGet26(context) {
   const { env, request } = context;
   try {
     const { results } = await env.DB.prepare(
@@ -2897,7 +3503,7 @@ async function onRequestGet23(context) {
        WHERE is_private = 0
        ORDER BY coins DESC, created_at ASC
        LIMIT ?`
-    ).bind(LIMIT).all();
+    ).bind(LIMIT2).all();
     const entries = results.map((u, i) => ({
       rank: i + 1,
       username: u.username,
@@ -2921,9 +3527,9 @@ async function onRequestGet23(context) {
     return errorJson("Failed to load leaderboard", 500);
   }
 }
-__name(onRequestGet23, "onRequestGet");
+__name(onRequestGet26, "onRequestGet");
 
-// ../.wrangler/tmp/pages-M7zbag/functionsRoutes-0.8631972174589038.mjs
+// ../.wrangler/tmp/pages-d3sURj/functionsRoutes-0.20048778567414727.mjs
 var routes = [
   {
     routePath: "/api/admin/dashboard-stats",
@@ -2933,77 +3539,91 @@ var routes = [
     modules: [onRequestGet]
   },
   {
-    routePath: "/api/admin/users",
-    mountPath: "/api/admin",
-    method: "GET",
-    middlewares: [],
-    modules: [onRequestGet2]
-  },
-  {
-    routePath: "/api/admin/withdrawals",
-    mountPath: "/api/admin",
-    method: "GET",
-    middlewares: [],
-    modules: [onRequestGet3]
-  },
-  {
-    routePath: "/api/admin/withdrawals-update",
+    routePath: "/api/admin/login",
     mountPath: "/api/admin",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost]
   },
   {
-    routePath: "/api/auth/forgot-password",
-    mountPath: "/api/auth",
+    routePath: "/api/admin/logout",
+    mountPath: "/api/admin",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost2]
   },
   {
-    routePath: "/api/auth/login",
-    mountPath: "/api/auth",
+    routePath: "/api/admin/me",
+    mountPath: "/api/admin",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet2]
+  },
+  {
+    routePath: "/api/admin/users",
+    mountPath: "/api/admin",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet3]
+  },
+  {
+    routePath: "/api/admin/withdrawals",
+    mountPath: "/api/admin",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet4]
+  },
+  {
+    routePath: "/api/admin/withdrawals-update",
+    mountPath: "/api/admin",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost3]
   },
   {
-    routePath: "/api/auth/logout",
+    routePath: "/api/auth/forgot-password",
     mountPath: "/api/auth",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost4]
   },
   {
-    routePath: "/api/auth/me",
-    mountPath: "/api/auth",
-    method: "GET",
-    middlewares: [],
-    modules: [onRequestGet4]
-  },
-  {
-    routePath: "/api/auth/register",
+    routePath: "/api/auth/login",
     mountPath: "/api/auth",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost5]
   },
   {
-    routePath: "/api/auth/reset-password",
+    routePath: "/api/auth/logout",
     mountPath: "/api/auth",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost6]
   },
   {
-    routePath: "/api/offers/admantum-feed",
-    mountPath: "/api/offers",
+    routePath: "/api/auth/me",
+    mountPath: "/api/auth",
     method: "GET",
     middlewares: [],
     modules: [onRequestGet5]
   },
   {
-    routePath: "/api/offers/admantum-postback",
+    routePath: "/api/auth/register",
+    mountPath: "/api/auth",
+    method: "POST",
+    middlewares: [],
+    modules: [onRequestPost7]
+  },
+  {
+    routePath: "/api/auth/reset-password",
+    mountPath: "/api/auth",
+    method: "POST",
+    middlewares: [],
+    modules: [onRequestPost8]
+  },
+  {
+    routePath: "/api/offers/admantum-feed",
     mountPath: "/api/offers",
     method: "GET",
     middlewares: [],
@@ -3012,198 +3632,233 @@ var routes = [
   {
     routePath: "/api/offers/admantum-postback",
     mountPath: "/api/offers",
-    method: "POST",
-    middlewares: [],
-    modules: [onRequestPost7]
-  },
-  {
-    routePath: "/api/offers/cpalead-postback",
-    mountPath: "/api/offers",
     method: "GET",
     middlewares: [],
     modules: [onRequestGet7]
   },
   {
-    routePath: "/api/offers/cpalead-postback",
-    mountPath: "/api/offers",
-    method: "POST",
-    middlewares: [],
-    modules: [onRequestPost8]
-  },
-  {
-    routePath: "/api/offers/earnings",
-    mountPath: "/api/offers",
-    method: "GET",
-    middlewares: [],
-    modules: [onRequestGet8]
-  },
-  {
-    routePath: "/api/offers/gamwall-postback",
-    mountPath: "/api/offers",
-    method: "GET",
-    middlewares: [],
-    modules: [onRequestGet9]
-  },
-  {
-    routePath: "/api/offers/gamwall-postback",
+    routePath: "/api/offers/admantum-postback",
     mountPath: "/api/offers",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost9]
   },
   {
-    routePath: "/api/offers/gemiad-postback",
+    routePath: "/api/offers/adswedmedia-postback",
     mountPath: "/api/offers",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet10]
+    modules: [onRequestGet8]
   },
   {
-    routePath: "/api/offers/gemiad-postback",
+    routePath: "/api/offers/adswedmedia-postback",
     mountPath: "/api/offers",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost10]
   },
   {
-    routePath: "/api/offers/nexowall-postback",
+    routePath: "/api/offers/buckswall-postback",
     mountPath: "/api/offers",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet11]
+    modules: [onRequestGet9]
   },
   {
-    routePath: "/api/offers/nexowall-postback",
+    routePath: "/api/offers/buckswall-postback",
     mountPath: "/api/offers",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost11]
   },
   {
-    routePath: "/api/offers/offery-feed",
+    routePath: "/api/offers/cpalead-postback",
     mountPath: "/api/offers",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet12]
+    modules: [onRequestGet10]
   },
   {
-    routePath: "/api/offers/offery-postback",
-    mountPath: "/api/offers",
-    method: "GET",
-    middlewares: [],
-    modules: [onRequestGet13]
-  },
-  {
-    routePath: "/api/offers/offery-postback",
+    routePath: "/api/offers/cpalead-postback",
     mountPath: "/api/offers",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost12]
   },
   {
-    routePath: "/api/offers/paidbucksy-postback",
+    routePath: "/api/offers/earnings",
     mountPath: "/api/offers",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet14]
+    modules: [onRequestGet11]
   },
   {
-    routePath: "/api/offers/paidbucksy-postback",
+    routePath: "/api/offers/gamwall-postback",
+    mountPath: "/api/offers",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet12]
+  },
+  {
+    routePath: "/api/offers/gamwall-postback",
     mountPath: "/api/offers",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost13]
   },
   {
-    routePath: "/api/offers/radientwall-postback",
+    routePath: "/api/offers/gemiad-postback",
     mountPath: "/api/offers",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet15]
+    modules: [onRequestGet13]
   },
   {
-    routePath: "/api/offers/radientwall-postback",
+    routePath: "/api/offers/gemiad-postback",
     mountPath: "/api/offers",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost14]
   },
   {
-    routePath: "/api/offers/revtoo-feed",
+    routePath: "/api/offers/nexowall-postback",
     mountPath: "/api/offers",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet16]
+    modules: [onRequestGet14]
   },
   {
-    routePath: "/api/offers/revtoo-postback",
-    mountPath: "/api/offers",
-    method: "GET",
-    middlewares: [],
-    modules: [onRequestGet17]
-  },
-  {
-    routePath: "/api/offers/revtoo-postback",
+    routePath: "/api/offers/nexowall-postback",
     mountPath: "/api/offers",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost15]
   },
   {
-    routePath: "/api/offers/taskwall-feed",
+    routePath: "/api/offers/offery-feed",
     mountPath: "/api/offers",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet18]
+    modules: [onRequestGet15]
   },
   {
-    routePath: "/api/offers/taskwall-postback",
+    routePath: "/api/offers/offery-postback",
     mountPath: "/api/offers",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet19]
+    modules: [onRequestGet16]
   },
   {
-    routePath: "/api/offers/taskwall-postback",
+    routePath: "/api/offers/offery-postback",
     mountPath: "/api/offers",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost16]
   },
   {
-    routePath: "/api/offers/vortexwall-postback",
+    routePath: "/api/offers/paidbucksy-postback",
     mountPath: "/api/offers",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet20]
+    modules: [onRequestGet17]
   },
   {
-    routePath: "/api/offers/vortexwall-postback",
+    routePath: "/api/offers/paidbucksy-postback",
     mountPath: "/api/offers",
     method: "POST",
     middlewares: [],
     modules: [onRequestPost17]
   },
   {
+    routePath: "/api/offers/radientwall-postback",
+    mountPath: "/api/offers",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet18]
+  },
+  {
+    routePath: "/api/offers/radientwall-postback",
+    mountPath: "/api/offers",
+    method: "POST",
+    middlewares: [],
+    modules: [onRequestPost18]
+  },
+  {
+    routePath: "/api/offers/revtoo-feed",
+    mountPath: "/api/offers",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet19]
+  },
+  {
+    routePath: "/api/offers/revtoo-postback",
+    mountPath: "/api/offers",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet20]
+  },
+  {
+    routePath: "/api/offers/revtoo-postback",
+    mountPath: "/api/offers",
+    method: "POST",
+    middlewares: [],
+    modules: [onRequestPost19]
+  },
+  {
+    routePath: "/api/offers/taskwall-feed",
+    mountPath: "/api/offers",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet21]
+  },
+  {
+    routePath: "/api/offers/taskwall-postback",
+    mountPath: "/api/offers",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet22]
+  },
+  {
+    routePath: "/api/offers/taskwall-postback",
+    mountPath: "/api/offers",
+    method: "POST",
+    middlewares: [],
+    modules: [onRequestPost20]
+  },
+  {
+    routePath: "/api/offers/vortexwall-postback",
+    mountPath: "/api/offers",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet23]
+  },
+  {
+    routePath: "/api/offers/vortexwall-postback",
+    mountPath: "/api/offers",
+    method: "POST",
+    middlewares: [],
+    modules: [onRequestPost21]
+  },
+  {
     routePath: "/api/profile/update",
     mountPath: "/api/profile",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost18]
+    modules: [onRequestPost22]
   },
   {
     routePath: "/api/withdraw/request",
     mountPath: "/api/withdraw",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet21]
+    modules: [onRequestGet24]
   },
   {
     routePath: "/api/withdraw/request",
     mountPath: "/api/withdraw",
     method: "POST",
     middlewares: [],
-    modules: [onRequestPost19]
+    modules: [onRequestPost23]
   },
   {
     routePath: "/api/offers/primewall-postback",
@@ -3217,14 +3872,14 @@ var routes = [
     mountPath: "/api",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet22]
+    modules: [onRequestGet25]
   },
   {
     routePath: "/api/leaderboard",
     mountPath: "/api",
     method: "GET",
     middlewares: [],
-    modules: [onRequestGet23]
+    modules: [onRequestGet26]
   }
 ];
 
