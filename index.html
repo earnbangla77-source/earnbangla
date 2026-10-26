@@ -760,48 +760,8 @@
       <a href="#home" class="topbar-brand">
         <span class="mark">৳</span>earn<span class="bangla">bangla</span>
       </a>
-      <div class="ticker-wrap">
+      <div class="ticker-wrap" id="tickerWrap" style="visibility:hidden;">
         <div class="ticker" id="ticker">
-          <div class="ticker-item">
-            <span class="ticker-avatar">RH</span>
-            <div><span class="ticker-name">RapidHunter</span><span class="ticker-time">2 minutes ago</span></div>
-            <span class="ticker-coin"><svg class="icon"><use href="#i-coin"></use></svg> 652</span>
-          </div>
-          <div class="ticker-item">
-            <span class="ticker-avatar">SS</span>
-            <div><span class="ticker-name">SilentStriker</span><span class="ticker-time">4 minutes ago</span></div>
-            <span class="ticker-coin"><svg class="icon"><use href="#i-coin"></use></svg> 815</span>
-          </div>
-          <div class="ticker-item">
-            <span class="ticker-avatar">NB</span>
-            <div><span class="ticker-name">NightBlazer</span><span class="ticker-time">1 minute ago</span></div>
-            <span class="ticker-coin"><svg class="icon"><use href="#i-coin"></use></svg> 913</span>
-          </div>
-          <div class="ticker-item">
-            <span class="ticker-avatar">GF</span>
-            <div><span class="ticker-name">GoldFalcon</span><span class="ticker-time">3 minutes ago</span></div>
-            <span class="ticker-coin"><svg class="icon"><use href="#i-coin"></use></svg> 470</span>
-          </div>
-          <div class="ticker-item">
-            <span class="ticker-avatar">RH</span>
-            <div><span class="ticker-name">RapidHunter</span><span class="ticker-time">2 minutes ago</span></div>
-            <span class="ticker-coin"><svg class="icon"><use href="#i-coin"></use></svg> 652</span>
-          </div>
-          <div class="ticker-item">
-            <span class="ticker-avatar">SS</span>
-            <div><span class="ticker-name">SilentStriker</span><span class="ticker-time">4 minutes ago</span></div>
-            <span class="ticker-coin"><svg class="icon"><use href="#i-coin"></use></svg> 815</span>
-          </div>
-          <div class="ticker-item">
-            <span class="ticker-avatar">NB</span>
-            <div><span class="ticker-name">NightBlazer</span><span class="ticker-time">1 minute ago</span></div>
-            <span class="ticker-coin"><svg class="icon"><use href="#i-coin"></use></svg> 913</span>
-          </div>
-          <div class="ticker-item">
-            <span class="ticker-avatar">GF</span>
-            <div><span class="ticker-name">GoldFalcon</span><span class="ticker-time">3 minutes ago</span></div>
-            <span class="ticker-coin"><svg class="icon"><use href="#i-coin"></use></svg> 470</span>
-          </div>
         </div>
       </div>
       <div class="topbar-cta" id="guestCta">
@@ -1406,27 +1366,31 @@
   function initialsOf(name){
     return (name || '?').trim().slice(0, 2).toUpperCase();
   }
+  function escHTML(t){ return String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function tickerItemHTML(entry){
-    const name = entry.username || 'Earner';
+    const name = escHTML(entry.username || 'Earner');
     return '<div class="ticker-item">'
-      + '<span class="ticker-avatar">' + initialsOf(name) + '</span>'
+      + '<span class="ticker-avatar">' + escHTML(initialsOf(name)) + '</span>'
       + '<div><span class="ticker-name">' + name + '</span>'
-      + '<span class="ticker-time">' + timeAgo(entry.createdAt) + '</span></div>'
-      + '<span class="ticker-coin"><svg class="icon"><use href="#i-coin"></use></svg> ' + entry.coinsEarned + '</span>'
+      + '<span class="ticker-time">30d &middot; lifetime ' + Number(entry.lifetimeCoins || entry.coinsEarned).toLocaleString() + '</span></div>'
+      + '<span class="ticker-coin"><svg class="icon"><use href="#i-coin"></use></svg> ' + Number(entry.coinsEarned).toLocaleString() + '</span>'
       + '</div>';
   }
 
-  (async function loadActivityTicker(){
+  async function loadActivityTicker(){
     try{
       const res = await fetch('/api/activity');
-      if(!res.ok) return; // keep the placeholder ticker already in the HTML
+      if(!res.ok) return;
       const { activity } = await res.json();
-      if(!Array.isArray(activity) || activity.length === 0) return; // no real events yet
+      if(!Array.isArray(activity) || activity.length === 0) return; // no real earners yet -> ticker stays hidden
       const html = activity.map(tickerItemHTML).join('');
-      // duplicate the list once so the scroll animation (translateX -50%) loops seamlessly
+      // duplicate once so the scroll animation (translateX -50%) loops seamlessly
       document.getElementById('ticker').innerHTML = html + html;
-    }catch(ex){ /* keep placeholder ticker on any error */ }
-  })();
+      document.getElementById('tickerWrap').style.visibility = 'visible';
+    }catch(ex){ /* keep ticker hidden on any error */ }
+  }
+  loadActivityTicker();
+  setInterval(loadActivityTicker, 60000);
 </script>
 
 <script>
