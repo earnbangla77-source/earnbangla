@@ -982,7 +982,7 @@
       </div>
     </header>
 
-    <div class="ticker-wrap">
+    <div class="ticker-wrap" id="tickerWrap" style="display:none;">
       <div class="ticker-track" id="tickerTrack"></div>
     </div>
 
@@ -1210,38 +1210,50 @@ sideCloseBtn.addEventListener('click', closeSide);
 overlay.addEventListener('click', closeSide);
 document.querySelectorAll('.side-link').forEach(l => l.addEventListener('click', closeSide));
 
-// ---------- 2) RECENT WINNERS TICKER ----------
-const winners = [
-  { name:'niperr',       network:'Primewall', id:'6a1f4c...ab21', time:'8 minutes ago',  coins:100 },
-  { name:'MysticMagerr', network:'Primewall', id:'6a226b5fe3690400109ebf5', time:'2 minutes ago', coins:815 },
-  { name:'ShadowShaman',  network:'Primewall', id:'6a2258e5c4f89f0001f73ab3', time:'5 minutes ago', coins:815 },
-  { name:'VileVillain7',  network:'Primewall', id:'c7d931e619bfa44aae2488be94dcd3b2', time:'1 minute ago', coins:652 },
-  { name:'PixelRogue',    network:'Upwall',    id:'9f13ae0b2c...771',      time:'11 minutes ago', coins:240 },
-  { name:'NovaHunter',    network:'CPALead',   id:'1de84a2f...903c',      time:'3 minutes ago',  coins:410 },
-];
+// ---------- 2) RECENT WINNERS TICKER (real data: /api/activity — আজকের completions, BD time) ----------
 const avatarColors = ['#FF7A1A','#3AD07A','#FF3D1E','#9A9AAD'];
 
+function escHTML(t){
+  return String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 function initials(name){
-  return name.replace(/[^A-Za-z]/g,'').slice(0,2).toUpperCase();
+  return String(name || '?').trim().slice(0,2).toUpperCase();
 }
 
 function tickerCardHTML(w, i){
+  const name = escHTML(w.username || 'Earner');
+  const prov = escHTML(String(w.provider || '').replace(/^./, c => c.toUpperCase()));
   return `
     <div class="ticker-card">
-      <span class="ticker-avatar" style="background:${avatarColors[i % avatarColors.length]}">${initials(w.name)}</span>
+      <span class="ticker-avatar" style="background:${avatarColors[i % avatarColors.length]}">${escHTML(initials(w.username))}</span>
       <div class="ticker-info">
-        <div class="ticker-name">${w.name}</div>
-        <div class="ticker-meta">${w.network} (${w.id}) &middot; ${w.time}</div>
+        <div class="ticker-name">${name}</div>
+        <div class="ticker-meta">${prov} &middot; ${escHTML(w.date || '')}</div>
       </div>
-      <span class="ticker-coin"><svg class="icon"><use href="#icon-coin"/></svg>${w.coins}</span>
+      <span class="ticker-coin"><svg class="icon"><use href="#icon-coin"/></svg>${Number(w.coinsEarned).toLocaleString()}</span>
     </div>`;
 }
 
-function initTicker(){
+async function initTicker(){
+  const wrap  = document.getElementById('tickerWrap');
   const track = document.getElementById('tickerTrack');
-  // seamless loop এর জন্য লিস্টটা দুইবার বসানো হচ্ছে
-  const html = winners.map(tickerCardHTML).join('') + winners.map(tickerCardHTML).join('');
-  track.innerHTML = html;
+  if(!wrap || !track) return;
+  try{
+    const res = await fetch('/api/activity', { cache:'no-store' });
+    if(!res.ok) return;
+    const data = await res.json();
+    const list = Array.isArray(data.activity) ? data.activity : [];
+    if(list.length === 0){
+      // আজ এখনও কোনো অফার complete হয়নি -> টিকার লুকানো
+      wrap.style.display = 'none';
+      track.innerHTML = '';
+      return;
+    }
+    const cards = list.map(tickerCardHTML).join('');
+    // seamless loop এর জন্য লিস্টটা দুইবার বসানো হচ্ছে
+    track.innerHTML = cards + cards;
+    wrap.style.display = '';
+  }catch(ex){ /* error হলে বর্তমান অবস্থা থাকবে */ }
 }
 
 // ---------- 3) HOME OFFER SECTIONS ----------
@@ -2210,6 +2222,7 @@ function initPartnersScroll(trackId, prevId, nextId){
 // ---------- INIT ----------
 document.addEventListener('DOMContentLoaded', ()=>{
   initTicker();
+  setInterval(initTicker, 60000);
   loadOffers('top',      'topOffers');
   renderHotOffers();
   initReveal();
