@@ -1,7 +1,7 @@
 // functions/api/activity.js
 // GET /api/activity — আজকের (বাংলাদেশ সময় UTC+6) সব credited offer completion, হোম-পেজ টিকারের জন্য।
 // is_private ফিল্টার নেই — সবার রো আসবে।
-// LEFT JOIN: users টেবিলে ইউজার না মিললেও রো বাদ যাবে না (নাম না থাকলে "User1234" দেখাবে)।
+// LEFT JOIN: users টেবিলে ইউজার না মিললেও রো বাদ যাবে না (নাম না থাকলে offer_completions-এর user_id-ই নাম হিসেবে দেখাবে)।
 // কোয়েরি fail করলে JSON-এর "error" ফিল্ডে কারণ দেখাবে (debug)।
 
 const LIMIT = 30;
@@ -26,7 +26,7 @@ export async function onRequestGet(context) {
     ).bind(LIMIT).all();
 
     const activity = (results || []).map((r) => ({
-      username: r.username || ("User" + String(r.user_id || "").slice(-4)),
+      username: r.username || String(r.user_id || "User"), // username না মিললে offer_completions-এর user_id দেখাবে
       provider: r.provider,
       coinsEarned: Math.round(r.coins),
       date: r.day, // MM/DD/YYYY
