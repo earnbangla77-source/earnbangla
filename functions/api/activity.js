@@ -4,7 +4,7 @@
 // LEFT JOIN: users টেবিলে ইউজার না মিললেও রো বাদ যাবে না (নাম না থাকলে offer_completions-এর user_id-ই নাম হিসেবে দেখাবে)।
 // কোয়েরি fail করলে JSON-এর "error" ফিল্ডে কারণ দেখাবে (debug)।
 
-const LIMIT = 30;
+const LIMIT = 0;
 const TZ = "+6 hours"; // Bangladesh Standard Time
 
 export async function onRequestGet(context) {
