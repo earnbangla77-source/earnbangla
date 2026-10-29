@@ -73,20 +73,71 @@ tr:last-child td{border-bottom:none}
 .more{display:block;margin:14px auto 4px}
 .err{background:rgba(255,61,30,.12);border:1px solid rgba(255,61,30,.3);color:#ff8a73;border-radius:12px;padding:12px 16px;margin-bottom:14px;font-size:13.5px;display:none}
 @media(max-width:760px){.hero-grid{grid-template-columns:1fr}.big{font-size:36px}.stats{grid-template-columns:1fr}}
+
+/* sidebar + topbar (admin.html-এর মতো) */
+.icon{width:18px;height:18px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+a{color:inherit;text-decoration:none}
+.sidebar{width:264px;background:#0F0F17;border-right:1px solid var(--border);padding:22px 16px 26px;position:fixed;top:0;bottom:0;left:0;display:flex;flex-direction:column;z-index:300;transform:translateX(-100%);transition:transform .32s cubic-bezier(.4,0,.2,1)}
+.sidebar.open{transform:none;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+.side-top{display:flex;align-items:center;justify-content:space-between;padding:6px 8px 14px}
+.side-logo{display:flex;align-items:center;gap:9px;font-family:'Sora',sans-serif;font-weight:800;font-size:20px}
+.mark{width:32px;height:32px;border-radius:9px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff}
+.bangla{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sidebar-close,.menu-btn{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.sidebar-close{width:32px;height:32px}.menu-btn{width:42px;height:42px;flex-shrink:0}
+.admin-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(139,92,246,.15);color:var(--violet);font-size:11.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:5px 11px;border-radius:100px;margin:0 8px 18px;align-self:flex-start}
+.side-nav{display:flex;flex-direction:column;gap:3px;flex:1}
+.side-link{display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:11px;font-weight:600;font-size:14.5px;color:var(--dim)}
+.side-link:hover{background:var(--panel);color:var(--text)}
+.side-link.active{background:var(--grad);color:#fff;box-shadow:0 10px 26px rgba(255,61,30,.28)}
+.side-foot{border-top:1px solid var(--border);padding-top:12px;margin-top:8px}
+.overlay{display:none;position:fixed;inset:0;background:rgba(4,4,8,.65);backdrop-filter:blur(2px);z-index:250}
+.overlay.show{display:block}
+.topbar{background:#0F0F17;border-bottom:1px solid var(--border);padding:14px 20px;position:sticky;top:0;z-index:100;display:flex;align-items:center;gap:14px}
+.topbar-title{font-family:'Sora',sans-serif;font-weight:800;font-size:17px}
+.topbar .tools{margin-left:auto}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="top">
-    <h1>Activity <span>Log</span></h1>
-    <div class="tools">
-      <span class="dim" id="updated" style="font-size:12px"></span>
-      <button class="btn on" id="autoBtn">Auto 30s</button>
-      <button class="btn" id="refreshBtn">↻ Refresh</button>
-      <a href="admin.html">← Admin</a>
-    </div>
+<svg width="0" height="0" style="position:absolute"><defs>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+<symbol id="i-swap" viewBox="0 0 24 24"><path d="M7 3 3 7l4 4"/><path d="M3 7h13a4 4 0 0 1 4 4v1"/><path d="M17 21l4-4-4-4"/><path d="M21 17H8a4 4 0 0 1-4-4v-1"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+<symbol id="i-bars" viewBox="0 0 24 24"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></symbol>
+<symbol id="i-sparkles" viewBox="0 0 24 24"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></symbol>
+<symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></symbol>
+<symbol id="i-menu" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></symbol>
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></symbol>
+</defs></svg>
+<div class="overlay" id="overlay"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="side-top">
+    <div class="side-logo"><span class="mark">৳</span><span>earn</span><span class="bangla">bangla</span></div>
+    <button class="sidebar-close" id="sideClose" aria-label="Close menu"><svg class="icon" style="width:15px;height:15px"><use href="#i-x"></use></svg></button>
   </div>
-
+  <span class="admin-badge"><svg class="icon" style="width:12px;height:12px"><use href="#i-shield"></use></svg> Admin</span>
+  <nav class="side-nav">
+    <a class="side-link" href="admin.html#dashboard"><svg class="icon"><use href="#i-grid"></use></svg> Dashboard</a>
+    <a class="side-link" href="admin.html#payments"><svg class="icon"><use href="#i-swap"></use></svg> Payments</a>
+    <a class="side-link" href="admin.html#users"><svg class="icon"><use href="#i-users"></use></svg> Users</a>
+    <a class="side-link active" href="admin-activity.html"><svg class="icon"><use href="#i-bars"></use></svg> Activity Log</a>
+    <a class="side-link" href="admin.html#offers"><svg class="icon"><use href="#i-sparkles"></use></svg> Offers</a>
+    <a class="side-link" href="admin.html#settings"><svg class="icon"><use href="#i-settings"></use></svg> Settings</a>
+    <div class="side-foot"><a class="side-link" href="index.html"><svg class="icon"><use href="#i-home"></use></svg> Back to Site</a></div>
+  </nav>
+</aside>
+<div class="topbar">
+  <button class="menu-btn" id="sideOpen" aria-label="Open menu"><svg class="icon"><use href="#i-menu"></use></svg></button>
+  <div class="topbar-title">Activity Log</div>
+  <div class="tools">
+    <span class="dim" id="updated" style="font-size:12px"></span>
+    <button class="btn on" id="autoBtn">Auto 30s</button>
+    <button class="btn" id="refreshBtn">↻ Refresh</button>
+  </div>
+</div>
+<div class="wrap">
   <div class="err" id="err"></div>
 
   <!-- 24h hero -->
@@ -226,6 +277,10 @@ let qt; $('q').addEventListener('input',e=>{ clearTimeout(qt); qt=setTimeout(()=
 $('moreBtn').addEventListener('click',()=>{ st.page++; load(true); });
 $('refreshBtn').addEventListener('click',()=>load(false));
 $('autoBtn').addEventListener('click',e=>{ auto=!auto; e.target.classList.toggle('on',auto); e.target.textContent=auto?'Auto 30s':'Auto off'; schedule(); });
+const sb=$('sidebar'),ov=$('overlay');
+const openSb=()=>{sb.classList.add('open');ov.classList.add('show')},closeSb=()=>{sb.classList.remove('open');ov.classList.remove('show')};
+$('sideOpen').addEventListener('click',openSb);$('sideClose').addEventListener('click',closeSb);ov.addEventListener('click',closeSb);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSb()});
 load(false); schedule();
 </script>
 </body>

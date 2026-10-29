@@ -390,7 +390,7 @@
       <button class="side-link active" data-view="dashboard"><svg class="icon"><use href="#i-grid"></use></svg> Dashboard</button>
       <button class="side-link" data-view="payments"><svg class="icon"><use href="#i-swap"></use></svg> Payments</button>
       <button class="side-link" data-view="users"><svg class="icon"><use href="#i-users"></use></svg> Users</button>
-      <button class="side-link" data-view="activity"><svg class="icon"><use href="admin-activity.html"></use></svg> Activity Log</button>
+      <a href="admin-activity.html" class="side-link"><svg class="icon"><use href="#i-bars"></use></svg> Activity Log</a>
       <button class="side-link" data-view="offers"><svg class="icon"><use href="#i-sparkles"></use></svg> Offers</button>
       <button class="side-link" data-view="settings"><svg class="icon"><use href="#i-settings"></use></svg> Settings</button>
       <div class="side-nav-foot">
@@ -958,7 +958,8 @@
     document.getElementById('loadingGate').style.display = 'none';
     document.getElementById('adminLogin').style.display = 'none';
     document.getElementById('adminShell').style.display = 'block';
-    switchView('dashboard');
+    const h = location.hash.slice(1);
+    switchView(['payments','users','offers','settings'].includes(h) ? h : 'dashboard');
   }
   async function doLogin(){
     const btn = document.getElementById('loginBtn');
