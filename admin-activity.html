@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Activity Log — earnbangla Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0A0A0F;--panel:#14141F;--panel2:#191926;--border:#232333;--orange:#FF7A1A;--red:#FF3D1E;--green:#3AD07A;--violet:#8B5CF6;--text:#F4F4F8;--dim:#9A9AAD;--faint:#67677A;--grad:linear-gradient(135deg,#FF7A1A,#FF3D1E)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Manrope',sans-serif;background:var(--bg);color:var(--text);line-height:1.5;min-height:100vh}
+.wrap{max-width:1100px;margin:0 auto;padding:20px 16px 60px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+.top h1{font-family:'Sora',sans-serif;font-size:22px;font-weight:800}
+.top h1 span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.top a{color:var(--dim);font-size:13px;font-weight:700;text-decoration:none}
+.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{background:var(--panel);border:1px solid var(--border);color:var(--text);font:700 13px 'Manrope';padding:8px 14px;border-radius:10px;cursor:pointer}
+.btn:hover{background:var(--panel2)}
+.btn.on{border-color:rgba(58,208,122,.5);color:var(--green)}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:20px}
+
+/* hero */
+.hero{position:relative;overflow:hidden;margin-bottom:14px}
+.hero::before{content:"";position:absolute;right:-80px;top:-80px;width:260px;height:260px;background:radial-gradient(circle,rgba(255,122,26,.18),transparent 70%)}
+.status{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:100px;font-size:13px;font-weight:800;margin-bottom:14px}
+.status i{width:9px;height:9px;border-radius:50%;background:currentColor}
+.status.ok{background:rgba(58,208,122,.14);color:var(--green)}.status.ok i{animation:pulse 1.6s infinite}
+.status.slow{background:rgba(255,122,26,.14);color:var(--orange)}
+.status.dead{background:rgba(255,61,30,.14);color:var(--red)}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(58,208,122,.6)}100%{box-shadow:0 0 0 9px rgba(58,208,122,0)}}
+.hero-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:20px;align-items:end}
+.lbl{font-size:12.5px;color:var(--faint);font-weight:700}
+.big{font-family:'Sora',sans-serif;font-size:44px;font-weight:800;line-height:1.1;margin:2px 0}
+.big small{font-size:16px;color:var(--dim);font-weight:700}
+.usd{color:var(--green);font-weight:800;font-size:15px}
+.mini{display:flex;gap:22px;margin-top:14px;flex-wrap:wrap}
+.mini b{display:block;font-family:'Sora',sans-serif;font-size:19px}
+.chart-t{font-size:12.5px;color:var(--faint);font-weight:700;margin-bottom:6px}
+.bars{display:flex;align-items:flex-end;gap:3px;height:110px}
+.bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;position:relative}
+.bar div{width:100%;border-radius:4px 4px 0 0;background:var(--grad);min-height:3px;transition:height .4s}
+.bar.zero div{background:#2a2a3d}
+.bar:hover::after{content:attr(data-tip);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:#000;border:1px solid var(--border);padding:3px 8px;border-radius:6px;font-size:11px;white-space:nowrap;z-index:5}
+.axis{display:flex;gap:3px;margin-top:4px}
+.axis span{flex:1;text-align:center;font-size:9.5px;color:var(--faint)}
+
+/* small stats */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+.stat .num{font-family:'Sora',sans-serif;font-size:22px;font-weight:800}
+.stat .sub{font-size:12.5px;color:var(--dim)}
+
+/* filters */
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+.tab{background:var(--panel);border:1px solid var(--border);color:var(--dim);font:700 13px 'Manrope';padding:8px 14px;border-radius:100px;cursor:pointer}
+.tab.active{background:var(--grad);color:#fff;border-color:transparent}
+select,input[type=text]{background:var(--panel);border:1px solid var(--border);color:var(--text);font:600 13px 'Manrope';padding:8px 12px;border-radius:10px;outline:none}
+input[type=text]{min-width:170px}
+.rsum{font-size:13px;color:var(--dim);margin:0 0 10px;font-weight:600}
+.rsum b{color:var(--green)}
+
+/* list */
+.tbl{overflow-x:auto;padding:6px 6px 10px}
+table{width:100%;border-collapse:collapse;min-width:640px}
+th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--faint);padding:10px 12px;border-bottom:1px solid var(--border)}
+td{padding:11px 12px;border-bottom:1px solid rgba(35,35,51,.6);font-size:14px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+.offer{font-weight:700;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill{display:inline-block;margin-top:2px;padding:1px 9px;border-radius:100px;font-size:11px;font-weight:700;background:rgba(139,92,246,.15);color:var(--violet);text-transform:capitalize}
+.coins{color:var(--green);font-weight:800;font-family:'Sora',sans-serif;white-space:nowrap}
+.dim{color:var(--dim)}
+.empty{text-align:center;color:var(--dim);padding:34px 10px}
+.more{display:block;margin:14px auto 4px}
+.err{background:rgba(255,61,30,.12);border:1px solid rgba(255,61,30,.3);color:#ff8a73;border-radius:12px;padding:12px 16px;margin-bottom:14px;font-size:13.5px;display:none}
+@media(max-width:760px){.hero-grid{grid-template-columns:1fr}.big{font-size:36px}.stats{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>Activity <span>Log</span></h1>
+    <div class="tools">
+      <span class="dim" id="updated" style="font-size:12px"></span>
+      <button class="btn on" id="autoBtn">Auto 30s</button>
+      <button class="btn" id="refreshBtn">↻ Refresh</button>
+      <a href="admin.html">← Admin</a>
+    </div>
+  </div>
+
+  <div class="err" id="err"></div>
+
+  <!-- 24h hero -->
+  <div class="panel hero">
+    <div class="status slow" id="status"><i></i><span id="statusTxt">লোড হচ্ছে…</span></div>
+    <div class="hero-grid">
+      <div>
+        <div class="lbl">গত ২৪ ঘন্টার ইনকাম</div>
+        <div class="big"><span id="h24Coins">—</span> <small>coins</small></div>
+        <div class="usd" id="h24Usd"></div>
+        <div class="mini">
+          <div><b id="h24Cnt">—</b><span class="lbl">অফার কমপ্লিট</span></div>
+          <div><b id="h24Users">—</b><span class="lbl">ইউনিক ইউজার</span></div>
+          <div><b id="h24Last">—</b><span class="lbl">শেষ ইনকাম</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="chart-t">ঘণ্টাভিত্তিক কয়েন (বাংলাদেশ সময়, শেষ ২৪ ঘণ্টা)</div>
+        <div class="bars" id="bars"></div>
+        <div class="axis" id="axis"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- today / month -->
+  <div class="stats">
+    <div class="panel stat"><div class="lbl">আজকের ইনকাম</div><div class="num" id="tCoins">—</div><div class="sub" id="tSub"></div></div>
+    <div class="panel stat"><div class="lbl">এই মাসের ইনকাম</div><div class="num" id="mCoins">—</div><div class="sub" id="mSub"></div></div>
+    <div class="panel stat"><div class="lbl">এই মাসে গড় / অফার</div><div class="num" id="avg">—</div><div class="sub">coins per offer</div></div>
+  </div>
+
+  <!-- filters -->
+  <div class="filters">
+    <button class="tab active" data-r="24h">২৪ ঘন্টা</button>
+    <button class="tab" data-r="today">আজ</button>
+    <button class="tab" data-r="7d">৭ দিন</button>
+    <button class="tab" data-r="month">এই মাস</button>
+    <select id="prov"><option value="">সব প্রোভাইডার</option></select>
+    <input type="text" id="q" placeholder="ইউজার / অফার সার্চ…">
+  </div>
+  <div class="rsum" id="rsum"></div>
+
+  <div class="panel tbl">
+    <table>
+      <thead><tr><th>অফার</th><th>ইউজার</th><th>কয়েন</th><th>তারিখ</th><th>সময়</th></tr></thead>
+      <tbody id="rows"><tr><td colspan="5" class="empty">লোড হচ্ছে…</td></tr></tbody>
+    </table>
+    <button class="btn more" id="moreBtn" style="display:none">আরও দেখাও</button>
+  </div>
+</div>
+
+<script>
+const COINS_PER_USD = 1000;
+const st = { range:'24h', provider:'', q:'', page:1 };
+let timer = null, auto = true, rowsAcc = [];
+const $ = id => document.getElementById(id);
+const nf = n => Number(n||0).toLocaleString('en-US');
+const usd = c => '≈ $' + (c/COINS_PER_USD).toFixed(2);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function t12(t){ const [h,m,s]=t.split(':').map(Number); return ((h%12)||12)+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')+' '+(h<12?'AM':'PM'); }
+function ago(sec){
+  if(sec<60) return 'এইমাত্র';
+  const m=Math.floor(sec/60); if(m<60) return m+' মিনিট আগে';
+  const h=Math.floor(m/60); return h+' ঘন্টা '+(m%60)+' মি. আগে';
+}
+function hLabel(h){ return (h%12||12)+(h<12?'a':'p'); }
+
+function renderSummary(d){
+  const s = d.summary.h24;
+  $('h24Coins').textContent = nf(s.coins);
+  $('h24Usd').textContent = usd(s.coins);
+  $('h24Cnt').textContent = nf(s.count);
+  $('h24Users').textContent = nf(s.users);
+  const el = $('status');
+  if(!s.lastTs){
+    el.className='status dead'; $('statusTxt').textContent='গত ২৪ ঘন্টায় কোনো ইনকাম নেই'; $('h24Last').textContent='—';
+  } else {
+    const sec = d.nowTs - s.lastTs, min = sec/60;
+    $('h24Last').textContent = ago(sec);
+    if(min<=30){ el.className='status ok'; $('statusTxt').textContent='ইনকাম চলছে'; }
+    else if(min<=180){ el.className='status slow'; $('statusTxt').textContent='ইনকাম ধীর — শেষ ইনকাম '+ago(sec); }
+    else { el.className='status dead'; $('statusTxt').textContent='ইনকাম বন্ধ? শেষ ইনকাম '+ago(sec); }
+  }
+  const max = Math.max(1, ...d.hourly.map(b=>b.coins));
+  $('bars').innerHTML = d.hourly.map(b=>
+    '<div class="bar'+(b.coins?'':' zero')+'" data-tip="'+hLabel(b.hour)+' · '+nf(b.coins)+' coins · '+b.count+' অফার"><div style="height:'+(b.coins?Math.max(4,b.coins/max*100):3)+'%"></div></div>').join('');
+  $('axis').innerHTML = d.hourly.map((b,i)=>'<span>'+(i%3===0?hLabel(b.hour):'')+'</span>').join('');
+
+  const t=d.summary.today, m=d.summary.month;
+  $('tCoins').textContent = nf(t.coins)+' coins';
+  $('tSub').textContent = usd(t.coins)+' · '+nf(t.count)+' অফার · '+nf(t.users)+' ইউজার';
+  $('mCoins').textContent = nf(m.coins)+' coins';
+  $('mSub').textContent = usd(m.coins)+' · '+nf(m.count)+' অফার · '+nf(m.users)+' ইউজার';
+  $('avg').textContent = m.count ? nf(Math.round(m.coins/m.count)) : '—';
+
+  const sel=$('prov'), cur=sel.value;
+  if(sel.options.length-1 !== d.providers.length){
+    sel.innerHTML='<option value="">সব প্রোভাইডার</option>'+d.providers.map(p=>'<option>'+esc(p)+'</option>').join('');
+    sel.value=cur;
+  }
+}
+
+function renderList(d){
+  $('rsum').innerHTML = 'মোট <b>'+nf(d.range.count)+'</b> টি ইনকাম · <b>'+nf(d.range.coins)+'</b> coins ('+usd(d.range.coins).slice(2)+')';
+  $('rows').innerHTML = rowsAcc.length ? rowsAcc.map(r=>
+    '<tr><td><div class="offer" title="'+esc(r.offer)+'">'+esc(r.offer||'—')+'</div><span class="pill">'+esc(r.provider)+'</span></td>'+
+    '<td>'+esc(r.username)+'</td><td class="coins">+'+nf(r.coins)+'</td>'+
+    '<td class="dim">'+esc(r.date)+'</td><td class="dim">'+t12(r.time)+'</td></tr>').join('')
+    : '<tr><td colspan="5" class="empty">এই রেঞ্জে কোনো ইনকাম নেই</td></tr>';
+  $('moreBtn').style.display = d.hasMore ? 'block' : 'none';
+}
+
+async function load(append){
+  if(!append){ st.page=1; }
+  const p = new URLSearchParams({range:st.range, provider:st.provider, q:st.q, page:st.page});
+  try{
+    const res = await fetch('/api/admin/activity-log?'+p);
+    if(res.status===401){ location.href='admin.html'; return; }
+    const d = await res.json();
+    if(!res.ok) throw new Error(d.error||'Error');
+    $('err').style.display='none';
+    if(!append){ renderSummary(d); rowsAcc = d.list; } else rowsAcc = rowsAcc.concat(d.list);
+    renderList(d);
+    $('updated').textContent = 'আপডেট: '+new Date().toLocaleTimeString('en-US');
+  }catch(e){
+    $('err').textContent = 'লোড করা যায়নি: '+e.message; $('err').style.display='block';
+  }
+}
+function schedule(){ clearInterval(timer); if(auto) timer=setInterval(()=>{ if(!document.hidden) load(false); },30000); }
+
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===b));
+  st.range=b.dataset.r; load(false);
+}));
+$('prov').addEventListener('change',e=>{ st.provider=e.target.value; load(false); });
+let qt; $('q').addEventListener('input',e=>{ clearTimeout(qt); qt=setTimeout(()=>{ st.q=e.target.value.trim(); load(false); },350); });
+$('moreBtn').addEventListener('click',()=>{ st.page++; load(true); });
+$('refreshBtn').addEventListener('click',()=>load(false));
+$('autoBtn').addEventListener('click',e=>{ auto=!auto; e.target.classList.toggle('on',auto); e.target.textContent=auto?'Auto 30s':'Auto off'; schedule(); });
+load(false); schedule();
+</script>
+</body>
+</html>
