@@ -145,7 +145,7 @@ a{color:inherit;text-decoration:none}
     <div class="status slow" id="status"><i></i><span id="statusTxt">লোড হচ্ছে…</span></div>
     <div class="hero-grid">
       <div>
-        <div class="lbl">গত ২৪ ঘন্টার ইনকাম</div>
+        <div class="lbl">আজকের ইনকাম · <span id="todayDate"></span></div>
         <div class="big"><span id="h24Coins">—</span> <small>coins</small></div>
         <div class="usd" id="h24Usd"></div>
         <div class="mini">
@@ -155,7 +155,7 @@ a{color:inherit;text-decoration:none}
         </div>
       </div>
       <div>
-        <div class="chart-t">ঘণ্টাভিত্তিক কয়েন (বাংলাদেশ সময়, শেষ ২৪ ঘণ্টা)</div>
+        <div class="chart-t">ঘণ্টাভিত্তিক কয়েন (বাংলাদেশ সময়, আজ)</div>
         <div class="bars" id="bars"></div>
         <div class="axis" id="axis"></div>
       </div>
@@ -164,15 +164,15 @@ a{color:inherit;text-decoration:none}
 
   <!-- today / month -->
   <div class="stats">
-    <div class="panel stat"><div class="lbl">আজকের ইনকাম</div><div class="num" id="tCoins">—</div><div class="sub" id="tSub"></div></div>
+    <div class="panel stat"><div class="lbl">গতকালের ইনকাম · <span id="yDate"></span></div><div class="num" id="tCoins">—</div><div class="sub" id="tSub"></div></div>
     <div class="panel stat"><div class="lbl">এই মাসের ইনকাম</div><div class="num" id="mCoins">—</div><div class="sub" id="mSub"></div></div>
     <div class="panel stat"><div class="lbl">এই মাসে গড় / অফার</div><div class="num" id="avg">—</div><div class="sub">coins per offer</div></div>
   </div>
 
   <!-- filters -->
   <div class="filters">
-    <button class="tab active" data-r="24h">২৪ ঘন্টা</button>
-    <button class="tab" data-r="today">আজ</button>
+    <button class="tab active" data-r="today">আজ</button>
+    <button class="tab" data-r="yesterday">গতকাল</button>
     <button class="tab" data-r="7d">৭ দিন</button>
     <button class="tab" data-r="month">এই মাস</button>
     <select id="prov"><option value="">সব প্রোভাইডার</option></select>
@@ -191,7 +191,7 @@ a{color:inherit;text-decoration:none}
 
 <script>
 const COINS_PER_USD = 1000;
-const st = { range:'24h', provider:'', q:'', page:1 };
+const st = { range:'today', provider:'', q:'', page:1 };
 let timer = null, auto = true, rowsAcc = [];
 const $ = id => document.getElementById(id);
 const nf = n => Number(n||0).toLocaleString('en-US');
@@ -206,27 +206,32 @@ function ago(sec){
 function hLabel(h){ return (h%12||12)+(h<12?'a':'p'); }
 
 function renderSummary(d){
-  const s = d.summary.h24;
+  const s = d.summary.today;
+  const bdNow = new Date((d.nowTs+6*3600)*1000);
+  const dfmt = dt => dt.toLocaleDateString('bn-BD',{timeZone:'UTC',day:'numeric',month:'long'});
+  $('todayDate').textContent = dfmt(bdNow);
+  $('yDate').textContent = dfmt(new Date(bdNow.getTime()-86400000));
   $('h24Coins').textContent = nf(s.coins);
   $('h24Usd').textContent = usd(s.coins);
   $('h24Cnt').textContent = nf(s.count);
   $('h24Users').textContent = nf(s.users);
   const el = $('status');
   if(!s.lastTs){
-    el.className='status dead'; $('statusTxt').textContent='গত ২৪ ঘন্টায় কোনো ইনকাম নেই'; $('h24Last').textContent='—';
+    el.className='status dead'; $('statusTxt').textContent='আজ এখনো কোনো ইনকাম নেই'; $('h24Last').textContent='—';
   } else {
-    const sec = d.nowTs - s.lastTs, min = sec/60;
+    const sec = d.nowTs - s.lastTs, min = sec/60; // শেষ ইনকাম: আজকের
     $('h24Last').textContent = ago(sec);
     if(min<=30){ el.className='status ok'; $('statusTxt').textContent='ইনকাম চলছে'; }
     else if(min<=180){ el.className='status slow'; $('statusTxt').textContent='ইনকাম ধীর — শেষ ইনকাম '+ago(sec); }
     else { el.className='status dead'; $('statusTxt').textContent='ইনকাম বন্ধ? শেষ ইনকাম '+ago(sec); }
   }
-  const max = Math.max(1, ...d.hourly.map(b=>b.coins));
-  $('bars').innerHTML = d.hourly.map(b=>
+  const hrs = d.hourlyToday || d.hourly.slice(-(bdNow.getUTCHours()+1));
+  const max = Math.max(1, ...hrs.map(b=>b.coins));
+  $('bars').innerHTML = hrs.map(b=>
     '<div class="bar'+(b.coins?'':' zero')+'" data-tip="'+hLabel(b.hour)+' · '+nf(b.coins)+' coins · '+b.count+' অফার"><div style="height:'+(b.coins?Math.max(4,b.coins/max*100):3)+'%"></div></div>').join('');
-  $('axis').innerHTML = d.hourly.map((b,i)=>'<span>'+(i%3===0?hLabel(b.hour):'')+'</span>').join('');
+  $('axis').innerHTML = hrs.map((b,i)=>'<span>'+(i%3===0?hLabel(b.hour):'')+'</span>').join('');
 
-  const t=d.summary.today, m=d.summary.month;
+  const t=d.summary.yesterday||{coins:0,count:0,users:0}, m=d.summary.month;
   $('tCoins').textContent = nf(t.coins)+' coins';
   $('tSub').textContent = usd(t.coins)+' · '+nf(t.count)+' অফার · '+nf(t.users)+' ইউজার';
   $('mCoins').textContent = nf(m.coins)+' coins';
