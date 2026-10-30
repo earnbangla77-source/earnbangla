@@ -201,7 +201,7 @@ function t12(t){ const [h,m,s]=t.split(':').map(Number); return ((h%12)||12)+':'
 function ago(sec){
   if(sec<60) return 'এইমাত্র';
   const m=Math.floor(sec/60); if(m<60) return m+' মিনিট আগে';
-  const h=Math.floor(m/60); return h+' ঘন্টা '+(m%60)+' মি. আগে';
+  const h=Math.floor(m/60); if(h>=24) return Math.floor(h/24)+' দিন '+(h%24)+' ঘন্টা আগে'; return h+' ঘন্টা '+(m%60)+' মি. আগে';
 }
 function hLabel(h){ return (h%12||12)+(h<12?'a':'p'); }
 
@@ -216,16 +216,17 @@ function renderSummary(d){
   $('h24Cnt').textContent = nf(s.count);
   $('h24Users').textContent = nf(s.users);
   const el = $('status');
-  if(!s.lastTs){
-    el.className='status dead'; $('statusTxt').textContent='আজ এখনো কোনো ইনকাম নেই'; $('h24Last').textContent='—';
+  const lastTs = d.summary.lastTs || s.lastTs;
+  if(!lastTs){
+    el.className='status dead'; $('statusTxt').textContent='কোনো ইনকাম পাওয়া যায়নি'; $('h24Last').textContent='—';
   } else {
-    const sec = d.nowTs - s.lastTs, min = sec/60; // শেষ ইনকাম: আজকের
+    const sec = d.nowTs - lastTs, min = sec/60;
     $('h24Last').textContent = ago(sec);
     if(min<=30){ el.className='status ok'; $('statusTxt').textContent='ইনকাম চলছে'; }
     else if(min<=180){ el.className='status slow'; $('statusTxt').textContent='ইনকাম ধীর — শেষ ইনকাম '+ago(sec); }
     else { el.className='status dead'; $('statusTxt').textContent='ইনকাম বন্ধ? শেষ ইনকাম '+ago(sec); }
   }
-  const hrs = d.hourlyToday || d.hourly.slice(-(bdNow.getUTCHours()+1));
+  const hrs = d.hourlyToday || [];
   const max = Math.max(1, ...hrs.map(b=>b.coins));
   $('bars').innerHTML = hrs.map(b=>
     '<div class="bar'+(b.coins?'':' zero')+'" data-tip="'+hLabel(b.hour)+' · '+nf(b.coins)+' coins · '+b.count+' অফার"><div style="height:'+(b.coins?Math.max(4,b.coins/max*100):3)+'%"></div></div>').join('');
