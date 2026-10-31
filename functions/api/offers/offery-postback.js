@@ -185,8 +185,14 @@ async function handlePostback(request, env) {
      WHERE id = ?`
   ).bind(coins, coins, userId).run();
 
-  if (!update.success || update.meta.changes === 0) {
-    return fail("User not found.", 404);
+  // Same behavior as the PrimeWall postback: the completion is ALWAYS saved
+  // to offer_completions under whatever subId Offery sent, as 'credited',
+  // even if no matching user exists in the users table (in that case no
+  // user's coins change, but the row is still recorded). Always returns
+  // "ok" so Offery marks the postback as successful.
+  const matched = update.success && update.meta.changes > 0;
+  if (!matched) {
+    console.log("offery-postback: no matching user, recorded anyway", { userId, transId });
   }
 
   await env.DB.prepare(
