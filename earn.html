@@ -703,6 +703,25 @@
   .ow-reward .icon{width:14px;height:14px;}
   .ow-empty{grid-column:1/-1;text-align:center;padding:40px 10px;color:var(--text-faint);font-size:14px;}
 
+  /* ---------- offer search box (shown only for feeds that wire it up, currently Offery) ---------- */
+  .ow-search-wrap{
+    display:none;
+    position:sticky;top:-20px;z-index:5;
+    margin:-20px -20px 16px;padding:14px 20px;
+    background:var(--bg);border-bottom:1px solid var(--border);
+  }
+  .ow-search-box{position:relative;display:flex;align-items:center;}
+  .ow-search-box .ow-search-ico{position:absolute;left:14px;width:16px;height:16px;color:var(--text-faint);pointer-events:none;}
+  .ow-search-input{
+    width:100%;box-sizing:border-box;
+    background:var(--panel);color:var(--text);
+    border:1px solid var(--border);border-radius:12px;
+    padding:12px 14px 12px 40px;font-size:14px;font-family:inherit;outline:none;
+    transition:border-color .2s ease, box-shadow .2s ease;
+  }
+  .ow-search-input::placeholder{color:var(--text-faint);}
+  .ow-search-input:focus{border-color:rgba(255,122,26,.6);box-shadow:0 0 0 3px rgba(255,122,26,.15);}
+
   /* ---------- ow-iframe-wrap: for providers embedded via iframe (e.g. Prime Wall), as opposed to ow-grid card feeds (Offery) ---------- */
   .ow-iframe-wrap{display:none;height:100%;}
   .ow-iframe-wrap iframe{width:100%;height:100%;min-height:520px;border:0;display:block;background:#fff;}
@@ -1114,6 +1133,12 @@
       <button class="ow-close" id="owClose" title="Close"><svg class="icon" style="width:16px;height:16px"><use href="#icon-x"/></svg></button>
     </div>
     <div class="ow-body" id="owBody">
+      <div class="ow-search-wrap" id="owSearchWrap">
+        <div class="ow-search-box">
+          <svg class="icon ow-search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="search" class="ow-search-input" id="owSearchInput" placeholder="অফার খুঁজুন… (নাম বা কিওয়ার্ড)" autocomplete="off">
+        </div>
+      </div>
       <div class="ow-grid" id="owGrid"></div>
       <div class="ow-iframe-wrap" id="owIframeWrap"><iframe id="owIframe" title="Offerwall" scrolling="yes" src="about:blank"></iframe></div>
     </div>
@@ -1373,6 +1398,9 @@ let currentUserId = null;
 // built from a JSON feed we proxy) and the iframe view (Prime Wall, which only
 // gives us a ready-made embed URL, no feed API).
 function setOfferwallMode(mode){
+  // Search box is opt-in per provider (Offery turns it on after this call).
+  const sw = document.getElementById('owSearchWrap');
+  if(sw) sw.style.display = 'none';
   if(mode === 'iframe'){
     owBody.classList.add('ow-iframe-mode');
     owGrid.style.display = 'none';
@@ -1545,6 +1573,47 @@ function offeryCardHTML(o, idx){
     </div>`;
 }
 
+// Full (already country-filtered) Offery list; the search box filters this.
+let offeryAllOffers = [];
+
+function escapeHtmlSearch(str){
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Re-renders the grid from offeryAllOffers, applying the search box text.
+// Every typed word must appear in the offer's title or description
+// (case-insensitive), so "coin game" finds offers containing both words.
+// currentOfferList is set to the FILTERED list so each card's
+// openOfferDetail(currentOfferList[idx]) still points at the right offer.
+function renderOfferyOffers(){
+  const input = document.getElementById('owSearchInput');
+  const q = (input ? input.value : '').trim().toLowerCase();
+  const words = q ? q.split(/\s+/) : [];
+  const list = words.length
+    ? offeryAllOffers.filter(o => {
+        const hay = (o.title + ' ' + o.desc).toLowerCase();
+        return words.every(w => hay.includes(w));
+      })
+    : offeryAllOffers;
+  currentOfferList = list;
+  if(list.length){
+    owGrid.innerHTML = list.map((o, idx) => offeryCardHTML(o, idx)).join('');
+  }else if(q){
+    owGrid.innerHTML = '<div class="ow-empty">"' + escapeHtmlSearch(q) + '" নামে কোনো অফার পাওয়া যায়নি।</div>';
+  }else{
+    owGrid.innerHTML = '<div class="ow-empty">No offers available at the moment</div>';
+  }
+}
+
+function setupOfferySearch(){
+  const wrap = document.getElementById('owSearchWrap');
+  const input = document.getElementById('owSearchInput');
+  if(!wrap || !input) return;
+  input.value = '';
+  wrap.style.display = 'block';
+  input.oninput = renderOfferyOffers;
+}
+
 async function openOfferyOfferwall(){
   owBrandName.textContent = 'Offery';
   setOfferwallMode('grid');
@@ -1565,10 +1634,9 @@ async function openOfferyOfferwall(){
     console.log('Offery feed — raw response:', data.raw ?? data);
 
     const offers = (data.offers || []).map(normalizeOfferyOffer).filter(Boolean);
-    currentOfferList = offers;
-    owGrid.innerHTML = offers.length
-      ? offers.map((o, idx) => offeryCardHTML(o, idx)).join('')
-      : '<div class="ow-empty">No offers available at the moment</div>';
+    offeryAllOffers = offers;
+    setupOfferySearch();
+    renderOfferyOffers();
   }catch(err){
     console.error('Offery offerwall error:', err);
     owGrid.innerHTML = '<div class="ow-empty">অফার লোড করা যায়নি, একটু পর আবার চেষ্টা করুন।</div>';
