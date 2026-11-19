@@ -18,35 +18,32 @@
  *   hash = SHA256(identity_id + campaign_id + txid + secret)
  * No separator between fields, in that exact order.
  *
- * IMPORTANT confirmed limitation: a completed test and a rejected test
- * sent with the same identity_id/campaign_id/txid produced the exact
- * same hash, even though payout/points/result all differed. So the
- * signature does NOT cover payout, points, or result — anyone who
- * captures one valid hash for a given identity/campaign/txid could in
- * principle replay it with a different payout/result. Because of this,
- * the reversal branch below deliberately does NOT trust the incoming
- * payout/points on a rejection — it looks up and reuses the amounts
- * from our own previously-stored "credited" row for that txid instead.
+ * IMPORTANT confirmed limitation: the signature does NOT cover payout,
+ * points, or result. So the reversal branch does NOT trust the incoming
+ * payout/points on a rejection — it reuses the amounts from our own
+ * previously-stored "credited" row for that txid.
  *
  * ── Points vs payout ─────────────────────────────────────────────────
- * VortexWall computes {points} on their side already using the
- * Exchange Rate set in the placement (1000 coins = $1 here), e.g.
- * payout=2 -> points=2000. So on a completed conversion we credit
- * `points` directly as coins_earned — we do NOT recompute
- * payout * COINS_PER_DOLLAR ourselves like the other providers.
+ * VortexWall already computes {points} using the placement's Exchange
+ * Rate (1000 coins = $1). We credit `points` directly as coins_earned.
  *
- * ── {result} values ──────────────────────────────────────────────────
- * Confirmed via real Test CallBacks:
- *   - "completed" → normal successful conversion, credit the user.
- *   - "rejected"  → reversal of a previous "completed" conversion with
- *                   the SAME txid. VortexWall sends payout/points as
- *                   negative mirrors of the original (e.g. payout=-2,
- *                   points=-2000 after an original payout=2/points=2000),
- *                   but per the note above we ignore those numbers and
- *                   reverse using our own stored record instead.
- * Any other {result} value is unrecognized — logged and ignored (200
- * OK, nothing written) rather than guessed, per
- * OFFERWALL-MASTER-GUIDE.md §৭.
+ * ── {result} values (confirmed) ──────────────────────────────────────
+ *   "completed" → credit the user.
+ *   "rejected"  → reversal of a previous "completed" with the SAME txid.
+ *   anything else → logged and ignored (200 OK, nothing written).
+ *
+ * ── Same behavior as offery-postback.js / PrimeWall ──────────────────
+ * When the signature is valid, a "completed" postback is ALWAYS saved to
+ * offer_completions as 'credited', even if no matching user exists in
+ * the users table (in that case no user's balance changes, but the row
+ * is still recorded so it shows in the admin Activity Log). Always
+ * returns 200 so VortexWall marks the postback as successful.
+ *
+ * ── Debug logging ────────────────────────────────────────────────────
+ * Every branch logs a line starting with "VW" — watch with:
+ *   wrangler pages deployment tail --project-name=earnbangla --format=pretty
+ * The secret and full hash are never logged (only the first 8 chars of
+ * the hash and the secret's length, enough to tell a mismatch apart).
  */
 
 const PROVIDER = "vortexwall";
@@ -78,8 +75,7 @@ function jsonResponse(body, status = 200) {
 }
 
 function readParams(request) {
-  // VortexWall sends everything in the query string (confirmed from the
-  // captured test callbacks — GET request, empty body).
+  // VortexWall sends everything in the query string (GET, empty body).
   const url = new URL(request.url);
   const q = url.searchParams;
   return {
@@ -90,7 +86,7 @@ function readParams(request) {
     points: q.get("points") || "0",
     txid: q.get("txid") || "",
     result: q.get("result") || "",
-    hash: q.get("hash") || "",
+    hash: (q.get("hash") || "").trim().toLowerCase(),
   };
 }
 
@@ -108,6 +104,7 @@ async function handleCompleted(p, env) {
     .first();
 
   if (existing) {
+    console.log("VW DUPLICATE", p.txid);
     return jsonResponse({ status: "duplicate" }, 200);
   }
 
@@ -121,8 +118,11 @@ async function handleCompleted(p, env) {
     .bind(points, payout, p.userId)
     .run();
 
-  if (!update.meta || update.meta.changes === 0) {
-    return jsonResponse({ status: "error", message: "User not found." }, 404);
+  // Same as offery-postback.js: the completion is saved even when no
+  // matching user exists (no balance changes in that case).
+  const matched = !!(update.meta && update.meta.changes > 0);
+  if (!matched) {
+    console.log("VW no_matching_user, recorded anyway | id:", p.userId, "| tx:", p.txid);
   }
 
   await env.DB.prepare(
@@ -133,14 +133,12 @@ async function handleCompleted(p, env) {
     .bind(PROVIDER, p.userId, p.campaignId, p.txid, payout, points)
     .run();
 
-  return jsonResponse({ status: "credited", coins: points }, 200);
+  console.log("VW CREDITED | user:", p.userId, "| coins:", points, "| matched:", matched);
+  return jsonResponse({ status: "credited", coins: points, user_matched: matched }, 200);
 }
 
 async function handleRejected(p, env) {
-  // Only reverse a txid we actually credited before. This also means a
-  // "rejected" that arrives with no matching prior "completed" (bad
-  // txid, replay, or the conversion was never credited in the first
-  // place) is safely ignored instead of decrementing anyone.
+  // Only reverse a txid we actually credited before.
   const original = await env.DB.prepare(
     "SELECT id, user_id, payout, coins_earned FROM offer_completions WHERE provider = ? AND transaction_id = ? AND status = 'credited'"
   )
@@ -148,10 +146,7 @@ async function handleRejected(p, env) {
     .first();
 
   if (!original) {
-    console.log(
-      "VORTEXWALL rejected_no_matching_credit",
-      JSON.stringify({ txid: p.txid, userId: p.userId })
-    );
+    console.log("VW rejected_no_matching_credit | tx:", p.txid, "| user:", p.userId);
     return jsonResponse({ status: "ignored", reason: "no matching credited txn" }, 200);
   }
 
@@ -163,22 +158,23 @@ async function handleRejected(p, env) {
     .first();
 
   if (alreadyReversed) {
+    console.log("VW rejected_already_reversed | tx:", p.txid);
     return jsonResponse({ status: "duplicate" }, 200);
   }
 
-  // Sanity check: the rejection's identity_id should match the user we
-  // originally credited. If it doesn't, something is wrong (spoofed or
-  // mismatched params) — log it and don't touch anyone's balance.
+  // Sanity check: the rejection's identity_id must match the user we
+  // originally credited, otherwise don't touch anyone's balance.
   if (original.user_id !== p.userId) {
     console.log(
-      "VORTEXWALL rejected_user_mismatch",
-      JSON.stringify({ txid: p.txid, originalUserId: original.user_id, postbackUserId: p.userId })
+      "VW rejected_user_mismatch | tx:", p.txid,
+      "| original:", original.user_id,
+      "| postback:", p.userId
     );
     return jsonResponse({ status: "ignored", reason: "user mismatch" }, 200);
   }
 
-  // Reverse using OUR stored amounts, not the incoming payout/points —
-  // see header comment on why the incoming numbers aren't trusted.
+  // Reverse using OUR stored amounts, not the incoming payout/points.
+  // (If the user never existed, this UPDATE simply changes 0 rows.)
   await env.DB.prepare(
     `UPDATE users
      SET coins = MAX(0, coins - ?),
@@ -197,14 +193,23 @@ async function handleRejected(p, env) {
     .bind(PROVIDER, p.userId, p.campaignId, p.txid, -original.payout, -original.coins_earned)
     .run();
 
+  console.log("VW REVERSED | user:", p.userId, "| coins:", original.coins_earned, "| tx:", p.txid);
   return jsonResponse({ status: "reversed" }, 200);
 }
 
 async function handlePostback(request, env) {
   const p = readParams(request);
+  console.log(
+    "VW received | result:", p.result,
+    "| user:", p.userId,
+    "| camp:", p.campaignId,
+    "| tx:", p.txid,
+    "| hasHash:", !!p.hash
+  );
 
   // 1. Required params.
   if (!p.userId || !p.campaignId || !p.txid) {
+    console.log("VW FAIL missing_params");
     return jsonResponse(
       { status: "error", message: "Missing identity_id, campaign_id, or txid." },
       400
@@ -212,14 +217,21 @@ async function handlePostback(request, env) {
   }
 
   // 2. Signature check — confirmed formula, see header comment.
-  const secret = env.VORTEXWALL_SECRET_KEY || "";
+  const secret = (env.VORTEXWALL_SECRET_KEY || "").trim();
   if (!secret) {
+    console.log("VW FAIL no_secret_configured");
     return jsonResponse({ status: "error", message: "Server not configured." }, 500);
   }
   const expectedHash = await sha256Hex(p.userId + p.campaignId + p.txid + secret);
   if (!timingSafeEqual(p.hash, expectedHash)) {
+    console.log(
+      "VW FAIL bad_signature | got:", p.hash.slice(0, 8),
+      "| expected:", expectedHash.slice(0, 8),
+      "| secretLen:", secret.length
+    );
     return jsonResponse({ status: "error", message: "Invalid signature." }, 403);
   }
+  console.log("VW signature_ok");
 
   // 3. Route by confirmed result value.
   if (p.result === "completed") {
@@ -230,14 +242,23 @@ async function handlePostback(request, env) {
     return handleRejected(p, env);
   }
 
-  console.log("VORTEXWALL unrecognized_result", JSON.stringify({ result: p.result, txid: p.txid }));
+  console.log("VW IGNORED unrecognized_result:", p.result, "| tx:", p.txid);
   return jsonResponse({ status: "ignored", result: p.result }, 200);
 }
 
+async function safeHandle(context) {
+  try {
+    return await handlePostback(context.request, context.env);
+  } catch (err) {
+    console.log("VW EXCEPTION", err && err.message ? err.message : String(err));
+    return jsonResponse({ status: "error", message: "Server error." }, 500);
+  }
+}
+
 export async function onRequestGet(context) {
-  return handlePostback(context.request, context.env);
+  return safeHandle(context);
 }
 
 export async function onRequestPost(context) {
-  return handlePostback(context.request, context.env);
+  return safeHandle(context);
 }
