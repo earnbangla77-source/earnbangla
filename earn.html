@@ -1438,6 +1438,7 @@ const FEATURED_OFFERWALLS = [
   { name: 'Gamwall',    slug: 'gamwall',    wordmark: 'GAMWALL',    bg: 'linear-gradient(160deg,#2a1a3a,#170d22)' },
   { name: 'BuckWall',   slug: 'buckswall',  wordmark: 'BUCKWALL',   bg: 'linear-gradient(160deg,#1a3a2e,#0d1f18)' },
   { name: 'AdswedMedia', slug: 'adswedmedia', wordmark: 'ADSWEDMEDIA', bg: 'linear-gradient(160deg,#1a2a3a,#0a1420)' },
+  { name: 'AdBreak Media', slug: 'adbreakmedia', wordmark: 'ADBREAK', bg: 'linear-gradient(160deg,#10284a,#0a1428)' },
 ];
 
 function partnerCardHTML(p){
@@ -1482,6 +1483,7 @@ function openOfferwall(partner){
   // + referrerpolicy) so they don't leak into whichever wall opens next.
   owIframe.removeAttribute('sandbox');
   owIframe.removeAttribute('referrerpolicy');
+  owIframe.removeAttribute('allow');
 
   if(partner === 'Offery'){
     openOfferyOfferwall();
@@ -1537,6 +1539,10 @@ function openOfferwall(partner){
   }
   if(partner === 'AdswedMedia'){
     openAdswedmediaOfferwall();
+    return;
+  }
+  if(partner === 'AdBreak Media'){
+    openAdbreakmediaOfferwall();
     return;
   }
 }
@@ -2097,11 +2103,37 @@ function openBuckswallOfferwall(){
   owIframe.src = `https://buckswall.com/offerwall.php?placement_id=${BUCKSWALL_PLACEMENT_ID}&user_id=${encodeURIComponent(currentUserId)}`;
 }
 
+// ---------- AdBreak Media — embedded via their Web Offerwall iframe (Type B, no JSON feed) ----------
+// Iframe URL (from docs.adbreakmedia.com/monetization/web-offerwall):
+//   https://wall.adbreakmedia.com/[PLACEMENT_IDENTIFIER]/[USER_ID]
+// ADBREAK_PLACEMENT_ID = "Placement Identifier" shown on the AdBreak dashboard
+// (Placements -> earnbangla). It is NOT the secret key.
+// Their docs require allow="autoplay;encrypted-media" on the iframe.
+// Coins are credited server-side by functions/api/offers/adbreakmedia-postback.js
+// (needs the ADBREAK_SECRET_KEY wrangler secret).
+const ADBREAK_PLACEMENT_ID = 'd2e4ffa222488505b36b20e2d4189f4506ba040e8e71fde9f932ef9328c11e96';
+
+function openAdbreakmediaOfferwall(){
+  owBrandName.textContent = 'AdBreak Media';
+  owOverlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+
+  if(!currentUserId){
+    setOfferwallMode('grid');
+    owGrid.innerHTML = '<div class="ow-empty">অফার দেখতে আগে সাইন ইন করুন।</div>';
+    return;
+  }
+
+  setOfferwallMode('iframe');
+  owIframe.setAttribute('allow', 'autoplay;encrypted-media');
+  owIframe.src = `https://wall.adbreakmedia.com/${ADBREAK_PLACEMENT_ID}/${encodeURIComponent(currentUserId)}`;
+}
+
 function closeOfferwall(){
   owOverlay.classList.remove('show');
   document.body.style.overflow = '';
   closeOfferDetail();
-  owIframe.src = 'about:blank'; // stop the Prime Wall / RadiantWall / PaidBucksy / GemiAd / Nexowall / VortexWall / CPAlead / Gamwall / BuckWall iframe running in the background
+  owIframe.src = 'about:blank'; // stop the Prime Wall / RadiantWall / PaidBucksy / GemiAd / Nexowall / VortexWall / CPAlead / Gamwall / BuckWall / AdBreak Media iframe running in the background
 }
 
 owClose.addEventListener('click', closeOfferwall);
