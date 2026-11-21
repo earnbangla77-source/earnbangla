@@ -1,52 +1,38 @@
 // functions/api/offers/paidbucksy-postback.js
 //
-// ⚠️ Place this file at functions/api/offers/paidbucksy-postback.js
-//    (sibling to revtoo-postback.js, offery-postback.js, cpagrip-postback.js)
+// Receives server-to-server postbacks from PaidBucksy. PaidBucksy calls this
+// URL with an HTTP GET, substituting the macros you set in the Site Postback
+// URL field of the placement:
 //
-// Receives server-to-server postbacks from PaidBucksy (paidbucksy.com) when
-// a user completes an offer. Built from PaidBucksy's own docs
-// (paidbucksy.gitbook.io/paidbucksy/document/publish-your-docs) — NOT a
-// straight port of offery-postback.js / revtoo-postback.js, because two
-// things differ from those:
-//
-//   1) Parameter names: user_id / transaction_id (not subId / transId).
-//   2) Expected response body: "OK" for a new transaction, "DUP" for a
-//      transaction we've already processed — NOT the plain "ok" that
-//      Offery/Revtoo expect. Getting this wrong makes PaidBucksy think the
-//      postback failed and it will keep retrying (up to 5 times).
-//
-// PaidBucksy calls this URL with an HTTP GET, substituting the macros in
-// curly braces you configured in the Site Postback URL field on the
-// placement's Edit page:
-//
-//   user_id        - the earnbangla user's id (same value baked into the
-//                     iframe src as [USER_ID] in earn.html)
+//   user_id         - any user id (we do NOT check it against the users table)
 //   transaction_id  - PaidBucksy's unique id for this completion
-//   reward          - coins to credit (absolute value — check `status` to
-//                      know whether to add or subtract)
-//   payout          - offer payout in USD (stored for reference)
-//   status          - "1" = add/credit, "2" = subtract/revoke (fraud or
-//                      advertiser cancellation)
+//   reward          - coins (absolute value; `status` says add or subtract)
+//   payout          - offer payout in USD
+//   status          - "1" = credit, "2" = revoke / chargeback
 //   signature       - MD5(user_id + transaction_id + reward + SECRET_KEY)
-//   campaign_id     - PaidBucksy's offer id (logged only, not stored)
-//   offer_name      - offer name (logged only, not stored)
-//   country         - ISO2 country of the lead (logged only, not stored)
-//   ip              - user's IP at completion (logged only, not stored)
+//   campaign_id     - PaidBucksy's offer id (stored as offer_id)
+//   offer_name, country, ip - logged only
 //
-// ⚠️ Requires env.PAIDBUCKSY_SECRET_KEY (the Secret Key shown on the
-//    PaidBucksy Placements list next to your API Key):
+// Response body: "OK" for a new transaction, "DUP" for an already-processed
+// one (PaidBucksy retries up to 5 times on anything else).
 //
+// BEHAVIOR (same as offery-postback.js):
+//   - Every valid, correctly-signed postback is ALWAYS saved to
+//     offer_completions, even if no matching user exists in `users`
+//     (e.g. PaidBucksy's test button with a dummy user_id, or wall-approval
+//     testing). If a matching user exists, their coins / completed_offers /
+//     total_earning are updated too; if not, only the row is recorded.
+//   - Revoke (status=2) marks the row 'chargeback' and reverses the user's
+//     totals if that user exists.
+//
+// Requires env.PAIDBUCKSY_SECRET_KEY:
 //   wrangler pages secret put PAIDBUCKSY_SECRET_KEY --project-name=earnbangla
 //   wrangler pages secret put PAIDBUCKSY_SECRET_KEY --project-name=earnbangla --env preview
 //
-// ⚠️ Reuses the offer_completions.transaction_id + status columns that were
-//    already added for Offery (offery-schema-addition.sql) — NO new D1
-//    migration is needed for PaidBucksy, this just inserts rows with
-//    provider = 'paidbucksy'.
-//
-// Same earnings-tracking behavior as offery/revtoo postback: crediting a
-// completion bumps users.coins, users.completed_offers and
-// users.total_earning; a revoke (status=2) reverses all three.
+// Uses the existing offer_completions columns (transaction_id, status).
+// Recommended (prevents double-credit races on retries):
+//   CREATE UNIQUE INDEX IF NOT EXISTS idx_oc_provider_tx
+//     ON offer_completions(provider, transaction_id);
 
 function ok() {
   return new Response("OK", { status: 200, headers: { "content-type": "text/plain" } });
@@ -61,11 +47,7 @@ function fail(message, status = 400) {
   return new Response(message, { status, headers: { "content-type": "text/plain" } });
 }
 
-// Minimal, dependency-free MD5 (hex output). Needed because Cloudflare's
-// Web Crypto API only supports SHA-1/256/384/512, not MD5, and PaidBucksy's
-// postback signature is MD5-based (same primitive as Offery/Revtoo — this is
-// the identical implementation already vetted against known test vectors in
-// revtoo-postback.js).
+// Minimal, dependency-free MD5 (hex). Web Crypto has no MD5.
 function md5(input) {
   function rotl(x, c) { return (x << c) | (x >>> (32 - c)); }
   function toHex(num) {
@@ -119,15 +101,15 @@ async function handlePostback(request, env) {
   const transactionId = String(params.transaction_id || "");
   const campaignId = String(params.campaign_id || "");
   const offerName = String(params.offer_name || "");
-  const rewardRaw = params.reward; // keep the raw string for signature check
+  const rewardRaw = String(params.reward ?? ""); // raw string for signature
   const reward = parseFloat(rewardRaw);
   const status = String(params.status || "1");
-  const signature = String(params.signature || "");
+  const signature = String(params.signature || "").toLowerCase();
 
   const secret = env.PAIDBUCKSY_SECRET_KEY || "";
   if (!secret) return fail("Server not configured (missing PAIDBUCKSY_SECRET_KEY).", 500);
 
-  // 1. Verify the signature — MD5(user_id + transaction_id + reward + secret)
+  // 1. Verify signature
   const expected = md5(userId + transactionId + rewardRaw + secret);
   if (!signature || signature !== expected) {
     return fail("Signature doesn't match.", 403);
@@ -144,24 +126,27 @@ async function handlePostback(request, env) {
   if (status === "2") {
     // ---- Revoke: reverse a previous credit, if one exists ----
     const existing = await env.DB.prepare(
-      `SELECT id, coins_earned FROM offer_completions WHERE provider = 'paidbucksy' AND transaction_id = ? AND status = 'credited'`
+      `SELECT id, user_id, coins_earned FROM offer_completions
+       WHERE provider = 'paidbucksy' AND transaction_id = ? AND status = 'credited'`
     ).bind(transactionId).first();
 
     if (!existing) {
-      // Nothing to reverse (never credited, or already reversed) — still ok.
+      // Never credited or already reversed — still OK.
       return ok();
     }
 
-    await env.DB.prepare(
-      `UPDATE users
-       SET coins = MAX(coins - ?, 0),
-           completed_offers = MAX(completed_offers - 1, 0),
-           total_earning = MAX(total_earning - ?, 0)
-       WHERE id = ?`
-    ).bind(existing.coins_earned, existing.coins_earned, userId).run();
-
-    await env.DB.prepare(`UPDATE offer_completions SET status = 'chargeback' WHERE id = ?`)
-      .bind(existing.id).run();
+    // Atomic: reverse user totals (no-op if user doesn't exist) + mark row.
+    await env.DB.batch([
+      env.DB.prepare(
+        `UPDATE users
+         SET coins = MAX(coins - ?, 0),
+             completed_offers = MAX(completed_offers - 1, 0),
+             total_earning = MAX(total_earning - ?, 0)
+         WHERE id = ?`
+      ).bind(existing.coins_earned, existing.coins_earned, existing.user_id),
+      env.DB.prepare(`UPDATE offer_completions SET status = 'chargeback' WHERE id = ?`)
+        .bind(existing.id),
+    ]);
 
     return ok();
   }
@@ -171,34 +156,37 @@ async function handlePostback(request, env) {
     `SELECT id FROM offer_completions WHERE provider = 'paidbucksy' AND transaction_id = ?`
   ).bind(transactionId).first();
 
-  if (existing) {
-    // Already processed — PaidBucksy expects "DUP" here so it stops retrying.
-    return dup();
+  if (existing) return dup();
+
+  // Atomic: record the completion ALWAYS, and bump the user's totals only if
+  // that user exists (UPDATE simply changes 0 rows for an unknown user_id).
+  try {
+    await env.DB.batch([
+      env.DB.prepare(
+        `INSERT INTO offer_completions (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
+         VALUES ('paidbucksy', ?, ?, ?, ?, ?, 'credited', datetime('now'))`
+      ).bind(userId, campaignId, transactionId, parseFloat(params.payout) || 0, coins),
+      env.DB.prepare(
+        `UPDATE users
+         SET coins = coins + ?,
+             completed_offers = completed_offers + 1,
+             total_earning = total_earning + ?
+         WHERE id = ?`
+      ).bind(coins, coins, userId),
+    ]);
+  } catch (err) {
+    // A concurrent retry may have inserted the same transaction first
+    // (only possible if the UNIQUE index exists) — treat as duplicate.
+    const again = await env.DB.prepare(
+      `SELECT id FROM offer_completions WHERE provider = 'paidbucksy' AND transaction_id = ?`
+    ).bind(transactionId).first();
+    if (again) return dup();
+    throw err;
   }
-
-  const update = await env.DB.prepare(
-    `UPDATE users
-     SET coins = coins + ?,
-         completed_offers = completed_offers + 1,
-         total_earning = total_earning + ?
-     WHERE id = ?`
-  ).bind(coins, coins, userId).run();
-
-  if (!update.success || update.meta.changes === 0) {
-    return fail("User not found.", 404);
-  }
-
-  await env.DB.prepare(
-    `INSERT INTO offer_completions (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
-     VALUES ('paidbucksy', ?, ?, ?, ?, ?, 'credited', datetime('now'))`
-  ).bind(userId, campaignId, transactionId, parseFloat(params.payout) || 0, coins).run();
 
   return ok();
 }
 
-// PaidBucksy's docs say their server makes an HTTP GET request for the
-// postback, but this also accepts POST for parity with the other providers
-// in this codebase (harmless — PaidBucksy just won't use it).
 export async function onRequestGet(context) {
   try { return await handlePostback(context.request, context.env); }
   catch (err) { return fail(err.message || "Server error", 500); }
