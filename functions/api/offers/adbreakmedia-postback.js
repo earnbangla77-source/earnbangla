@@ -3,63 +3,52 @@
 // ⚠️ Place this file at functions/api/offers/adbreakmedia-postback.js
 //    (sibling to offery-postback.js)
 //
+// *** DEBUG VERSION *** — logs every step with the "adbreak-debug" prefix.
+// Watch it live with:
+//   npx wrangler pages deployment tail --project-name=earnbangla --environment production --format pretty
+// Once everything works, remove the dbg() calls (or set DEBUG = false).
+//
 // Receives server-to-server postbacks from AdBreak Media when a user
 // completes an offer. Postback URL to paste into the AdBreak placement:
 //
 //   https://earn-bangla.com/api/offers/adbreakmedia-postback?user=[YOUR_USER_ID]&reward=[REWARD_VALUE]&offerName=[OFFER_NAME]&offerId=[OFFER_ID]&ip=[USER_IP]&status=[STATUS]&transaction_id=[TXID]&country=[COUNTRY]&is_multi=[MULTI_EVENT]&ename=[EVENT_NAME]&eid=[EVENT_ID]&payout=[PAYOUT]&hash=[HASH]&sub1=[SUB1]&sub2=[SUB2]
 //
 // Params AdBreak sends:
-//
-//   user            - the earnbangla user's id ([YOUR_USER_ID])
-//   reward          - coins to credit — ALREADY converted using the Currency
-//                     Name / Exchange Rate set on the AdBreak placement.
-//                     Keep them in sync with this site:
-//                       Currency Name = Coin
-//                       Exchange Rate = 1000  (1000 coins = $1.00)
-//                     ALWAYS an absolute value — use `status` to decide
-//                     whether to add or subtract.
-//   offerName       - offer name (logged only)
-//   offerId         - AdBreak's offer id
-//   ip              - user's IP (logged only)
+//   user            - the earnbangla user's id
+//   reward          - coins (already converted by the placement's Exchange Rate 1000)
+//   offerName / offerId / ip / country / is_multi / ename / eid - info
 //   status          - "completed" = credit, "rejected" = chargeback
 //   transaction_id  - AdBreak's unique conversion id (TXID)
-//   country         - ISO2 country (logged only)
-//   is_multi / ename / eid - multi-event info (logged only)
 //   payout          - USD payout (stored for reference)
 //   hash            - SHA256(user + offerId + txid + PUBLISHER_SECRET_KEY)
-//   sub1 / sub2     - extra params (unused)
 //
-// AdBreak expects HTTP 200 and a body that does NOT contain "fail" or
-// "error". We return plain "ok" on success. (On real failures we return a
-// non-200 status, so AdBreak retries up to 5 times, 1 hour apart.)
+// Returns plain "ok" (HTTP 200) on success — body must not contain "fail"/"error".
 //
-// ⚠️ Requires env.ADBREAK_SECRET_KEY (AdBreak dashboard → Settings →
-//    Secret Credentials → publisher secret key):
-//
-//   wrangler pages secret put ADBREAK_SECRET_KEY --project-name=earnbangla
-//   wrangler pages secret put ADBREAK_SECRET_KEY --project-name=earnbangla --env preview
-//
-//   Then REDEPLOY — Pages doesn't inject new secrets into existing deployments.
-//
-// ⚠️ Uses the shared offer_completions table (provider, user_id, offer_id,
-//    transaction_id, payout, coins_earned, status, created_at) — same as
-//    offery-postback.js.
-//
-// Like Offery/PrimeWall: every completion is ALWAYS recorded in
-// offer_completions, even if the user id doesn't exist in `users` (then no
-// user's balance changes). Always returns "ok" so AdBreak marks it successful.
+// ⚠️ Requires env.ADBREAK_SECRET_KEY (AdBreak → Settings → Secret Credentials → Secret Key)
+//    and a fresh deploy after setting it.
+// ⚠️ Uses the shared offer_completions table, same as offery-postback.js.
 
-// Optional extra protection from AdBreak's docs. Hash verification is already
-// strong; turn this on only if you are sure AdBreak's IP won't change.
+const DEBUG = true;
 const ENFORCE_IP_WHITELIST = false;
 const ALLOWED_IPS = ["139.144.178.218"];
 
-function ok() {
+function dbg(label, data) {
+  if (!DEBUG) return;
+  try {
+    console.log("adbreak-debug [" + label + "]", data === undefined ? "" : JSON.stringify(data));
+  } catch (e) {
+    console.log("adbreak-debug [" + label + "]", String(data));
+  }
+}
+
+function ok(tag) {
+  dbg("RESPOND ok", tag || "");
   return new Response("ok", { status: 200, headers: { "content-type": "text/plain" } });
 }
 
 function reject(message, status = 400) {
   console.error("adbreakmedia-postback:", message);
+  dbg("RESPOND " + status, message);
   return new Response(message, { status, headers: { "content-type": "text/plain" } });
 }
 
@@ -75,6 +64,14 @@ async function handlePostback(request, env) {
   const url = new URL(request.url);
   let params = Object.fromEntries(url.searchParams.entries());
 
+  dbg("1 received", {
+    method: request.method,
+    path: url.pathname,
+    paramKeys: Object.keys(params),
+    params, // full query (hash included; secret is never in the request)
+    cfIp: request.headers.get("cf-connecting-ip"),
+  });
+
   if (request.method === "POST") {
     const contentType = request.headers.get("content-type") || "";
     let bodyParams = {};
@@ -85,6 +82,7 @@ async function handlePostback(request, env) {
       bodyParams = Object.fromEntries(formData.entries());
     }
     params = { ...params, ...bodyParams };
+    dbg("1b POST body merged", { contentType, bodyKeys: Object.keys(bodyParams) });
   }
 
   // Optional IP whitelist
@@ -100,29 +98,64 @@ async function handlePostback(request, env) {
   const userId = String(params.user || "");
   const offerId = String(params.offerId || "");
   const offerName = String(params.offerName || "");
-  // AdBreak's URL example uses `transaction_id`, its PHP example reads `txid`
-  // — accept both.
   const transId = String(params.transaction_id || params.txid || "");
-  // The docs' macro is `reward`, but their sample URL shows `coins` — accept both.
   const reward = parseFloat(params.reward ?? params.coins);
   const status = String(params.status || "completed").toLowerCase();
   const receivedHash = String(params.hash || "").toLowerCase();
 
+  dbg("2 parsed", {
+    userId, offerId, transId, offerName, reward, status,
+    receivedHash,
+    missing: {
+      user: !userId, offerId: !offerId, transId: !transId,
+      hash: !receivedHash, reward: !Number.isFinite(reward),
+    },
+  });
+
   const secret = env.ADBREAK_SECRET_KEY || "";
+  dbg("3 secret", {
+    present: !!secret,
+    length: secret.length,           // should be 64
+    hasWhitespace: /\s/.test(secret), // should be false
+    trimmedLength: secret.trim().length,
+  });
   if (!secret) return reject("Server not configured (missing ADBREAK_SECRET_KEY).", 500);
 
-  // 1. Verify the hash: SHA256(user + offerId + txid + secret)
+  // Verify the hash: SHA256(user + offerId + txid + secret)
   const expected = await sha256Hex(userId + offerId + transId + secret);
+
+  // Extra diagnostics (log only — none of these are accepted as valid).
+  const trimmed = secret.trim();
+  const variants = {
+    exact: expected,
+    trimmedSecret: await sha256Hex(userId + offerId + transId + trimmed),
+    altOfferIdParam: await sha256Hex(userId + String(params.offer_id || "") + transId + trimmed),
+    noOfferId: await sha256Hex(userId + transId + trimmed),
+    withPayout: await sha256Hex(userId + offerId + transId + String(params.payout || "") + trimmed),
+  };
+  const matchedVariants = Object.keys(variants).filter((k) => variants[k] === receivedHash);
+
+  dbg("4 hash check", {
+    inputShape: "user + offerId + txid + secret",
+    inputLengthWithoutSecret: (userId + offerId + transId).length,
+    receivedHash,
+    expected,
+    exactMatch: receivedHash === expected,
+    matchedVariants, // e.g. ["trimmedSecret"] → secret in wrangler has stray whitespace
+  });
+
   if (!receivedHash || receivedHash !== expected) {
     return reject("Unauthorized", 403);
   }
+  dbg("4b hash OK");
 
-  // 2. Validate required fields
+  // Validate required fields
   if (!userId || !transId || !Number.isFinite(reward)) {
     return reject("Missing or invalid parameters.", 400);
   }
 
   const coins = Math.round(Math.abs(reward));
+  dbg("5 validated", { userId, transId, offerId, coins, status });
   console.log("adbreakmedia-postback:", {
     userId, transId, offerId, offerName, coins, status,
     country: params.country, ip: params.ip, multi: params.is_multi, event: params.ename,
@@ -130,45 +163,45 @@ async function handlePostback(request, env) {
 
   if (status === "rejected") {
     // ---- Chargeback: reverse a previous credit, if one exists ----
-    // Amount comes from the ORIGINAL stored row, not from the incoming
-    // postback, so a rejected call can never subtract more than was credited.
     const existing = await env.DB.prepare(
       `SELECT id, user_id, coins_earned FROM offer_completions
        WHERE provider = 'adbreakmedia' AND transaction_id = ? AND status = 'credited'`
     ).bind(transId).first();
+    dbg("6 chargeback lookup", { found: !!existing, existing });
 
     if (!existing) {
-      // Never credited, or already reversed — nothing to do.
-      return ok();
+      return ok("chargeback: nothing to reverse");
     }
 
-    await env.DB.prepare(
+    const upd = await env.DB.prepare(
       `UPDATE users
        SET coins = MAX(coins - ?, 0),
            completed_offers = MAX(completed_offers - 1, 0),
            total_earning = MAX(total_earning - ?, 0)
        WHERE id = ?`
     ).bind(existing.coins_earned, existing.coins_earned, existing.user_id).run();
+    dbg("7 chargeback user update", { changes: upd.meta && upd.meta.changes, userId: existing.user_id });
 
     await env.DB.prepare(`UPDATE offer_completions SET status = 'chargeback' WHERE id = ?`)
       .bind(existing.id).run();
+    dbg("8 chargeback row marked", { id: existing.id });
 
-    return ok();
+    return ok("chargeback done");
   }
 
   if (status !== "completed") {
-    // Unknown status — don't guess, just acknowledge.
-    console.log("adbreakmedia-postback: ignored unknown status", { transId, status });
-    return ok();
+    dbg("6 unknown status ignored", { transId, status });
+    return ok("unknown status ignored");
   }
 
   // ---- Credit ----
   const dup = await env.DB.prepare(
     `SELECT id FROM offer_completions WHERE provider = 'adbreakmedia' AND transaction_id = ?`
   ).bind(transId).first();
+  dbg("6 duplicate check", { duplicate: !!dup });
 
   if (dup) {
-    return ok(); // already processed — idempotent, don't double-credit
+    return ok("duplicate, already processed");
   }
 
   const update = await env.DB.prepare(
@@ -180,6 +213,7 @@ async function handlePostback(request, env) {
   ).bind(coins, coins, userId).run();
 
   const matched = update.success && update.meta.changes > 0;
+  dbg("7 user update", { success: update.success, changes: update.meta && update.meta.changes, matched });
   if (!matched) {
     console.log("adbreakmedia-postback: no matching user, recorded anyway", { userId, transId });
   }
@@ -188,16 +222,23 @@ async function handlePostback(request, env) {
     `INSERT INTO offer_completions (provider, user_id, offer_id, transaction_id, payout, coins_earned, status, created_at)
      VALUES ('adbreakmedia', ?, ?, ?, ?, ?, 'credited', datetime('now'))`
   ).bind(userId, offerId, transId, parseFloat(params.payout) || 0, coins).run();
+  dbg("8 completion row inserted", { userId, transId, coins, payout: parseFloat(params.payout) || 0 });
 
-  return ok();
+  return ok(matched ? "credited" : "recorded (no matching user)");
 }
 
 export async function onRequestPost(context) {
   try { return await handlePostback(context.request, context.env); }
-  catch (err) { return reject(err.message || "Server error", 500); }
+  catch (err) {
+    dbg("EXCEPTION", { message: err && err.message, stack: err && err.stack });
+    return reject(err.message || "Server error", 500);
+  }
 }
 
 export async function onRequestGet(context) {
   try { return await handlePostback(context.request, context.env); }
-  catch (err) { return reject(err.message || "Server error", 500); }
+  catch (err) {
+    dbg("EXCEPTION", { message: err && err.message, stack: err && err.stack });
+    return reject(err.message || "Server error", 500);
+  }
 }
